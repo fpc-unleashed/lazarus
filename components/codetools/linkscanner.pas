@@ -159,7 +159,8 @@ type
     cmOBJFPC,
     cmMacPas,
     cmISO,
-    cmExtPas
+    cmExtPas,
+    cmUnleashed
     );
 const
   // upper case
@@ -171,7 +172,8 @@ const
     'OBJFPC',
     'MACPAS',
     'ISO',
-    'EXTENDEDPASCAL'
+    'EXTENDEDPASCAL',
+    'UNLEASHED'
     );
 type
 
@@ -270,9 +272,15 @@ const
     [cmsTp_procvar,cmsDuplicate_names,cmsNestedProcVars,cmsNonLocalGoto,
      cmsISOLike_unary_minus,cmsISOlike_IO,
      cmsISOLike_Program_Para,
-     cmsISOLike_Mod]
+     cmsISOLike_Mod],
+    // cmUnleashed - superset of OBJFPC with all modern features
+    [cmsClass,cmsObjpas,cmsResult,cmsString_pchar,cmsNested_comment,
+     cmsRepeat_forward,cmsCvar_support,cmsInitfinal,cmsOut,cmsDefault_para,
+     cmsHintdirective,cmsProperty,cmsDefault_inline,cmsExcept,
+     cmsAdvancedRecords,cmsPrefixedAttributes,cmsMultiHelpers,
+     cmsFunctionReferences,cmsAnonymousFunctions]
     );
-  cmAllModesWithGeneric = [cmDELPHI,cmDELPHIUNICODE,cmOBJFPC];
+  cmAllModesWithGeneric = [cmDELPHI,cmDELPHIUNICODE,cmOBJFPC,cmUnleashed];
   Pas2jsFixedModeswitches = [cmsArray2dynarray,cmsArrayOperators,
     cmsFunctionReferences,cmsAnonymousFunctions];
 

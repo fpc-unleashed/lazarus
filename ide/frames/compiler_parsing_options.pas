@@ -46,13 +46,13 @@ const
   // CompilerMode names to be shown after -M...
   CompilerModesPretty: array[TCompilerMode] of shortstring = (
       'fpc', 'Delphi', 'DelphiUnicode', 'tp', 'ObjFPC', 'MacPas', 'iso',
-      'ExtPas'
+      'ExtPas', 'Unleashed'
     );
   // CompilerMode descriptions.
   CompilerModesDescr: array[TCompilerMode] of shortstring = (
       'Free Pascal', 'Delphi', 'Delphi Unicode', 'Turbo Pascal',
       'Object Pascal', 'Mac Pascal', 'ISO/IEC 7185 Pascal',
-      'Extended Pascal, ISO 10206'
+      'Extended Pascal, ISO 10206', 'Unleashed'
     );
 
 function SyntaxModeToCaption(const ModeStr: string): string;
