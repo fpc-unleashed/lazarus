@@ -6938,16 +6938,24 @@ var
         if TopBlockType(Stack)<>btAsm then begin
           if UpAtomIs('BEGIN') then
             BeginBlock(Stack,btBegin,CurPos.StartPos)
-          else if UpAtomIs('TRY') then
-            BeginBlock(Stack,btTry,CurPos.StartPos)
-          else if UpAtomIs('FINALLY') then begin
-            if TopBlockType(Stack)=btTry then
+          else if UpAtomIs('TRY') then begin
+            // Skip block push for statement expression try (e.g. s := try ... except ...)
+            if LastAtoms.GetPriorAtom.Flag<>cafAssignment then
+              BeginBlock(Stack,btTry,CurPos.StartPos)
+            else
+              DebugLn(['ReadStatements SKIPPING statement expression try at ',CleanPosToStr(CurPos.StartPos),' PriorAtom=',GetAtom(LastAtoms.GetPriorAtom)]);
+          end else if UpAtomIs('FINALLY') then begin
+            if TopBlockType(Stack)=btTry then begin
               if not EndBlockIsOk then exit;
-            BeginBlock(Stack,btFinally,CurPos.StartPos)
+              BeginBlock(Stack,btFinally,CurPos.StartPos);
+            end else
+              DebugLn(['ReadStatements SKIPPING finally (no btTry on stack) at ',CleanPosToStr(CurPos.StartPos),' TopBlock=',ord(TopBlockType(Stack))]);
           end else if UpAtomIs('EXCEPT') then begin
-            if TopBlockType(Stack)=btTry then
+            if TopBlockType(Stack)=btTry then begin
               if not EndBlockIsOk then exit;
-            BeginBlock(Stack,btExcept,CurPos.StartPos)
+              BeginBlock(Stack,btExcept,CurPos.StartPos);
+            end else
+              DebugLn(['ReadStatements SKIPPING except (no btTry on stack) at ',CleanPosToStr(CurPos.StartPos),' TopBlock=',ord(TopBlockType(Stack))]);
           end else if UpAtomIs('REPEAT') then
             BeginBlock(Stack,btRepeat,CurPos.StartPos)
           else if UpAtomIs('UNTIL') then begin
@@ -7011,9 +7019,24 @@ var
                 break;
               end;
             end;
+          end else if UpAtomIs('VAR')
+          and (TopBlockType(Stack) in [btBegin,btTry,btFinally,btExcept,btRepeat,btCaseColon,btCaseElse]) then begin
+            // inline var declaration (e.g. var s := expr;) - skip over it
+            repeat
+              ReadNextAtom;
+              if CurPos.StartPos>SrcLen then break;
+              if CurPos.Flag=cafSemicolon then break;
+              if (CurPos.Flag=cafEND)
+              or ((CurPos.Flag=cafWord) and WordIsStatemendEnd) then begin
+                UndoReadNextAtom;
+                break;
+              end;
+              if (CurPos.Flag in [cafRoundBracketOpen,cafEdgedBracketOpen]) then
+                ReadTilBracketClose(true);
+            until false;
           end else if UpAtomIs('PROCEDURE') or UpAtomIs('FUNCTION')
           or UpAtomIs('CONSTRUCTOR') or UpAtomIs('DESTRUCTOR')
-          or UpAtomIs('VAR') or UpAtomIs('TYPE') or UpAtomIs('CONST')
+          or UpAtomIs('TYPE') or UpAtomIs('CONST')
           or UpAtomIs('RESOURCESTRING') or UpAtomIs('LABEL') or UpAtomIs('CLASS')
           or UpAtomIs('INITIALIZATION') or UpAtomIs('FINALIZATION')
           then begin
