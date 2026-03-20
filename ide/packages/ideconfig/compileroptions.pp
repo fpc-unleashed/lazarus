@@ -1354,7 +1354,7 @@ begin
   end else begin
     FSyntaxMode:=aXMLConfig.GetValue(p+'SyntaxMode/Value', '');
     if FSyntaxMode='' then
-      FSyntaxMode:='ObjFPC';
+      FSyntaxMode:='Unleashed';
   end;
   CStyleOperators := aXMLConfig.GetValue(p+'CStyleOperator/Value', true);
   IncludeAssertionCode := aXMLConfig.GetValue(p+'IncludeAssertionCode/Value', false);
@@ -1584,7 +1584,7 @@ begin
 
   { Syntax Options }
   p:=Path+'Parsing/SyntaxOptions/';
-  aXMLConfig.SetDeleteValue(p+'SyntaxMode/Value', SyntaxMode,'ObjFPC');
+  aXMLConfig.SetDeleteValue(p+'SyntaxMode/Value', SyntaxMode,'Unleashed');
   aXMLConfig.SetDeleteValue(p+'CStyleOperator/Value', CStyleOperators,true);
   aXMLConfig.SetDeleteValue(p+'IncludeAssertionCode/Value', IncludeAssertionCode,false);
   aXMLConfig.SetDeleteValue(p+'AllowLabel/Value', AllowLabel,true);
@@ -2839,7 +2839,7 @@ begin
   DebugPath:='';
 
   // parsing
-  FSyntaxMode:='ObjFPC';
+  FSyntaxMode:='Unleashed';
   fAssemblerStyle := 0;
   fCStyleOp := true;
   fIncludeAssertionCode := false;
