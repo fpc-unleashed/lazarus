@@ -225,9 +225,17 @@ begin
   AProject.MainFileID:=0;
 
   // create program source
-  NewSource:='program Project1;'+LineEnding
+  NewSource:='program app;'+LineEnding
+    +LineEnding
+    +'{$mode unleashed}'+LineEnding
+    +LineEnding
+    +'procedure main;'+LineEnding
     +'begin'+LineEnding
     +LineEnding
+    +'end;'+LineEnding
+    +LineEnding
+    +'begin'+LineEnding
+    +'  main;'+LineEnding
     +'end.'+LineEnding
     +LineEnding;
   AProject.MainFile.SetSourceText(NewSource,true);
@@ -240,7 +248,7 @@ function TProjectSimpleProgramDescriptor.CreateStartFiles(AProject: TLazProject)
 begin
   Result:=LazarusIDE.DoOpenEditorFile(AProject.MainFile.Filename,-1,-1,
                                       [ofProjectLoading,ofRegularFile]);
-  SetCaretPosInActiveEditor(Point(3,3));
+  SetCaretPosInActiveEditor(Point(3,7));
 end;
 
 { TProjectProgramDescriptor }
