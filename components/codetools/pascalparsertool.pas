@@ -256,6 +256,7 @@ type
         CreateNodes: boolean): boolean;
     function ReadWithStatement(ExceptionOnError, CreateNodes: boolean): boolean;
     function ReadOnStatement(ExceptionOnError, CreateNodes: boolean): boolean;
+    procedure ReadInlineVarDeclaration(CreateNodes: boolean);
     procedure ReadVariableType;
     function ReadHintModifiers(AllowSemicolonSep: boolean): boolean;
     function ReadTilTypeOfProperty(PropertyNode: TCodeTreeNode): boolean;
@@ -3085,6 +3086,9 @@ begin
       end;
     end else if CreateNodes and UpAtomIs('WITH') then begin
       ReadWithStatement(true,CreateNodes);
+    end else if UpAtomIs('VAR')
+    and (BlockType in [ebtBegin,ebtTry,ebtRepeat]) then begin
+      ReadInlineVarDeclaration(CreateNodes);
     end else if UpAtomIs('ON') and (BlockType=ebtTry)
     and (TryType=ttExcept) then begin
       ReadOnStatement(true,CreateNodes);
@@ -3538,6 +3542,63 @@ begin
   if NeedUndo then
     UndoReadNextAtom;
   Result:=true;
+end;
+
+procedure TPascalParserTool.ReadInlineVarDeclaration(CreateNodes: boolean);
+{ Reads an inline variable declaration inside a begin..end block.
+  Cursor must be on the 'var' keyword.
+  Examples:
+    var s1: string := 'test';
+    var s2 := 'test';
+    var t: SomeRecord;
+  Creates ctnVarSection > ctnVarDefinition nodes when CreateNodes=true.
+}
+var
+  BracketDepth: integer;
+begin
+  if CreateNodes then begin
+    CreateChildNode;
+    CurNode.Desc := ctnVarSection;
+  end;
+  ReadNextAtom; // read identifier name
+  if AtomIsIdentifier then begin
+    if CreateNodes then begin
+      CreateChildNode;
+      CurNode.Desc := ctnVarDefinition;
+    end;
+    // Skip the rest of the declaration until ';'
+    // Track bracket depth to handle nested expressions like func(a, b)
+    BracketDepth := 0;
+    repeat
+      ReadNextAtom;
+      if CurPos.StartPos > SrcLen then break;
+      case CurPos.Flag of
+        cafRoundBracketOpen, cafEdgedBracketOpen:
+          inc(BracketDepth);
+        cafRoundBracketClose, cafEdgedBracketClose:
+          dec(BracketDepth);
+        cafSemicolon:
+          if BracketDepth = 0 then break;
+      end;
+      if (BracketDepth = 0) and (CurPos.Flag = cafWord) then begin
+        if UpAtomIs('END') or UpAtomIs('BEGIN') or UpAtomIs('VAR')
+        or UpAtomIs('UNTIL') or UpAtomIs('FINALLY') or UpAtomIs('EXCEPT')
+        or UpAtomIs('ELSE') or UpAtomIs('THEN') then begin
+          UndoReadNextAtom;
+          break;
+        end;
+      end;
+    until false;
+    if CreateNodes then begin
+      CurNode.EndPos := CurPos.EndPos;
+      EndChildNode; // close ctnVarDefinition
+    end;
+  end else
+    UndoReadNextAtom;
+  if CreateNodes then begin
+    CurNode.EndPos := CurPos.EndPos;
+    EndChildNode; // close ctnVarSection
+  end;
 end;
 
 procedure TPascalParserTool.ReadVariableType;

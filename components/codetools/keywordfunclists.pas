@@ -1544,7 +1544,8 @@ begin
     Add('THREADVAR',{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('TYPE',{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('UNIT',{$ifdef FPC}@{$endif}AllwaysTrue);
-    Add('VAR',{$ifdef FPC}@{$endif}AllwaysTrue);
+    // Note: VAR is intentionally NOT in this list - it is allowed inside
+    // begin..end blocks as an inline variable declaration
   end;
   
   UnexpectedKeyWordInAsmBlock:=TKeyWordFunctionList.Create('UnexpectedKeyWordInAsmBlock');
