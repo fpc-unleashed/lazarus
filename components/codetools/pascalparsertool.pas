@@ -278,6 +278,7 @@ type
     function WordIsPropertyEnd: boolean;
     function IsIncomplePartAndWordIsPropSpec: boolean;
     function WordIsStatemendEnd: boolean;
+    function IsTryExpression(TryStartPos: integer): boolean;
     function WordIsModifier: boolean;
     function WordIsGenericProcStart: boolean;
     function AllowAttributes: boolean; inline;
@@ -3301,6 +3302,27 @@ begin
   Result:=false;
 end;
 
+function TPascalParserTool.IsTryExpression(TryStartPos: integer): boolean;
+{ Returns true if the 'try' at TryStartPos is a statement expression try
+  (preceded by ':=' after skipping whitespace/comments backwards).
+  Examples: s := try X except Y;  var c := try X except Y; }
+var
+  p: integer;
+begin
+  Result:=false;
+  p:=TryStartPos-1;
+  // skip whitespace backwards
+  while (p>=1) and (Src[p] in [#1..#32]) do
+    dec(p);
+  // check for '='
+  if (p>=1) and (Src[p]='=') then begin
+    dec(p);
+    // check for ':' before '=' (i.e. ':=')
+    if (p>=1) and (Src[p]=':') then
+      Result:=true;
+  end;
+end;
+
 function TPascalParserTool.WordIsModifier: boolean;
 var
   p: PChar;
@@ -3354,6 +3376,22 @@ begin
   while CurPos.StartPos<=SrcLen do begin
     if BlockStatementStartKeyWordFuncList.DoIdentifier(@Src[CurPos.StartPos])
     then begin
+      // Statement expression try (e.g. s := try X except Y) has no 'end'
+      if UpAtomIs('TRY') and IsTryExpression(CurPos.StartPos) then begin
+        // Note: except/finally/else are PART of the expression, not enders
+        repeat
+          ReadNextAtom;
+          if (CurPos.StartPos>SrcLen) then break;
+          if (CurPos.Flag=cafSemicolon) then exit;
+          if (CurPos.Flag=cafEND) then begin
+            UndoReadNextAtom;
+            exit;
+          end;
+          if (CurPos.Flag in [cafRoundBracketOpen,cafEdgedBracketOpen]) then
+            ReadTilBracketClose(true);
+        until false;
+        exit;
+      end;
       if not ReadTilBlockEnd(false,CreateNodes) then exit(false);
       ReadNextAtom;
       if CurPos.Flag<>cafSemicolon then UndoReadNextAtom;
@@ -3550,11 +3588,13 @@ procedure TPascalParserTool.ReadInlineVarDeclaration(CreateNodes: boolean);
   Examples:
     var s1: string := 'test';
     var s2 := 'test';
+    var s3 := try X except Y;
     var t: SomeRecord;
   Creates ctnVarSection > ctnVarDefinition nodes when CreateNodes=true.
 }
 var
   BracketDepth: integer;
+  TryExprDepth: integer;
 begin
   if CreateNodes then begin
     CreateChildNode;
@@ -3569,6 +3609,7 @@ begin
     // Skip the rest of the declaration until ';'
     // Track bracket depth to handle nested expressions like func(a, b)
     BracketDepth := 0;
+    TryExprDepth := 0;
     repeat
       ReadNextAtom;
       if CurPos.StartPos > SrcLen then break;
@@ -3581,7 +3622,18 @@ begin
           if BracketDepth = 0 then break;
       end;
       if (BracketDepth = 0) and (CurPos.Flag = cafWord) then begin
-        if UpAtomIs('END') or UpAtomIs('BEGIN') or UpAtomIs('VAR')
+        // Track statement expression try depth
+        // (e.g. var s := try X except Y; has no 'end')
+        if UpAtomIs('TRY') then begin
+          if (LastAtoms.GetPriorAtom.Flag = cafAssignment)
+          or (TryExprDepth > 0) then
+            inc(TryExprDepth);
+        end
+        else if (TryExprDepth > 0)
+        and (UpAtomIs('EXCEPT') or UpAtomIs('FINALLY')) then begin
+          dec(TryExprDepth);
+        end
+        else if UpAtomIs('END') or UpAtomIs('BEGIN') or UpAtomIs('VAR')
         or UpAtomIs('UNTIL') or UpAtomIs('FINALLY') or UpAtomIs('EXCEPT')
         or UpAtomIs('ELSE') or UpAtomIs('THEN') then begin
           UndoReadNextAtom;
