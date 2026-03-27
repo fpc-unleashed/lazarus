@@ -11366,7 +11366,11 @@ var
         SearchForwardToo:=false;
         if Context.Node=StartNode then begin
           // there is no special context -> search in parent contexts too
-          Params.Flags:=Params.Flags+[fdfSearchInParentNodes,fdfIgnoreCurContextNode];
+          Params.Flags:=Params.Flags+[fdfSearchInParentNodes];
+          // ctnBeginBlock is transparent and may contain inline-var declarations,
+          // so do NOT skip it; MoveContextNodeToChildren will search its children.
+          if Context.Node.Desc<>ctnBeginBlock then
+            Include(Params.Flags,fdfIgnoreCurContextNode);
           // check if searching forward too
           if CanBeForwardDefined then begin
             SearchForwardToo:=true;
