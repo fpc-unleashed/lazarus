@@ -227,6 +227,9 @@ type
     cmsImplicitFunctionSpecialization, { infer types on calls of generic functions }
     cmsFunctionReferences, { allow "reference to" function types }
     cmsAnonymousFunctions, { allow anonymous functions }
+    cmsStatementExpressions, { allow statement expressions (e.g. s := try..except..) }
+    cmsArrayEquality,      { allow array equality comparison }
+    cmsInlineVars,         { allow inline variable declarations inside statement blocks }
 
     // not yet in FPC, supported by pas2js:
     cmsExternalClass,      { pas2js: allow  class external [pkgname] name [symbol] }
@@ -278,7 +281,8 @@ const
      cmsRepeat_forward,cmsCvar_support,cmsInitfinal,cmsOut,cmsDefault_para,
      cmsHintdirective,cmsProperty,cmsDefault_inline,cmsExcept,
      cmsAdvancedRecords,cmsPrefixedAttributes,cmsMultiHelpers,
-     cmsFunctionReferences,cmsAnonymousFunctions]
+     cmsFunctionReferences,cmsAnonymousFunctions,
+     cmsStatementExpressions,cmsArrayEquality,cmsInlineVars]
     );
   cmAllModesWithGeneric = [cmDELPHI,cmDELPHIUNICODE,cmOBJFPC,cmUnleashed];
   Pas2jsFixedModeswitches = [cmsArray2dynarray,cmsArrayOperators,
@@ -329,6 +333,9 @@ const
     'IMPLICITFUNCTIONSPECIALIZATION',
     'FUNCTIONREFERENCES',
     'ANONYMOUSFUNCTIONS',
+    'STATEMENTEXPRESSIONS',
+    'ARRAYEQUALITY',
+    'INLINEVARS',
     // not yet in FPC, supported by pas2js:
     'EXTERNALCLASS',
     'IGNOREATTRIBUTES',

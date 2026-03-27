@@ -4182,6 +4182,8 @@ function TPascalParserTool.KeyWordFuncLabel: boolean;
 {
   examples:
     label a, 23, b;
+    label name[1..10];
+    label name['str1','str2'];
 }
 begin
   if not (CurSection in [ctnProgram,ctnLibrary,ctnInterface,ctnImplementation])
@@ -4189,7 +4191,7 @@ begin
     SaveRaiseUnexpectedKeyWord(20170421195712);
   CreateChildNode;
   CurNode.Desc:=ctnLabelSection;
-  // read all constants
+  // read all label names
   repeat
     ReadNextAtom;  // identifier or number
     if (not AtomIsIdentifier) and (not AtomIsNumber) then begin
@@ -4200,6 +4202,11 @@ begin
     CurNode.EndPos:=CurPos.EndPos;
     EndChildNode;
     ReadNextAtom;
+    // Skip optional [...] for indexed label declarations: label name[1..10]
+    if CurPos.Flag=cafEdgedBracketOpen then begin
+      ReadTilBracketClose(true);
+      ReadNextAtom;
+    end;
     if CurPos.Flag=cafSemicolon then begin
       break;
     end else if (CurPos.Flag<>cafComma) then begin
