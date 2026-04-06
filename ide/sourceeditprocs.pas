@@ -900,7 +900,10 @@ begin
 
     ctnProcedure:
     begin
-      if (ilcfCanProcDeclaration in IdentList.ContextFlags) and (IdentItem.Node<>nil) then
+      if (ilcfCanProcDeclaration in IdentList.ContextFlags)
+         and (not (ilcfStartInStatement in IdentList.ContextFlags))
+         and (IdentList.StartAtomInFront.Flag<>cafAssignment)
+         and (IdentItem.Node<>nil) then
         ValueType:=icvCompleteProcDeclaration
       else if IdentItem.IsProcNodeWithParams then
         ValueType:=icvProcWithParams;
