@@ -10868,6 +10868,9 @@ var
   var
     ProcNode, FuncResultNode, FirstParamNode: TCodeTreeNode;
     AtEnd: Boolean;
+    InlineVarExprStartPos, InlineVarExprEndPos: integer;
+    InlineVarExprType: TExpressionType;
+    InlineVarOldInput: TFindDeclarationInput;
     CurAliasType: PFindContext;
     Context: TFindContext;
     FirstParamProcExpr: TExpressionType;
@@ -10905,6 +10908,72 @@ var
     {$IFDEF ShowExprEval}
     DebugLn(['  FindExpressionTypeOfTerm ResolveBaseTypeOfIdentifier AFTER ExprType=',ExprTypeToString(ExprType),' Alias=',FindContextToString(CurAliasType)]);
     {$ENDIF}
+    // inline var type inference: if still a VarSection or untyped
+    // VarDefinition, find the VarDefinition and evaluate := expr
+    if (ExprType.Desc=xtContext)
+    and (ExprType.Context.Node<>nil)
+    and (ExprType.Context.Node.Desc in [ctnVarDefinition,ctnVarSection])
+    and (ExprType.Context.Node.FirstChild=nil) then begin
+      // if VarSection, descend to the VarDefinition child
+      if ExprType.Context.Node.Desc=ctnVarSection then begin
+        if (ExprType.Context.Node.FirstChild<>nil)
+        and (ExprType.Context.Node.FirstChild.Desc=ctnVarDefinition) then
+          ExprType.Context.Node:=ExprType.Context.Node.FirstChild
+        else begin
+          // no VarDefinition child -> give up
+          ExprType.Context.Node:=nil;
+        end;
+      end;
+    end;
+    if (ExprType.Desc=xtContext)
+    and (ExprType.Context.Node<>nil)
+    and (ExprType.Context.Node.Desc=ctnVarDefinition)
+    and (ExprType.Context.Node.FirstChild=nil) then begin
+      // scan source for ':=' after var name without touching CurPos
+      InlineVarExprStartPos:=ExprType.Context.Node.StartPos;
+      // skip identifier
+      while (InlineVarExprStartPos<=ExprType.Context.Tool.SrcLen)
+      and (ExprType.Context.Tool.Src[InlineVarExprStartPos] in
+           ['a'..'z','A'..'Z','0'..'9','_']) do
+        inc(InlineVarExprStartPos);
+      // skip whitespace
+      while (InlineVarExprStartPos<=ExprType.Context.Tool.SrcLen)
+      and (ExprType.Context.Tool.Src[InlineVarExprStartPos] in [' ',#9,#10,#13]) do
+        inc(InlineVarExprStartPos);
+      // check for :=
+      if (InlineVarExprStartPos+1<=ExprType.Context.Tool.SrcLen)
+      and (ExprType.Context.Tool.Src[InlineVarExprStartPos]=':')
+      and (ExprType.Context.Tool.Src[InlineVarExprStartPos+1]='=') then
+      begin
+        InlineVarExprStartPos:=InlineVarExprStartPos+2;
+        InlineVarExprEndPos:=ExprType.Context.Node.EndPos;
+        // strip trailing ; from expression range
+        while (InlineVarExprEndPos>InlineVarExprStartPos)
+        and (ExprType.Context.Tool.Src[InlineVarExprEndPos-1] in [';',' ',#9,#10,#13]) do
+          dec(InlineVarExprEndPos);
+        if InlineVarExprEndPos<=InlineVarExprStartPos then begin
+          InlineVarExprEndPos:=InlineVarExprStartPos;
+          while (InlineVarExprEndPos<=ExprType.Context.Tool.SrcLen)
+          and (ExprType.Context.Tool.Src[InlineVarExprEndPos]<>';') do
+            inc(InlineVarExprEndPos);
+        end;
+        if InlineVarExprEndPos>InlineVarExprStartPos then begin
+          Params.Save(InlineVarOldInput);
+          try
+            Params.ContextNode:=ExprType.Context.Node.Parent;
+            if Params.ContextNode=nil then
+              Params.ContextNode:=ExprType.Context.Node;
+            Params.Flags:=[fdfSearchInParentNodes,fdfFunctionResult];
+            InlineVarExprType:=ExprType.Context.Tool.FindExpressionResultType(
+              Params,InlineVarExprStartPos,InlineVarExprEndPos);
+            if InlineVarExprType.Desc<>xtNone then
+              ExprType:=InlineVarExprType;
+          except
+          end;
+          Params.Load(InlineVarOldInput,true);
+        end;
+      end;
+    end;
     if (ExprType.Desc=xtContext)
     and (ExprType.Context.Node.Desc in [ctnProcedure,ctnProcedureHead]) then
     begin
