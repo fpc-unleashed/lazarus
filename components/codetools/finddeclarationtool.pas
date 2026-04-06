@@ -10966,6 +10966,9 @@ var
             Params.Flags:=[fdfSearchInParentNodes,fdfFunctionResult];
             InlineVarExprType:=ExprType.Context.Tool.FindExpressionResultType(
               Params,InlineVarExprStartPos,InlineVarExprEndPos);
+            { promote Char to ConstString so var s := 'x' gets string methods }
+            if InlineVarExprType.Desc in [xtChar,xtAnsiChar,xtWideChar] then
+              InlineVarExprType.Desc:=xtConstString;
             if InlineVarExprType.Desc<>xtNone then
               ExprType:=InlineVarExprType;
           except
