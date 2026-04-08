@@ -49,7 +49,7 @@ uses
   FpDebugDebuggerUtils, FpDebugValueConvertors, DbgIntfDebuggerBase, DbgIntfBaseTypes,
   FpDbgClasses, FpDbgUtil, FPDbgController, FpPascalBuilder, FpdMemoryTools, FpDbgInfo,
   FpPascalParser, FpErrorMessages, FpDebugDebuggerBase, FpDebuggerResultData, FpDbgCallContextInfo,
-  FpDbgDwarf, FpDbgDwarfDataClasses, FpWatchResultData, FpDbgDwarfFreePascal, FpDbgDisasX86,
+  FpDbgDwarf, FpDbgDwarfDataClasses, FpDbgDwarfConst, FpWatchResultData, FpDbgDwarfFreePascal, FpDbgDisasX86,
   FpDbgCommon, LazDebuggerIntf, LazDebuggerValueConverter, Forms, fgl, math, Classes, sysutils,
   LazClasses,
   {$ifdef FORCE_LAZLOGGER_DUMMY} LazLoggerDummy {$else} LazLoggerBase {$endif};
@@ -671,6 +671,12 @@ var
   WatchResConv: TFpLazDbgWatchResultConvertor;
   ResData: IDbgWatchDataIntf;
   APasExpr: TFpPascalExpression;
+  ProcSym: TFpSymbol;
+  InfoEntry, LexEntry: TDwarfInformationEntry;
+  CurAddr, LowPC, HighPC: QWord;
+  VarSym: TFpSymbolDwarf;
+  VarVal: TFpValue;
+  AddedNames: TStringList;
 begin
   LocalScope := FDebugger.DbgController.CurrentProcess.FindSymbolScope(FThreadId, FStackFrame);
   if (LocalScope = nil) or (LocalScope.SymbolAtAddress = nil) then begin
@@ -684,19 +690,69 @@ begin
     exit;
   end;
 
+  AddedNames := TStringList.Create;
+  AddedNames.CaseSensitive := False;
+  AddedNames.Sorted := True;
+  AddedNames.Duplicates := dupIgnore;
+
   WatchResConv := TFpLazDbgWatchResultConvertor.Create(LocalScope.LocationContext);
   WatchResConv.MaxArrayConv := TFpDebugDebuggerProperties(FDebugger.GetProperties).MemLimits.MaxArrayConversionCnt;
   WatchResConv.MaxTotalConv := TFpDebugDebuggerProperties(FDebugger.GetProperties).MemLimits.MaxTotalConversionCnt;
   WatchResConv.Debugger := FDebugger;
   WatchResConv.ExpressionScope := LocalScope;
 
+  { First add variables from lexical blocks matching the current PC;
+    narrower scope takes precedence over the procedure's flat members }
+  ProcSym := LocalScope.SymbolAtAddress;
+  if (ProcSym is TFpSymbolDwarf) then begin
+    CurAddr := LocalScope.LocationContext.Address;
+    InfoEntry := TFpSymbolDwarf(ProcSym).InformationEntry.Clone;
+    InfoEntry.GoChild;
+    while InfoEntry.HasValidScope do begin
+      if (InfoEntry.AbbrevTag = DW_TAG_lexical_block) and
+         InfoEntry.ReadValue(DW_AT_low_pc, LowPC) and
+         InfoEntry.ReadValue(DW_AT_high_pc, HighPC) and
+         (CurAddr >= LowPC) and (CurAddr < HighPC)
+      then begin
+        LexEntry := InfoEntry.Clone;
+        LexEntry.GoChild;
+        while LexEntry.HasValidScope do begin
+          if (LexEntry.AbbrevTag = DW_TAG_variable) then begin
+            VarSym := TFpSymbolDwarf.CreateSubClass('', LexEntry);
+            if (VarSym <> nil) and (AddedNames.IndexOf(VarSym.Name) < 0) then begin
+              VarVal := LocalScope.FindSymbol(VarSym.Name);
+              if VarVal <> nil then begin
+                ResData := FLocals.Add(VarSym.Name);
+                if not WatchResConv.WriteWatchResultData(VarVal, ResData) then
+                  ResData.CreateError('Unknown Error');
+                AddedNames.Add(VarSym.Name);
+                VarVal.ReleaseReference;
+              end;
+            end;
+            if VarSym <> nil then
+              VarSym.ReleaseReference;
+          end;
+          LexEntry.GoNext;
+          if StopRequested then Break;
+        end;
+        LexEntry.ReleaseReference;
+      end;
+      InfoEntry.GoNext;
+      if StopRequested then Break;
+    end;
+    InfoEntry.ReleaseReference;
+  end;
+
+  { Then add procedure-level members, skipping names already added
+    from lexical blocks }
   for i := 0 to ProcVal.MemberCount - 1 do begin
     m := ProcVal.Member[i];
     if m <> nil then begin
-      ResData := FLocals.Add(m.DbgSymbol.Name);
-      if not  WatchResConv.WriteWatchResultData(m, ResData)
-      then begin
-        ResData.CreateError('Unknown Error');
+      if AddedNames.IndexOf(m.DbgSymbol.Name) < 0 then begin
+        ResData := FLocals.Add(m.DbgSymbol.Name);
+        if not WatchResConv.WriteWatchResultData(m, ResData) then
+          ResData.CreateError('Unknown Error');
+        AddedNames.Add(m.DbgSymbol.Name);
       end;
       m.ReleaseReference;
     end;
@@ -722,6 +778,7 @@ begin
     APasExpr.Destroy;
   end;
 
+  AddedNames.Free;
   WatchResConv.Free;
   ProcVal.ReleaseReference;
   LocalScope.ReleaseReference;

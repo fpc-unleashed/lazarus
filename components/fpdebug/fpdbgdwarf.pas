@@ -1759,11 +1759,39 @@ end;
 function TFpDwarfInfoSymbolScope.FindLocalSymbol(const AName: String;
   const ANameInfo: TNameSearchInfo; InfoEntry: TDwarfInformationEntry; out
   ADbgValue: TFpValue): Boolean;
+var
+  ScopeIdx: Integer;
+  LexEntry: TDwarfInformationEntry;
+  LowPC, HighPC: QWord;
 begin
   Result := False;
   ADbgValue := nil;
   if not(Symbol is TFpSymbolDwarfDataProc) then
     exit;
+  ScopeIdx := InfoEntry.ScopeIndex;
+  { Search lexical blocks first - narrower scope takes precedence }
+  InfoEntry.GoChild;
+  while InfoEntry.HasValidScope do begin
+    if (InfoEntry.AbbrevTag = DW_TAG_lexical_block) and
+       InfoEntry.ReadValue(DW_AT_low_pc, LowPC) and
+       InfoEntry.ReadValue(DW_AT_high_pc, HighPC) and
+       (FAddress >= LowPC) and (FAddress < HighPC)
+    then begin
+      LexEntry := InfoEntry.Clone;
+      if LexEntry.GoNamedChildEx(ANameInfo, True) then begin
+        if not LexEntry.IsArtificial then begin
+          ADbgValue := SymbolToValue(TFpSymbolDwarf.CreateSubClass(AName, LexEntry));
+          Result := ADbgValue <> nil;
+        end;
+      end;
+      LexEntry.ReleaseReference;
+      if Result then
+        exit;
+    end;
+    InfoEntry.GoNext;
+  end;
+  { Fall back to direct children of the subprogram }
+  InfoEntry.ScopeIndex := ScopeIdx;
   if not InfoEntry.GoNamedChildEx(ANameInfo, True) then
     exit;
   if InfoEntry.IsAddressInStartScope(FAddress) and not InfoEntry.IsArtificial then begin
