@@ -4065,18 +4065,44 @@ function TPascalParserTool.KeyWordFuncConst: boolean;
       ErrorBase : Pointer = nil;public name 'FPC_ERRORBASE';
       devcfg3: longWord = DEVCFG3_DEFAULT; section '.devcfg3';
       NaN: double; external;
+      a, b, c: integer = 42;  // multi-var init
 
     implementation
 
     procedure c;
     const d=2;
 }
+
+  procedure CloneChildNodes(Src, Dst: TCodeTreeNode);
+  var
+    SrcChild, NewChild: TCodeTreeNode;
+  begin
+    SrcChild:=Src.FirstChild;
+    while SrcChild<>nil do
+      begin
+        NewChild:=TCodeTreeNode.Create;
+        NewChild.Desc:=SrcChild.Desc;
+        NewChild.SubDesc:=SrcChild.SubDesc;
+        NewChild.StartPos:=SrcChild.StartPos;
+        NewChild.EndPos:=SrcChild.EndPos;
+        Tree.AddNodeAsLastChild(Dst,NewChild);
+        if SrcChild.FirstChild<>nil then
+          CloneChildNodes(SrcChild,NewChild);
+        SrcChild:=SrcChild.NextBrother;
+      end;
+  end;
+
+var
+  ExtraNames: array of integer;
+  ExtraCount, ei: integer;
+  FirstNode, NewNode, SectionNode: TCodeTreeNode;
 begin
   if not (CurSection in [ctnProgram,ctnLibrary,ctnInterface,ctnImplementation])
   then
     SaveRaiseUnexpectedKeyWord(20170421195656);
   CreateChildNode;
   CurNode.Desc:=ctnConstSection;
+  SectionNode:=CurNode;
   // read all constants  Name = <Const>; or Name : type = <Const>;
   repeat
     ReadNextAtom;  // name
@@ -4087,12 +4113,38 @@ begin
          or (not WordIsGenericProcStart)
         )
     then begin
+      // collect extra names if comma-separated
+      ExtraCount:=0;
+      ExtraNames:=nil;
       CreateChildNode;
       CurNode.Desc:=ctnConstDefinition;
+      ReadNextAtom;
+      while CurPos.Flag=cafComma do
+        begin
+          ReadNextAtom;
+          if not AtomIsIdentifier then
+            SaveRaiseStringExpectedButAtomFound(20170421195656,'identifier');
+          SetLength(ExtraNames,ExtraCount+1);
+          ExtraNames[ExtraCount]:=CurPos.StartPos;
+          inc(ExtraCount);
+          ReadNextAtom;
+        end;
+      UndoReadNextAtom;
       ReadConst;
-      // close ctnConstDefinition node
+      // close first ctnConstDefinition node
       CurNode.EndPos:=CurPos.EndPos;
+      FirstNode:=CurNode;
       EndChildNode;
+      // create cloned nodes for extra names
+      for ei:=0 to ExtraCount-1 do
+        begin
+          NewNode:=TCodeTreeNode.Create;
+          NewNode.Desc:=ctnConstDefinition;
+          NewNode.StartPos:=ExtraNames[ei];
+          NewNode.EndPos:=FirstNode.EndPos;
+          Tree.AddNodeAsLastChild(SectionNode,NewNode);
+          CloneChildNodes(FirstNode,NewNode);
+        end;
     end else begin
       UndoReadNextAtom;
       break;
