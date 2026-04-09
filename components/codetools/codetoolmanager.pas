@@ -1675,7 +1675,7 @@ begin
   Directory:=ExtractFilePath(Filename);
   // check pascal compiler is FPC and mode is FPC or OBJFPC
   if GetPascalCompilerForDirectory(Directory)<>pcFPC then exit;
-  if not (GetCompilerModeForDirectory(Directory) in [cmFPC,cmOBJFPC]) then exit;
+  if not (GetCompilerModeForDirectory(Directory) in [cmFPC,cmOBJFPC,cmUnleashed]) then exit;
   Result:=true;
 end;
 

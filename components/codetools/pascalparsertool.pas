@@ -564,7 +564,7 @@ begin
          then exit(KeyWordFuncClassFinal);
     end;
   'G':
-    if CompareSrcIdentifiers(p,'GENERIC') and (Scanner.CompilerMode=cmOBJFPC)
+    if CompareSrcIdentifiers(p,'GENERIC') and (Scanner.CompilerMode in [cmOBJFPC,cmUnleashed])
     and (CurNode.Desc <> ctnTypeSection)
     then
       exit(KeyWordFuncClassMethod);
@@ -1348,7 +1348,7 @@ begin
   // create class method node
   CreateChildNode;
   CurNode.Desc:=ctnProcedure;
-  if (Scanner.CompilerMode=cmOBJFPC) and UpAtomIs('GENERIC') then begin
+  if (Scanner.CompilerMode in [cmOBJFPC,cmUnleashed]) and UpAtomIs('GENERIC') then begin
     IsGeneric:=true;
     ReadNextAtom;
   end else
@@ -2843,7 +2843,7 @@ var
 begin
   ParseAttr:=[pphCreateNodes];
   StartPos:=CurPos.StartPos;
-  if (Scanner.CompilerMode=cmOBJFPC) and UpAtomIs('GENERIC') then begin
+  if (Scanner.CompilerMode in [cmOBJFPC,cmUnleashed]) and UpAtomIs('GENERIC') then begin
     Include(ParseAttr,pphIsGeneric);
     ReadNextAtom;
   end;
@@ -3844,7 +3844,7 @@ var
   CanHaveString: Boolean;
 begin
   Result := False;
-  if not (Scanner.CompilerMode in [cmFPC,cmOBJFPC,cmDELPHI,cmDELPHIUNICODE]) then exit;
+  if not (Scanner.CompilerMode in [cmFPC,cmOBJFPC,cmDELPHI,cmDELPHIUNICODE,cmUnleashed]) then exit;
   while WordIsModifier do begin
     Result := True;
     //debugln(['TPascalParserTool.ReadHintModifier ',CurNode.DescAsString,' ',CleanPosToStr(CurPos.StartPos)]);
@@ -4016,7 +4016,7 @@ begin
   repeat
     ReadNextAtom;  // name
     if AtomIsIdentifier
-    and ((not (Scanner.CompilerMode in [cmOBJFPC,cmFPC]))
+    and ((not (Scanner.CompilerMode in [cmOBJFPC,cmFPC,cmUnleashed]))
          or (not (UpAtomIs('PROPERTY')
                   or WordIsGenericProcStart )
             )
@@ -4109,7 +4109,7 @@ begin
     if CurPos.Flag=cafSemicolon then begin
       // ignore empty semicolons
     end else if AtomIsIdentifier
-    and ((not (Scanner.CompilerMode in [cmOBJFPC,cmFPC]))
+    and ((not (Scanner.CompilerMode in [cmOBJFPC,cmFPC,cmUnleashed]))
          or (not WordIsGenericProcStart)
         )
     then begin
@@ -4177,7 +4177,7 @@ begin
   repeat
     ReadNextAtom;  // name
     if AtomIsIdentifier
-    and ((not (Scanner.CompilerMode in [cmOBJFPC,cmFPC]))
+    and ((not (Scanner.CompilerMode in [cmOBJFPC,cmFPC,cmUnleashed]))
          or (not UpAtomIs('PROPERTY')))
     then begin
       CreateChildNode;
@@ -4432,7 +4432,7 @@ var
 begin
   CreateChildNode;
   TypeNode:=CurNode;
-  if (Scanner.CompilerMode in [cmOBJFPC,cmFPC]) and UpAtomIs('GENERIC') then begin
+  if (Scanner.CompilerMode in [cmOBJFPC,cmFPC,cmUnleashed]) and UpAtomIs('GENERIC') then begin
     IsGeneric:=true;
     CurNode.Desc:=ctnGenericType;
     ReadNextAtom;
@@ -4731,7 +4731,7 @@ begin
   ParserFlagsSpecialize := ParserFlags;
   if ForceCreateSpecializeSubNodes then
     Exclude(ParserFlagsSpecialize, ppDontCreateNodes);
-  if (Scanner.CompilerMode=cmOBJFPC) and UpAtomIs('SPECIALIZE') then begin
+  if (Scanner.CompilerMode in [cmOBJFPC,cmUnleashed]) and UpAtomIs('SPECIALIZE') then begin
     (* If ForceCreateSpecializeSubNodes then the specialize can be closed.
        The surrounding node of the caller can handle multiple specialize children
     *)
@@ -4747,7 +4747,7 @@ begin
   Cnt:=1;
   while CurPos.Flag=cafPoint do begin
     Next;
-    if (Scanner.CompilerMode=cmOBJFPC) and UpAtomIs('SPECIALIZE') then begin
+    if (Scanner.CompilerMode in [cmOBJFPC,cmUnleashed]) and UpAtomIs('SPECIALIZE') then begin
       ReadSpecialize(ParserFlagsSpecialize, Extract,Copying,Attr);
       if not(ppDontCreateNodes in ParserFlags) then
         LastEnd := CurNode.LastChild.EndPos;
@@ -6461,7 +6461,7 @@ function TPascalParserTool.ReadSpecialize(ParserFlags: TPascalParserFlags; Extra
 begin
   Result := False;
   //debugln(['TPascalParserTool.ReadSpecialize START ',GetAtom]);
-  if Scanner.CompilerMode=cmOBJFPC then begin
+  if Scanner.CompilerMode in [cmOBJFPC,cmUnleashed] then begin
     {$IFDEF CheckNodeTool}
     if not UpAtomIs('SPECIALIZE') then
       SaveRaiseIllegalQualifier(20171106150016);
@@ -6766,7 +6766,7 @@ end;
 function TPascalParserTool.AllowAttributes: boolean;
 begin
   Result:=([cmsPrefixedAttributes,cmsIgnoreAttributes]*Scanner.CompilerModeSwitches<>[])
-     or (Scanner.CompilerMode in [cmDELPHI,cmDELPHIUNICODE,cmOBJFPC]);
+     or (Scanner.CompilerMode in [cmDELPHI,cmDELPHIUNICODE,cmOBJFPC,cmUnleashed]);
 end;
 
 function TPascalParserTool.AllowAnonymousFunctions: boolean;

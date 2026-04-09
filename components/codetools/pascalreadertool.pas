@@ -789,7 +789,7 @@ begin
   // parse procedure head = start + name (including genericparams) + parameterlist + result type ;
   ExtractNextAtom(false,Attr);
   // read procedure start keyword
-  if (Scanner.CompilerMode in [cmOBJFPC]) and UpAtomIs('GENERIC') then begin
+  if (Scanner.CompilerMode in [cmOBJFPC,cmUnleashed]) and UpAtomIs('GENERIC') then begin
     ExtractNextAtom((phpWithStart in Attr)
                     and not (phpWithoutGenericKeyword in Attr),Attr);
     IsGeneric:=true;
@@ -1847,7 +1847,7 @@ function TPascalReaderTool.ExtractNextTypeRef(Add: boolean;
 begin
   Result:=false;
   ExtractNextAtom(Add,Attr);
-  if (Scanner.CompilerMode in [cmOBJFPC]) and UpAtomIs('SPECIALIZE') then
+  if (Scanner.CompilerMode in [cmOBJFPC,cmUnleashed]) and UpAtomIs('SPECIALIZE') then
     ExtractNextAtom(Add,Attr);
   if not AtomIsIdentifier then exit;
   ExtractNextAtom(Add,Attr);

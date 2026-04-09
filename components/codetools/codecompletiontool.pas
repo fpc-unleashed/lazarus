@@ -1443,7 +1443,7 @@ begin
   if GetIdentLen(AnUnitName)=0 then exit;
   if CompareDottedIdentifiers(AnUnitName,'System')=0 then exit;
   if (CompareDottedIdentifiers(AnUnitName,'ObjPas')=0)
-  and (Scanner.CompilerMode in [cmDELPHI,cmOBJFPC]) //  cmDELPHIUNICODE ?
+  and (Scanner.CompilerMode in [cmDELPHI,cmOBJFPC,cmUnleashed]) //  cmDELPHIUNICODE ?
   and (Scanner.PascalCompiler=pcFPC) then
     exit;
   if (CompareDottedIdentifiers(AnUnitName,'MacPas')=0)
