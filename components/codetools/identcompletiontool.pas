@@ -3357,6 +3357,8 @@ var
   TupleChild: TCodeTreeNode;
   TupleItem: TIdentifierListItem;
   IsPositionalTuple: boolean;
+  TupleLitFieldCount, TupleBracketDepth, TupleScanPos, TupleLitI: integer;
+  InlineVarExprStartPos, InlineVarExprEndPos: integer;
 
   procedure CheckProcedureDeclarationContext;
   var
@@ -3455,9 +3457,13 @@ begin
         and (PositionsInSameLine(Src,CursorNode.StartPos,IdentStartPos)) then begin
           GatherSourceNames(GatherContext);
         end else begin
-          FindCollectionContext(Params,IdentStartPos,CursorNode,
-                               ExprType,ContextExprStartPos,StartInSubContext,
-                               HasInheritedKeyword);
+          try
+            FindCollectionContext(Params,IdentStartPos,CursorNode,
+                                 ExprType,ContextExprStartPos,StartInSubContext,
+                                 HasInheritedKeyword);
+          except
+            ExprType:=CleanExpressionType;
+          end;
           //debugln(['TIdentCompletionTool.GatherIdentifiers FindCollectionContext ',ExprTypeToString(ExprType)]);
 
           GatherContext := ExprType.Context;
@@ -3680,6 +3686,92 @@ begin
             Params.Flags:=[fdfSearchInAncestors,fdfCollect,fdfFindVariable,fdfSearchInHelpers];
             CurrentIdentifierList.Context:=CursorContext;
             FindIdentifierInBasicTypeHelpers(ExprType.Desc, Params);
+          end;
+
+          // tuple literal fallback: var p := (1, 2, 'test'); p.
+          // When dot-completion failed (exception caught above),
+          // walk code tree for the inline var and scan for tuple literal.
+          if (cmsTuples in Scanner.CompilerModeSwitches) and
+             (GatherContext.Node=nil) and
+             (ContextExprStartPos>0) and
+             (ContextExprStartPos<IdentStartPos) then begin
+            TupleLitFieldCount:=0;
+            // extract identifier name before the dot from source
+            TupleScanPos:=IdentStartPos-1;
+            while (TupleScanPos>0) and (Src[TupleScanPos] in ['.',' ',#9,#10,#13]) do
+              dec(TupleScanPos);
+            InlineVarExprEndPos:=TupleScanPos+1;
+            while (TupleScanPos>0) and (Src[TupleScanPos] in ['a'..'z','A'..'Z','0'..'9','_']) do
+              dec(TupleScanPos);
+            InlineVarExprStartPos:=TupleScanPos+1;
+            if InlineVarExprEndPos>InlineVarExprStartPos then begin
+              // walk siblings looking for ctnVarDefinition matching name
+              TupleChild:=CursorNode;
+              while (TupleChild<>nil) and (TupleChild.Desc<>ctnBeginBlock) do
+                TupleChild:=TupleChild.Parent;
+              if TupleChild<>nil then
+                TupleChild:=TupleChild.FirstChild;
+              while TupleChild<>nil do begin
+                if (TupleChild.Desc=ctnVarSection) and
+                   (TupleChild.FirstChild<>nil) and
+                   (TupleChild.FirstChild.Desc=ctnVarDefinition) and
+                   (TupleChild.FirstChild.FirstChild=nil) then begin
+                  // compare name
+                  TupleScanPos:=TupleChild.FirstChild.StartPos;
+                  if CompareIdentifiers(
+                    @Src[TupleScanPos],
+                    @Src[InlineVarExprStartPos])=0 then begin
+                    // found! scan for := (tuple_literal)
+                    while (TupleScanPos<=SrcLen) and
+                          (Src[TupleScanPos] in ['a'..'z','A'..'Z','0'..'9','_']) do
+                      inc(TupleScanPos);
+                    while (TupleScanPos<=SrcLen) and
+                          (Src[TupleScanPos] in [' ',#9,#10,#13]) do
+                      inc(TupleScanPos);
+                    if (TupleScanPos+1<=SrcLen) and
+                       (Src[TupleScanPos]=':') and (Src[TupleScanPos+1]='=') then begin
+                      TupleScanPos:=TupleScanPos+2;
+                      while (TupleScanPos<=SrcLen) and
+                            (Src[TupleScanPos] in [' ',#9,#10,#13]) do
+                        inc(TupleScanPos);
+                      if (TupleScanPos<=SrcLen) and (Src[TupleScanPos]='(') then begin
+                        inc(TupleScanPos);
+                        TupleLitFieldCount:=1;
+                        TupleBracketDepth:=0;
+                        while (TupleScanPos<=SrcLen) do begin
+                          case Src[TupleScanPos] of
+                            '(','[': inc(TupleBracketDepth);
+                            ')': begin
+                              if TupleBracketDepth=0 then break;
+                              dec(TupleBracketDepth);
+                            end;
+                            ']': if TupleBracketDepth>0 then dec(TupleBracketDepth);
+                            ',': if TupleBracketDepth=0 then inc(TupleLitFieldCount);
+                            '''': begin
+                              inc(TupleScanPos);
+                              while (TupleScanPos<=SrcLen) and
+                                    (Src[TupleScanPos]<>'''') do
+                                inc(TupleScanPos);
+                            end;
+                          end;
+                          inc(TupleScanPos);
+                        end;
+                      end;
+                    end;
+                    break;
+                  end;
+                end;
+                TupleChild:=TupleChild.NextBrother;
+              end;
+              if TupleLitFieldCount>=2 then
+                for TupleLitI:=1 to TupleLitFieldCount do begin
+                  TupleItem:=TIdentifierListItem.Create(
+                    icompExact,false,0,
+                    PChar('_'+IntToStr(TupleLitI)),
+                    0,nil,nil,ctnNone);
+                  CurrentIdentifierList.Add(TupleItem);
+                end;
+            end;
           end;
 
           // check for procedure/method declaration context
