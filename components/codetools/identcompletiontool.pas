@@ -3358,6 +3358,7 @@ var
   TupleItem: TIdentifierListItem;
   IsPositionalTuple: boolean;
   TupleLitFieldCount, TupleBracketDepth, TupleScanPos, TupleLitI: integer;
+  TupleLitTypes: array[1..32] of string;
   InlineVarExprStartPos, InlineVarExprEndPos: integer;
 
   procedure CheckProcedureDeclarationContext;
@@ -3737,7 +3738,20 @@ begin
                       if (TupleScanPos<=SrcLen) and (Src[TupleScanPos]='(') then begin
                         inc(TupleScanPos);
                         TupleLitFieldCount:=1;
+                        FillChar(TupleLitTypes,SizeOf(TupleLitTypes),0);
                         TupleBracketDepth:=0;
+                        // skip whitespace to detect type of first element
+                        while (TupleScanPos<=SrcLen) and
+                              (Src[TupleScanPos] in [' ',#9,#10,#13]) do
+                          inc(TupleScanPos);
+                        if TupleScanPos<=SrcLen then begin
+                          if Src[TupleScanPos] in ['0'..'9'] then
+                            TupleLitTypes[1]:='Integer'
+                          else if Src[TupleScanPos]='''' then
+                            TupleLitTypes[1]:='String'
+                          else if Src[TupleScanPos] in ['a'..'z','A'..'Z','_'] then
+                            TupleLitTypes[1]:='';
+                        end;
                         while (TupleScanPos<=SrcLen) do begin
                           case Src[TupleScanPos] of
                             '(','[': inc(TupleBracketDepth);
@@ -3746,7 +3760,23 @@ begin
                               dec(TupleBracketDepth);
                             end;
                             ']': if TupleBracketDepth>0 then dec(TupleBracketDepth);
-                            ',': if TupleBracketDepth=0 then inc(TupleLitFieldCount);
+                            ',': if TupleBracketDepth=0 then begin
+                              inc(TupleLitFieldCount);
+                              // detect type of next element
+                              TupleLitI:=TupleScanPos+1;
+                              while (TupleLitI<=SrcLen) and
+                                    (Src[TupleLitI] in [' ',#9,#10,#13]) do
+                                inc(TupleLitI);
+                              if (TupleLitI<=SrcLen) and
+                                 (TupleLitFieldCount<=High(TupleLitTypes)) then begin
+                                if Src[TupleLitI] in ['0'..'9'] then
+                                  TupleLitTypes[TupleLitFieldCount]:='Integer'
+                                else if Src[TupleLitI]='''' then
+                                  TupleLitTypes[TupleLitFieldCount]:='String'
+                                else
+                                  TupleLitTypes[TupleLitFieldCount]:='';
+                              end;
+                            end;
                             '''': begin
                               inc(TupleScanPos);
                               while (TupleScanPos<=SrcLen) and
@@ -3768,9 +3798,101 @@ begin
                   TupleItem:=TIdentifierListItem.Create(
                     icompExact,false,0,
                     PChar('_'+IntToStr(TupleLitI)),
-                    0,nil,nil,ctnNone);
+                    0,nil,nil,ctnVarDefinition);
+                  if (TupleLitI<=High(TupleLitTypes)) and
+                     (TupleLitTypes[TupleLitI]<>'') then
+                    TupleItem.ResultType:=TupleLitTypes[TupleLitI];
                   CurrentIdentifierList.Add(TupleItem);
                 end;
+            end;
+          end;
+
+          // tuple literal dot-access: (1, 2, 'test').
+          // scan backward from dot for ) and matching (
+          if (cmsTuples in Scanner.CompilerModeSwitches) and
+             (TupleLitFieldCount<2) and
+             (GatherContext.Node=nil) and
+             (ContextExprStartPos>0) and
+             (ContextExprStartPos<IdentStartPos) then begin
+            // find ')' before the dot
+            TupleScanPos:=IdentStartPos-1;
+            while (TupleScanPos>0) and (Src[TupleScanPos] in [' ',#9,#10,#13,'.']) do
+              dec(TupleScanPos);
+            if (TupleScanPos>0) and (Src[TupleScanPos]=')') then begin
+              // find matching '('
+              TupleBracketDepth:=0;
+              InlineVarExprEndPos:=TupleScanPos;
+              dec(TupleScanPos);
+              while (TupleScanPos>0) do begin
+                case Src[TupleScanPos] of
+                  ')': inc(TupleBracketDepth);
+                  '(': begin
+                    if TupleBracketDepth=0 then break;
+                    dec(TupleBracketDepth);
+                  end;
+                end;
+                dec(TupleScanPos);
+              end;
+              if (TupleScanPos>0) and (Src[TupleScanPos]='(') then begin
+                // scan forward counting elements and types
+                InlineVarExprStartPos:=TupleScanPos+1;
+                TupleLitFieldCount:=1;
+                FillChar(TupleLitTypes,SizeOf(TupleLitTypes),0);
+                TupleBracketDepth:=0;
+                TupleScanPos:=InlineVarExprStartPos;
+                while (TupleScanPos<=SrcLen) and
+                      (Src[TupleScanPos] in [' ',#9,#10,#13]) do
+                  inc(TupleScanPos);
+                if (TupleScanPos<=SrcLen) then begin
+                  if Src[TupleScanPos] in ['0'..'9'] then
+                    TupleLitTypes[1]:='Integer'
+                  else if Src[TupleScanPos]='''' then
+                    TupleLitTypes[1]:='String';
+                end;
+                TupleScanPos:=InlineVarExprStartPos;
+                while (TupleScanPos<=InlineVarExprEndPos) do begin
+                  case Src[TupleScanPos] of
+                    '(','[': inc(TupleBracketDepth);
+                    ')': begin
+                      if TupleBracketDepth=0 then break;
+                      dec(TupleBracketDepth);
+                    end;
+                    ']': if TupleBracketDepth>0 then dec(TupleBracketDepth);
+                    ',': if TupleBracketDepth=0 then begin
+                      inc(TupleLitFieldCount);
+                      TupleLitI:=TupleScanPos+1;
+                      while (TupleLitI<=SrcLen) and
+                            (Src[TupleLitI] in [' ',#9,#10,#13]) do
+                        inc(TupleLitI);
+                      if (TupleLitI<=SrcLen) and
+                         (TupleLitFieldCount<=High(TupleLitTypes)) then begin
+                        if Src[TupleLitI] in ['0'..'9'] then
+                          TupleLitTypes[TupleLitFieldCount]:='Integer'
+                        else if Src[TupleLitI]='''' then
+                          TupleLitTypes[TupleLitFieldCount]:='String';
+                      end;
+                    end;
+                    '''': begin
+                      inc(TupleScanPos);
+                      while (TupleScanPos<=SrcLen) and
+                            (Src[TupleScanPos]<>'''') do
+                        inc(TupleScanPos);
+                    end;
+                  end;
+                  inc(TupleScanPos);
+                end;
+                if TupleLitFieldCount>=2 then
+                  for TupleLitI:=1 to TupleLitFieldCount do begin
+                    TupleItem:=TIdentifierListItem.Create(
+                      icompExact,false,0,
+                      PChar('_'+IntToStr(TupleLitI)),
+                      0,nil,nil,ctnVarDefinition);
+                    if (TupleLitI<=High(TupleLitTypes)) and
+                       (TupleLitTypes[TupleLitI]<>'') then
+                      TupleItem.ResultType:=TupleLitTypes[TupleLitI];
+                    CurrentIdentifierList.Add(TupleItem);
+                  end;
+              end;
             end;
           end;
 
