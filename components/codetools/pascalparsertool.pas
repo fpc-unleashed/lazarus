@@ -3606,20 +3606,15 @@ begin
       CreateChildNode;
       CurNode.Desc := ctnVarDefinition;
     end;
-    // If there is an explicit type annotation, create a type child node so that
+    // If there is an explicit type annotation, parse the full type so that
     // code completion (e.g. 'var x: TMyRecord' followed by 'x.') can resolve
-    // the type via FindTypeNodeOfDefinition.
+    // the type via FindTypeNodeOfDefinition. Handles identifier, qualified,
+    // generic, anonymous record/array/class/pointer types via ParseType.
     ReadNextAtom; // peek: ':' (type annotation) or ':=' (type inference)
     if CreateNodes and (CurPos.Flag = cafColon) then begin
-      ReadNextAtom; // move to the type
-      if AtomIsIdentifier then begin
-        // Simple / qualified / generic identifier type: 'TMyType', 'Unit.TMyType'
-        ReadTypeReference(true); // creates ctnIdentifier child; CurPos on atom after type
-        UndoReadNextAtom;        // put that atom back for the skip loop below
-      end else begin
-        UndoReadNextAtom; // put back the type atom
-        UndoReadNextAtom; // put back the colon
-      end;
+      ReadNextAtom; // move to the first atom of the type
+      ParseType(CurPos.StartPos); // creates type subtree; CurPos on atom after type
+      UndoReadNextAtom;           // put that atom back for the skip loop below
     end else
       UndoReadNextAtom; // put back ':=' or other atom
     // Skip the rest of the declaration until ';'
