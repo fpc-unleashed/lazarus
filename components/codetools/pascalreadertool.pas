@@ -1849,6 +1849,18 @@ begin
   ExtractNextAtom(Add,Attr);
   if (Scanner.CompilerMode in [cmOBJFPC,cmUnleashed]) and UpAtomIs('SPECIALIZE') then
     ExtractNextAtom(Add,Attr);
+  // tuple type: extract entire (...) including content
+  if (cmsTuples in Scanner.CompilerModeSwitches) and
+     (CurPos.Flag=cafRoundBracketOpen) then begin
+    // read and extract until matching )
+    ExtractNextAtom(Add,Attr);
+    while (CurPos.StartPos<=SrcLen) and (CurPos.Flag<>cafRoundBracketClose) do
+      ExtractNextAtom(Add,Attr);
+    if CurPos.Flag=cafRoundBracketClose then
+      ExtractNextAtom(Add,Attr);
+    Result:=true;
+    exit;
+  end;
   if not AtomIsIdentifier then exit;
   ExtractNextAtom(Add,Attr);
   repeat
