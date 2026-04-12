@@ -15845,9 +15845,13 @@ begin
         ctnVarDefinition,ctnConstDefinition:
           begin
             ANode:=FindContext.Tool.FindTypeNodeOfDefinition(FindContext.Node);
-            if (ANode=nil) or (ANode.Desc<>ctnIdentifier) then
-              RaiseTermNotSimple(20170421204653);
-            Result:=GetIdentifier(@FindContext.Tool.Src[ANode.StartPos]);
+            if (ANode<>nil) and (ANode.Desc=ctnRecordType) then
+              // anonymous record/tuple type
+              Result:=FindContext.Tool.ExtractNode(ANode,[])
+            else if (ANode=nil) or (ANode.Desc<>ctnIdentifier) then
+              RaiseTermNotSimple(20170421204653)
+            else
+              Result:=GetIdentifier(@FindContext.Tool.Src[ANode.StartPos]);
           end;
 
         ctnClass, ctnClassInterface, ctnDispinterface, ctnObject, ctnRecordType,
@@ -15857,7 +15861,10 @@ begin
           and (FindContext.Node.Parent.Desc in [ctnTypeDefinition,ctnGenericType])
           then
             Result:=GetIdentifier(
-                       @FindContext.Tool.Src[FindContext.Node.Parent.StartPos]);
+                       @FindContext.Tool.Src[FindContext.Node.Parent.StartPos])
+          else if (FindContext.Node.Desc=ctnRecordType) then
+            // anonymous record/tuple type
+            Result:=FindContext.Tool.ExtractNode(FindContext.Node,[]);
 
         ctnEnumIdentifier:
           if (FindContext.Node.Parent<>nil)
