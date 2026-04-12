@@ -2999,7 +2999,7 @@ begin
     BlockType:=ebtTry
   else if UpAtomIs('IF') then
     BlockType:=ebtIf
-  else if UpAtomIs('CASE') then
+  else if UpAtomIs('CASE') or UpAtomIs('MATCH') then
     BlockType:=ebtCase
   else if UpAtomIs('ASM') then
     BlockType:=ebtAsm
@@ -3202,6 +3202,8 @@ begin
           UndoReadNextAtom;
           break;
         end;
+      end else if UpAtomIs('MATCH') then begin
+        break;
       end else if UpAtomIs('CASE') then begin
         // case could also be in a record, then it should not close the block
         if BlockType=ebtBegin then begin
