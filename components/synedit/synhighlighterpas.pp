@@ -172,7 +172,8 @@ type
                              var foo: byte cvar;
                           *)
     tsAfterRaise,         // After the raise keyword (or "." or operator inside rsInRaise)
-    tsAfterDot            // [OPT] In Code. For member detection
+    tsAfterDot,           // [OPT] In Code. For member detection
+    tsAfterMatch          // After "match" keyword, for "match all" highlighting
   );
 
   TTokenStates = set of TTokenState;
@@ -1341,8 +1342,8 @@ const
     'value'
   );
 
-  RESERVED_WORDS_FPC: array [1..5] of String = (
-    'dispose', 'exit', 'false', 'new', 'true'
+  RESERVED_WORDS_FPC: array [1..7] of String = (
+    'dispose', 'exit', 'false', 'leave', 'match', 'new', 'true'
   );
 
 var
@@ -2201,6 +2202,9 @@ begin
   if IsCallingConventionModifier('FAR') then
     Result := DoCallingConventionModifier
   else
+  if KeyCompU('ALL') and (FTokenState = tsAfterMatch) then
+    Result := tkKey
+  else
     Result := tkIdentifier;
 end;
 
@@ -2528,6 +2532,23 @@ begin
     Result := tkKey;
     DoAfterOperator;
   end
+  else
+  if KeyCompU('MATCH') and
+     (TopPascalCodeFoldBlockType in PascalStatementBlocks + [cfbtUnitSection]) and
+     (PasCodeFoldRange.BracketNestLevel = 0)
+  then begin
+    Result := tkKey;
+    FNextTokenState := tsAfterMatch;
+    DoCodeBlockStatement;
+    StartPascalCodeFoldBlock(cfbtCase, True);
+  end
+  else
+  if KeyCompU('LEAVE') and
+     (TopPascalCodeFoldBlockType in PascalStatementBlocks) and
+     (PasCodeFoldRange.BracketNestLevel = 0) and
+     (LinePtr[Run+fStringLen] <> ':')
+  then
+    Result := tkKey
   else
     Result := tkIdentifier;
 end;
