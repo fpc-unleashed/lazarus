@@ -1466,6 +1466,7 @@ begin
     Add('FINALLY',{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('INTERFACE',{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('OBJECT',{$ifdef FPC}@{$endif}AllwaysTrue);
+    Add('MATCH',{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('RECORD',{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('REPEAT',{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('TRY',{$ifdef FPC}@{$endif}AllwaysTrue);
@@ -1521,6 +1522,7 @@ begin
     Add('ASM'   ,{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('CASE'  ,{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('IF'    ,{$ifdef FPC}@{$endif}AllwaysTrue);
+    Add('MATCH' ,{$ifdef FPC}@{$endif}AllwaysTrue);
   end;
   
   UnexpectedKeyWordInBeginBlock:=TKeyWordFunctionList.Create('UnexpectedKeyWordInBeginBlock');
