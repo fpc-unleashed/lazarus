@@ -230,6 +230,7 @@ type
     cmsStatementExpressions, { allow statement expressions (e.g. s := try..except..) }
     cmsArrayEquality,      { allow array equality comparison }
     cmsInlineVars,         { allow inline variable declarations inside statement blocks }
+    cmsTuples,             { allow anonymous tuple types and related syntax }
 
     // not yet in FPC, supported by pas2js:
     cmsExternalClass,      { pas2js: allow  class external [pkgname] name [symbol] }
@@ -282,7 +283,7 @@ const
      cmsHintdirective,cmsProperty,cmsDefault_inline,cmsExcept,
      cmsAdvancedRecords,cmsPrefixedAttributes,cmsMultiHelpers,
      cmsFunctionReferences,cmsAnonymousFunctions,
-     cmsStatementExpressions,cmsArrayEquality,cmsInlineVars]
+     cmsStatementExpressions,cmsArrayEquality,cmsInlineVars,cmsTuples]
     );
   cmAllModesWithGeneric = [cmDELPHI,cmDELPHIUNICODE,cmOBJFPC,cmUnleashed];
   Pas2jsFixedModeswitches = [cmsArray2dynarray,cmsArrayOperators,
@@ -336,6 +337,7 @@ const
     'STATEMENTEXPRESSIONS',
     'ARRAYEQUALITY',
     'INLINEVARS',
+    'TUPLES',
     // not yet in FPC, supported by pas2js:
     'EXTERNALCLASS',
     'IGNOREATTRIBUTES',

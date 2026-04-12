@@ -3353,7 +3353,11 @@ var
   InFrontOfDirective, HasInheritedKeyword: Boolean;
   ExprType: TExpressionType;
   IdentifierPath: string;
-  
+  TupleFieldIdx: integer;
+  TupleChild: TCodeTreeNode;
+  TupleItem: TIdentifierListItem;
+  IsPositionalTuple: boolean;
+
   procedure CheckProcedureDeclarationContext;
   var
     Node: TCodeTreeNode;
@@ -3621,9 +3625,52 @@ begin
             DebugLn('TIdentCompletionTool.GatherIdentifiers F');
             {$ENDIF}
             CurrentIdentifierList.Context:=GatherContext;
-            if GatherContext.Node.Desc=ctnIdentifier then
-              Params.Flags:=Params.Flags+[fdfIgnoreCurContextNode];
-            GatherContext.Tool.FindIdentifierInContext(Params);
+
+            // tuple record: detect positional (no field names in source)
+            // by scanning for ':' after '(' - named tuples have it,
+            // positional don't
+            IsPositionalTuple:=false;
+            if (cmsTuples in Scanner.CompilerModeSwitches) and
+               (GatherContext.Node<>nil) and
+               (GatherContext.Node.Desc=ctnRecordType) and
+               (GatherContext.Node.StartPos<=GatherContext.Tool.SrcLen) and
+               (GatherContext.Tool.Src[GatherContext.Node.StartPos]='(') then
+            begin
+              IsPositionalTuple:=true;
+              // scan source for ':' before ')' - if found, it's named
+              TupleFieldIdx:=GatherContext.Node.StartPos+1;
+              while (TupleFieldIdx<=GatherContext.Tool.SrcLen) and
+                    (GatherContext.Tool.Src[TupleFieldIdx]<>')') do begin
+                if GatherContext.Tool.Src[TupleFieldIdx]=':' then begin
+                  IsPositionalTuple:=false;
+                  break;
+                end;
+                inc(TupleFieldIdx);
+              end;
+            end;
+
+            if IsPositionalTuple then begin
+              // inject synthetic _1, _2, ... for positional fields
+              TupleFieldIdx:=0;
+              TupleChild:=GatherContext.Node.FirstChild;
+              while TupleChild<>nil do begin
+                if TupleChild.Desc=ctnVarDefinition then begin
+                  inc(TupleFieldIdx);
+                  TupleItem:=TIdentifierListItem.Create(
+                    icompExact,false,0,
+                    PChar('_'+IntToStr(TupleFieldIdx)),
+                    0,TupleChild,GatherContext.Tool,
+                    ctnVarDefinition);
+                  CurrentIdentifierList.Add(TupleItem);
+                end;
+                TupleChild:=TupleChild.NextBrother;
+              end;
+            end else begin
+              if GatherContext.Node.Desc=ctnIdentifier then
+                Params.Flags:=Params.Flags+[fdfIgnoreCurContextNode];
+              GatherContext.Tool.FindIdentifierInContext(Params);
+            end;
+
           end else
           if ExprType.Desc in xtAllTypeHelperTypes then
           begin

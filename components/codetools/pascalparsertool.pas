@@ -1815,7 +1815,12 @@ begin
     // read function result type
     if CurPos.Flag=cafColon then begin
       ReadNextAtom;
-      ReadTypeReference(pphCreateNodes in ParseAttr);
+      if (cmsTuples in Scanner.CompilerModeSwitches)
+         and (CurPos.Flag=cafRoundBracketOpen) then
+        // tuple return type: parse as inline type via KeyWordFuncTypeDefault
+        KeyWordFuncTypeDefault
+      else
+        ReadTypeReference(pphCreateNodes in ParseAttr);
     end
     else begin
       if not (Scanner.CompilerMode in [cmDELPHI,cmDELPHIUNICODE]) then
@@ -3606,15 +3611,26 @@ begin
       CreateChildNode;
       CurNode.Desc := ctnVarDefinition;
     end;
-    // If there is an explicit type annotation, parse the full type so that
+    // If there is an explicit type annotation, create a type child node so that
     // code completion (e.g. 'var x: TMyRecord' followed by 'x.') can resolve
-    // the type via FindTypeNodeOfDefinition. Handles identifier, qualified,
-    // generic, anonymous record/array/class/pointer types via ParseType.
+    // the type via FindTypeNodeOfDefinition.
     ReadNextAtom; // peek: ':' (type annotation) or ':=' (type inference)
     if CreateNodes and (CurPos.Flag = cafColon) then begin
-      ReadNextAtom; // move to the first atom of the type
-      ParseType(CurPos.StartPos); // creates type subtree; CurPos on atom after type
-      UndoReadNextAtom;           // put that atom back for the skip loop below
+      ReadNextAtom; // move to the type
+      if (cmsTuples in Scanner.CompilerModeSwitches)
+         and (CurPos.Flag=cafRoundBracketOpen) then begin
+        // tuple type: (Integer, String) or (a, b: Integer)
+        KeyWordFuncTypeDefault;
+        UndoReadNextAtom;
+      end else
+      if AtomIsIdentifier then begin
+        // Simple / qualified / generic identifier type: 'TMyType', 'Unit.TMyType'
+        ReadTypeReference(true); // creates ctnIdentifier child; CurPos on atom after type
+        UndoReadNextAtom;        // put that atom back for the skip loop below
+      end else begin
+        UndoReadNextAtom; // put back the type atom
+        UndoReadNextAtom; // put back the colon
+      end;
     end else
       UndoReadNextAtom; // put back ':=' or other atom
     // Skip the rest of the declaration until ';'
@@ -5496,6 +5512,8 @@ function TPascalParserTool.KeyWordFuncTypeDefault: boolean;
 }
 var
   SubRangeOperatorFound: boolean;
+  SavedPos: integer;
+  IsTupleType: boolean;
 
   procedure ReadTillTypeEnd;
   begin
@@ -5546,32 +5564,216 @@ begin
         end;
       end;
     end else begin
-      // an enum or syntax error
+      // an enum, tuple, or syntax error
       if (CurPos.Flag=cafRoundBracketOpen) then begin
-        // an enumeration -> read all enums
-        CreateChildNode;
-        CurNode.Desc:=ctnEnumerationType;
-        repeat
-          ReadNextAtom; // read enum name
-          if (CurPos.Flag=cafRoundBracketClose) then break;
-          AtomIsIdentifierSaveE(20180411194228);
-          CreateChildNode;
-          CurNode.Desc:=ctnEnumIdentifier;
-          CurNode.EndPos:=CurPos.EndPos;
-          EndChildNode; // close enum node
-          ReadNextAtom;
-          if AtomIs(':=') or (CurPos.Flag=cafEqual) then begin
-            // read ordinal value
+        if (cmsTuples in Scanner.CompilerModeSwitches) then begin
+          // with TUPLES modeswitch: lookahead to detect tuple vs enum.
+          // Save position, peek first atom and next for ':' or type keyword.
+          SavedPos:=CurPos.StartPos;
+          IsTupleType:=false;
+          ReadNextAtom; // first atom after (
+          if UpAtomIs('INTEGER') or UpAtomIs('LONGINT') or
+             UpAtomIs('INT64') or UpAtomIs('CARDINAL') or
+             UpAtomIs('WORD') or UpAtomIs('BYTE') or
+             UpAtomIs('SHORTINT') or UpAtomIs('SMALLINT') or
+             UpAtomIs('BOOLEAN') or UpAtomIs('CHAR') or
+             UpAtomIs('DOUBLE') or UpAtomIs('SINGLE') or
+             UpAtomIs('EXTENDED') or UpAtomIs('REAL') or
+             UpAtomIs('QWORD') or UpAtomIs('DWORD') or
+             UpAtomIs('POINTER') or UpAtomIs('STRING') or
+             UpAtomIs('ARRAY') then
+            IsTupleType:=true
+          else if AtomIsIdentifier then begin
             ReadNextAtom;
-            ReadConstant(true,false,[]);
+            if CurPos.Flag=cafColon then
+              IsTupleType:=true
+            else if CurPos.Flag=cafComma then begin
+              ReadNextAtom;
+              if AtomIsIdentifier then begin
+                ReadNextAtom;
+                if CurPos.Flag=cafColon then
+                  IsTupleType:=true;
+              end;
+            end;
           end;
-          if (CurPos.Flag=cafRoundBracketClose) then break;
-          if (CurPos.Flag<>cafComma) then
-            SaveRaiseCharExpectedButAtomFound(20170421195839,')');
-        until false;
-        CurNode.EndPos:=CurPos.EndPos;
-        EndChildNode;
-        ReadNextAtom;
+          // restore to '('
+          MoveCursorToCleanPos(SavedPos);
+          ReadNextAtom;
+
+          if IsTupleType then begin
+            // parse tuple fields into ctnRecordType with ctnVarDefinition children
+            CreateChildNode;
+            CurNode.Desc:=ctnRecordType;
+            ReadNextAtom; // skip '('
+            repeat
+              if (CurPos.Flag=cafRoundBracketClose) then break;
+              // named group: id (, id)* : type
+              // positional: type (, type)*
+              // detect by checking for ':' after id(s)
+              if AtomIsIdentifier then begin
+                // save and peek for ':'
+                SavedPos:=CurPos.StartPos;
+                ReadNextAtom;
+                if (CurPos.Flag=cafColon) then begin
+                  // named single-field: id : type
+                  MoveCursorToCleanPos(SavedPos);
+                  ReadNextAtom;
+                  CreateChildNode;
+                  CurNode.Desc:=ctnVarDefinition;
+                  ReadNextAtom; // skip ':'
+                  ReadNextAtom; // type identifier
+                  if AtomIsIdentifier then begin
+                    CreateChildNode;
+                    CurNode.Desc:=ctnIdentifier;
+                    CurNode.EndPos:=CurPos.EndPos;
+                    EndChildNode;
+                  end;
+                  ReadNextAtom;
+                  CurNode.EndPos:=CurPos.StartPos;
+                  EndChildNode; // close ctnVarDefinition
+                end else if (CurPos.Flag=cafComma) then begin
+                  // could be multi-name group: a, b : type
+                  // or positional type followed by more types
+                  // peek further for ':'
+                  IsTupleType:=false;
+                  while (CurPos.Flag=cafComma) do begin
+                    ReadNextAtom;
+                    if not AtomIsIdentifier then break;
+                    ReadNextAtom;
+                    if (CurPos.Flag=cafColon) then begin
+                      IsTupleType:=true;
+                      break;
+                    end;
+                  end;
+                  // restore and parse
+                  MoveCursorToCleanPos(SavedPos);
+                  ReadNextAtom;
+                  if IsTupleType then begin
+                    // named multi-field group: a, b, c : type
+                    repeat
+                      CreateChildNode;
+                      CurNode.Desc:=ctnVarDefinition;
+                      ReadNextAtom;
+                      if (CurPos.Flag=cafColon) then begin
+                        ReadNextAtom;
+                        if AtomIsIdentifier then begin
+                          CreateChildNode;
+                          CurNode.Desc:=ctnIdentifier;
+                          CurNode.EndPos:=CurPos.EndPos;
+                          EndChildNode;
+                        end;
+                        ReadNextAtom;
+                        CurNode.EndPos:=CurPos.StartPos;
+                        EndChildNode;
+                        break;
+                      end else if (CurPos.Flag=cafComma) then begin
+                        CurNode.EndPos:=CurPos.StartPos;
+                        EndChildNode;
+                        ReadNextAtom;
+                      end else begin
+                        CurNode.EndPos:=CurPos.StartPos;
+                        EndChildNode;
+                        break;
+                      end;
+                    until false;
+                  end else begin
+                    // positional: first id is a type
+                    CreateChildNode;
+                    CurNode.Desc:=ctnVarDefinition;
+                    CreateChildNode;
+                    CurNode.Desc:=ctnIdentifier;
+                    CurNode.EndPos:=CurPos.EndPos;
+                    EndChildNode;
+                    CurNode.EndPos:=CurPos.EndPos;
+                    EndChildNode;
+                    ReadNextAtom;
+                  end;
+                end else begin
+                  // positional: single type identifier
+                  MoveCursorToCleanPos(SavedPos);
+                  ReadNextAtom;
+                  CreateChildNode;
+                  CurNode.Desc:=ctnVarDefinition;
+                  CreateChildNode;
+                  CurNode.Desc:=ctnIdentifier;
+                  CurNode.EndPos:=CurPos.EndPos;
+                  EndChildNode;
+                  CurNode.EndPos:=CurPos.EndPos;
+                  EndChildNode;
+                  ReadNextAtom;
+                end;
+              end else begin
+                // non-identifier token (e.g. string keyword): positional
+                CreateChildNode;
+                CurNode.Desc:=ctnVarDefinition;
+                ReadNextAtom;
+                CurNode.EndPos:=CurPos.StartPos;
+                EndChildNode;
+              end;
+              if (CurPos.Flag=cafRoundBracketClose) then break;
+              if (CurPos.Flag=cafComma) or (CurPos.Flag=cafSemicolon) then
+                ReadNextAtom
+              else
+                break;
+            until false;
+            if (CurPos.Flag=cafRoundBracketClose) then begin
+              CurNode.EndPos:=CurPos.EndPos;
+              EndChildNode; // close ctnRecordType
+              ReadNextAtom;
+            end else begin
+              CurNode.EndPos:=CurPos.EndPos;
+              EndChildNode;
+            end;
+          end else begin
+            // enum
+            CreateChildNode;
+            CurNode.Desc:=ctnEnumerationType;
+            repeat
+              ReadNextAtom;
+              if (CurPos.Flag=cafRoundBracketClose) then break;
+              AtomIsIdentifierSaveE(20180411194228);
+              CreateChildNode;
+              CurNode.Desc:=ctnEnumIdentifier;
+              CurNode.EndPos:=CurPos.EndPos;
+              EndChildNode;
+              ReadNextAtom;
+              if AtomIs(':=') or (CurPos.Flag=cafEqual) then begin
+                ReadNextAtom;
+                ReadConstant(true,false,[]);
+              end;
+              if (CurPos.Flag=cafRoundBracketClose) then break;
+              if (CurPos.Flag<>cafComma) then
+                SaveRaiseCharExpectedButAtomFound(20170421195839,')');
+            until false;
+            CurNode.EndPos:=CurPos.EndPos;
+            EndChildNode;
+            ReadNextAtom;
+          end;
+        end else begin
+          // no TUPLES modeswitch: standard enum parsing
+          CreateChildNode;
+          CurNode.Desc:=ctnEnumerationType;
+          repeat
+            ReadNextAtom;
+            if (CurPos.Flag=cafRoundBracketClose) then break;
+            AtomIsIdentifierSaveE(20180411194228);
+            CreateChildNode;
+            CurNode.Desc:=ctnEnumIdentifier;
+            CurNode.EndPos:=CurPos.EndPos;
+            EndChildNode;
+            ReadNextAtom;
+            if AtomIs(':=') or (CurPos.Flag=cafEqual) then begin
+              ReadNextAtom;
+              ReadConstant(true,false,[]);
+            end;
+            if (CurPos.Flag=cafRoundBracketClose) then break;
+            if (CurPos.Flag<>cafComma) then
+              SaveRaiseCharExpectedButAtomFound(20170421195839,')');
+          until false;
+          CurNode.EndPos:=CurPos.EndPos;
+          EndChildNode;
+          ReadNextAtom;
+        end;
       end else
         SaveRaiseException(20170421195144,ctsInvalidType);
     end;
