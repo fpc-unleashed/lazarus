@@ -1716,6 +1716,10 @@ begin
         EndChildNode;
       end;
     end;
+  end else if (cmsTuples in Scanner.CompilerModeSwitches)
+              and (CurPos.Flag=cafRoundBracketOpen) then begin
+    // tuple parameter type: (Integer, String) or (a, b: Integer)
+    KeyWordFuncTypeDefault;
   end else begin
     if ExceptionOnError then
       SaveRaiseStringExpectedButAtomFound(20170421195442,ctsIdentifier)
