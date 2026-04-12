@@ -799,6 +799,11 @@ begin
             s := s + ':' + IdentItem.ResultType;
           s:=s+';'
         end;
+      ctnVarDefinition:
+        begin
+          if IdentItem.ResultType<>'' then
+            s:=' : '+IdentItem.ResultType;
+        end;
       ctnCodeTemplate:
         begin
           if IdentItem is TCodeTemplateIdentifierListItem then
