@@ -5718,7 +5718,14 @@ begin
               // named group: id (, id)* : type
               // positional: type (, type)*
               // detect by checking for ':' after id(s)
-              if AtomIsIdentifier then begin
+              if (CurPos.Flag=cafRoundBracketOpen) then begin
+                // nested tuple as positional field
+                CreateChildNode;
+                CurNode.Desc:=ctnVarDefinition;
+                KeyWordFuncTypeDefault();
+                CurNode.EndPos:=CurPos.StartPos;
+                EndChildNode;
+              end else if AtomIsIdentifier then begin
                 // save and peek for ':'
                 SavedPos:=CurPos.StartPos;
                 ReadNextAtom;
