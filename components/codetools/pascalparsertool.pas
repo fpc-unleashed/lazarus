@@ -1415,9 +1415,13 @@ function TPascalParserTool.ReadParamList(ExceptionOnError, Extract: boolean;
    procedure P(Parameter1: Type1; Parameter2: Type2);
    procedure MacProcName(c: char; ...); external;
    procedure P(const [ref] Obj: TObject);
+   procedure P((a, b): TTuple);                    // destructuring
+   procedure P((a, b: Integer; c: String));        // inline named tuple
 }
 var CloseBracket: char;
   Node: TCodeTreeNode;
+  IsTupleParam: boolean;
+  TupleInlineHandled: boolean;
 
   procedure ReadPrefixModifier;
   begin
@@ -1504,6 +1508,17 @@ begin
         break;
       end else begin
         ReadPrefixModifier;
+        IsTupleParam:=false;
+        TupleInlineHandled:=false;
+        if (cmsTuples in Scanner.CompilerModeSwitches)
+           and (CurPos.Flag=cafRoundBracketOpen) then begin
+          // tuple destructure (a, b): T, or inline named tuple (a, b: T; c: U)
+          IsTupleParam:=true;
+          if not Extract then
+            ReadNextAtom
+          else
+            ExtractNextAtom(not (phpWithoutParamList in Attr),Attr);
+        end;
         // read parameter name(s)
         repeat
           if (CurPos.Flag=cafEdgedBracketOpen) and AllowAttributes then begin
@@ -1537,35 +1552,122 @@ begin
               ExtractNextAtom(not (phpWithoutParamList in Attr),Attr);
           end;
         until false;
-        if CurPos.Flag=cafColon then begin
-          // read parameter type
-          if not Extract then
-            ReadNextAtom
-          else
-            // extract the colon if parameter names and types are requested
-            ExtractNextAtom(
-              [phpWithoutParamList,phpWithoutParamTypes,phpWithParameterNames]*Attr
-              =[phpWithParameterNames],
-              Attr);
-          if not ReadParamType(ExceptionOnError,Extract,Attr) then exit;
-          if CurPos.Flag=cafEqual then begin
-            // read default value
-            ReadDefaultValue;
+        if IsTupleParam then begin
+          if CurPos.Flag=cafRoundBracketClose then begin
+            // pure destructure (a, b): Type - consume ')', fall through to ':' type
+            if not Extract then
+              ReadNextAtom
+            else
+              ExtractNextAtom(not (phpWithoutParamList in Attr),Attr);
+          end else if CurPos.Flag=cafColon then begin
+            // inline named tuple (a, b: T1[; c: T2 ...]) - parse inner type(s)
+            if not Extract then
+              ReadNextAtom
+            else
+              ExtractNextAtom(
+                [phpWithoutParamList,phpWithoutParamTypes,phpWithParameterNames]*Attr
+                =[phpWithParameterNames],
+                Attr);
+            if not ReadParamType(ExceptionOnError,Extract,Attr) then exit;
+            if (phpCreateNodes in Attr) then begin
+              CurNode.EndPos:=CurPos.StartPos;
+              EndChildNode;
+            end;
+            while CurPos.Flag=cafSemicolon do begin
+              if not Extract then
+                ReadNextAtom
+              else
+                ExtractNextAtom(not (phpWithoutParamList in Attr),Attr);
+              repeat
+                if not AtomIsIdentifier then begin
+                  if ExceptionOnError then
+                    AtomIsIdentifierSaveE(20260414100001);
+                  exit;
+                end;
+                if (phpCreateNodes in Attr) then begin
+                  CreateChildNode;
+                  CurNode.Desc:=ctnVarDefinition;
+                end;
+                if not Extract then
+                  ReadNextAtom
+                else
+                  ExtractNextAtom(phpWithParameterNames in Attr,Attr);
+                if CurPos.Flag<>cafComma then
+                  break;
+                if (phpCreateNodes in Attr) then begin
+                  CurNode.EndPos:=LastAtoms.GetPriorAtom.EndPos;
+                  EndChildNode;
+                end;
+                if not Extract then
+                  ReadNextAtom
+                else
+                  ExtractNextAtom(not (phpWithoutParamList in Attr),Attr);
+              until false;
+              if CurPos.Flag<>cafColon then begin
+                if ExceptionOnError then
+                  RaiseCharExpectedButAtomFound(20260414100002,':');
+                exit;
+              end;
+              if not Extract then
+                ReadNextAtom
+              else
+                ExtractNextAtom(
+                  [phpWithoutParamList,phpWithoutParamTypes,phpWithParameterNames]*Attr
+                  =[phpWithParameterNames],
+                  Attr);
+              if not ReadParamType(ExceptionOnError,Extract,Attr) then exit;
+              if (phpCreateNodes in Attr) then begin
+                CurNode.EndPos:=CurPos.StartPos;
+                EndChildNode;
+              end;
+            end;
+            if CurPos.Flag<>cafRoundBracketClose then begin
+              if ExceptionOnError then
+                RaiseCharExpectedButAtomFound(20260414100003,')');
+              exit;
+            end;
+            if not Extract then
+              ReadNextAtom
+            else
+              ExtractNextAtom(not (phpWithoutParamList in Attr),Attr);
+            TupleInlineHandled:=true;
+          end else begin
+            if ExceptionOnError then
+              RaiseCharExpectedButAtomFound(20260414100004,')');
+            exit;
           end;
-        end else if (CurPos.Flag in [cafSemicolon,cafRoundBracketClose,cafEdgedBracketClose])
-        then begin
-          // no type -> variant
+        end;
+        if not TupleInlineHandled then begin
+          if CurPos.Flag=cafColon then begin
+            // read parameter type
+            if not Extract then
+              ReadNextAtom
+            else
+              // extract the colon if parameter names and types are requested
+              ExtractNextAtom(
+                [phpWithoutParamList,phpWithoutParamTypes,phpWithParameterNames]*Attr
+                =[phpWithParameterNames],
+                Attr);
+            if not ReadParamType(ExceptionOnError,Extract,Attr) then exit;
+            if CurPos.Flag=cafEqual then begin
+              // read default value
+              ReadDefaultValue;
+            end;
+          end else if (CurPos.Flag in [cafSemicolon,cafRoundBracketClose,cafEdgedBracketClose])
+          then begin
+            // no type -> variant
+            if (phpCreateNodes in Attr) then begin
+              CreateChildNode;
+              CurNode.Desc:=ctnVariantType;
+              CurNode.EndPos:=CurNode.StartPos;
+              EndChildNode;
+            end;
+          end else
+            RaiseCharExpectedButAtomFound(20170421195425,':');
           if (phpCreateNodes in Attr) then begin
-            CreateChildNode;
-            CurNode.Desc:=ctnVariantType;
-            CurNode.EndPos:=CurNode.StartPos;
+            CurNode.EndPos:=CurPos.StartPos;
             EndChildNode;
           end;
-        end else
-          RaiseCharExpectedButAtomFound(20170421195425,':');
-        if (phpCreateNodes in Attr) then begin
-          CurNode.EndPos:=CurPos.StartPos;
-          EndChildNode;
         end;
       end;
       // read next parameter
