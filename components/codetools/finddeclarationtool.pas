@@ -15519,13 +15519,9 @@ function TFindDeclarationTool.ExtractInlineVarInitType(
       Result:='Double'
     else if AtomIsNumber then
       Result:='Integer'
-    else if AtomIsStringConstant then begin
-      if (CurPos.EndPos-CurPos.StartPos=3)
-         and (Src[CurPos.StartPos]='''') then
-        Result:='Char'
-      else
-        Result:='String';
-    end
+    else if AtomIsStringConstant then
+      // Char literals are promoted to String in inline vars.
+      Result:='String'
     else if CurPos.Flag=cafWord then begin
       if UpAtomIs('TRUE') or UpAtomIs('FALSE') then
         Result:='Boolean'
