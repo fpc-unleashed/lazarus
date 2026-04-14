@@ -1844,18 +1844,29 @@ end;
 
 function TPascalReaderTool.ExtractNextTypeRef(Add: boolean;
   const Attr: TProcHeadAttributes): boolean;
+var
+  TupleDepth: integer;
 begin
   Result:=false;
   ExtractNextAtom(Add,Attr);
   if (Scanner.CompilerMode in [cmOBJFPC,cmUnleashed]) and UpAtomIs('SPECIALIZE') then
     ExtractNextAtom(Add,Attr);
-  // tuple type: extract entire (...) including content
+  // tuple type: extract entire (...) including content, handling nested tuples
   if (cmsTuples in Scanner.CompilerModeSwitches) and
      (CurPos.Flag=cafRoundBracketOpen) then begin
-    // read and extract until matching )
+    TupleDepth:=1;
     ExtractNextAtom(Add,Attr);
-    while (CurPos.StartPos<=SrcLen) and (CurPos.Flag<>cafRoundBracketClose) do
+    while (CurPos.StartPos<=SrcLen) and (TupleDepth>0) do begin
+      case CurPos.Flag of
+        cafRoundBracketOpen: inc(TupleDepth);
+        cafRoundBracketClose:
+          begin
+            dec(TupleDepth);
+            if TupleDepth=0 then break;
+          end;
+      end;
       ExtractNextAtom(Add,Attr);
+    end;
     if CurPos.Flag=cafRoundBracketClose then
       ExtractNextAtom(Add,Attr);
     Result:=true;
