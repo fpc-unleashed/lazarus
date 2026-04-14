@@ -327,6 +327,7 @@ var
   HintModifier: TPascalHintModifier;
   HelperForNode: TCodeTreeNode;
   ScaledImgList: TScaledImageListResolution;
+  InlineType: string;
 begin
 
   SetBkMode(ACanvas.Handle, TRANSPARENT);
@@ -721,7 +722,13 @@ begin
       ctnVarDefinition:
         begin
           ANode:=IdentItem.Tool.FindTypeNodeOfDefinition(ItemNode);
-          s:=' : '+IdentItem.Tool.ExtractNode(ANode,[]);
+          if ANode<>nil then
+            s:=' : '+IdentItem.Tool.ExtractNode(ANode,[])
+          else begin
+            InlineType:=IdentItem.Tool.ExtractInlineVarInitType(ItemNode);
+            if InlineType<>'' then
+              s:=' : '+InlineType;
+          end;
         end;
 
       ctnTypeDefinition:

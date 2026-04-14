@@ -1024,6 +1024,8 @@ type
     function FindEnumerationTypeOfSetType(SetTypeNode: TCodeTreeNode;
       out Context: TFindContext): boolean;
 
+    function ExtractInlineVarInitType(VarDefNode: TCodeTreeNode): string;
+
     // uses and units
     function FindNameInUsesSection(UsesNode: TCodeTreeNode; const AUnitName: string): TCodeTreeNode;
     function FindUnitInUsesSection(UsesNode: TCodeTreeNode; const AnUnitName: string;
@@ -15498,6 +15500,139 @@ begin
     Context.Tool:=Self;
     Context.Node:=Child;
     Result:=true;
+  end;
+end;
+
+function TFindDeclarationTool.ExtractInlineVarInitType(
+  VarDefNode: TCodeTreeNode): string;
+// Infer a display type string for `var x := expr` declarations without an
+// explicit type annotation. Handles simple literals (Integer, Double, String,
+// Char, Boolean, Pointer), tuple literals with scalar or nested elements,
+// and identifier/function-call expressions resolved via FindTermTypeAsString.
+// Returns '' when inference is not possible.
+
+  function ScanLiteralType: string;
+  begin
+    Result:='';
+    if CurPos.StartPos>SrcLen then exit;
+    if AtomIsRealNumber then
+      Result:='Double'
+    else if AtomIsNumber then
+      Result:='Integer'
+    else if AtomIsStringConstant then begin
+      if (CurPos.EndPos-CurPos.StartPos=3)
+         and (Src[CurPos.StartPos]='''') then
+        Result:='Char'
+      else
+        Result:='String';
+    end
+    else if CurPos.Flag=cafWord then begin
+      if UpAtomIs('TRUE') or UpAtomIs('FALSE') then
+        Result:='Boolean'
+      else if UpAtomIs('NIL') then
+        Result:='Pointer';
+    end;
+  end;
+
+  function ScanTupleType: string;
+  var
+    ElemType, FieldName: string;
+    SavedPos: integer;
+  begin
+    Result:='';
+    if CurPos.Flag<>cafRoundBracketOpen then exit;
+    ReadNextAtom;
+    Result:='(';
+    repeat
+      if CurPos.StartPos>SrcLen then exit('');
+      if CurPos.Flag=cafRoundBracketClose then break;
+      if Result<>'(' then Result:=Result+', ';
+      FieldName:='';
+      if AtomIsIdentifier then begin
+        SavedPos:=CurPos.StartPos;
+        FieldName:=GetAtom;
+        ReadNextAtom;
+        if CurPos.Flag<>cafColon then begin
+          MoveCursorToCleanPos(SavedPos);
+          ReadNextAtom;
+          FieldName:='';
+        end else
+          ReadNextAtom;
+      end;
+      if CurPos.Flag=cafRoundBracketOpen then
+        ElemType:=ScanTupleType()
+      else
+        ElemType:=ScanLiteralType();
+      if ElemType='' then exit('');
+      if FieldName<>'' then
+        Result:=Result+FieldName+': '+ElemType
+      else
+        Result:=Result+ElemType;
+      ReadNextAtom;
+      if CurPos.Flag<>cafComma then break;
+      ReadNextAtom;
+    until false;
+    if CurPos.Flag=cafRoundBracketClose then
+      Result:=Result+')'
+    else
+      Result:='';
+  end;
+
+var
+  ExprStart, ExprEnd, BracketDepth: integer;
+  TermPos: TAtomPosition;
+  Params: TFindDeclarationParams;
+  ExprType: TExpressionType;
+begin
+  Result:='';
+  if (VarDefNode=nil) or (VarDefNode.Desc<>ctnVarDefinition) then exit;
+  if VarDefNode.FirstChild<>nil then exit;
+  if (VarDefNode.Parent=nil) or (VarDefNode.Parent.Desc<>ctnVarSection) then exit;
+  MoveCursorToCleanPos(VarDefNode.StartPos);
+  ReadNextAtom;
+  if not AtomIsIdentifier then exit;
+  ReadNextAtom;
+  if CurPos.Flag<>cafAssignment then exit;
+  ReadNextAtom;
+  if CurPos.StartPos>SrcLen then exit;
+  // literal paths first
+  if CurPos.Flag=cafRoundBracketOpen then
+    Result:=ScanTupleType()
+  else
+    Result:=ScanLiteralType();
+  if Result<>'' then exit;
+  // fallback: resolve the expression (identifier, function call, ...)
+  // scan from first atom to end of term (';', or matched brackets)
+  ExprStart:=CurPos.StartPos;
+  ExprEnd:=ExprStart;
+  BracketDepth:=0;
+  repeat
+    if CurPos.StartPos>SrcLen then break;
+    case CurPos.Flag of
+      cafRoundBracketOpen,cafEdgedBracketOpen: inc(BracketDepth);
+      cafRoundBracketClose,cafEdgedBracketClose:
+        begin
+          if BracketDepth=0 then break;
+          dec(BracketDepth);
+        end;
+      cafSemicolon:
+        if BracketDepth=0 then break;
+    end;
+    ExprEnd:=CurPos.EndPos;
+    ReadNextAtom;
+  until false;
+  if ExprEnd<=ExprStart then exit;
+  TermPos.StartPos:=ExprStart;
+  TermPos.EndPos:=ExprEnd;
+  Params:=TFindDeclarationParams.Create(Self, VarDefNode);
+  try
+    try
+      Result:=FindTermTypeAsString(TermPos, Params, ExprType);
+    except
+      Result:='';
+    end;
+  finally
+    Params.Free;
   end;
 end;
 
