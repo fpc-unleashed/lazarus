@@ -3417,8 +3417,14 @@ end;
 
 function TPascalParserTool.IsTryExpression(TryStartPos: integer): boolean;
 { Returns true if the 'try' at TryStartPos is a statement expression try
-  (preceded by ':=' after skipping whitespace/comments backwards).
-  Examples: s := try X except Y;  var c := try X except Y; }
+  (starts at an expression boundary after skipping whitespace/comments).
+  Examples:
+    s := try X except Y;
+    var c := try X except Y;
+    writeln(try X except Y);
+    arr[try X except Y];
+    foo(a, try X except Y);
+    const c = try X except Y; }
 var
   p: integer;
 begin
@@ -3427,12 +3433,17 @@ begin
   // skip whitespace backwards
   while (p>=1) and (Src[p] in [#1..#32]) do
     dec(p);
-  // check for '='
-  if (p>=1) and (Src[p]='=') then begin
-    dec(p);
-    // check for ':' before '=' (i.e. ':=')
-    if (p>=1) and (Src[p]=':') then
-      Result:=true;
+  if p<1 then exit;
+  case Src[p] of
+    '(','[',',': Result:=true;                           // arg list / index / tuple
+    '=':
+      begin
+        // ':=' or '='
+        if (p>=2) and (Src[p-1]=':') then
+          Result:=true
+        else if (p<2) or not (Src[p-1] in ['<','>','=']) then
+          Result:=true; // '=' as in const/typed const initializer
+      end;
   end;
 end;
 
@@ -3760,7 +3771,9 @@ begin
         // Track statement expression try depth
         // (e.g. var s := try X except Y; has no 'end')
         if UpAtomIs('TRY') then begin
-          if (LastAtoms.GetPriorAtom.Flag = cafAssignment)
+          if (LastAtoms.GetPriorAtom.Flag in
+              [cafAssignment,cafRoundBracketOpen,cafEdgedBracketOpen,
+               cafComma,cafEqual])
           or (TryExprDepth > 0) then
             inc(TryExprDepth);
         end
