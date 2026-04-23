@@ -1377,7 +1377,7 @@ begin
   CurNode.Desc:=ctnProcedureHead;
   CheckOperatorProc(ParseAttr);
   ReadNextAtom;
-  if IsGeneric or (Scanner.CompilerMode in [cmDELPHI,cmDELPHIUNICODE]) then
+  if IsGeneric or (Scanner.CompilerMode in [cmDELPHI,cmDELPHIUNICODE]) or (cmsImplicitGenerics in Scanner.CompilerModeSwitches) then
     ReadGenericParamList(IsGeneric,true);
   if (CurPos.Flag<>cafPoint) or (pphIsOperator in ParseAttr) then begin
     // read rest
@@ -4579,7 +4579,7 @@ begin
   if (TypeNode.Desc=ctnGenericType) and (not AtomIsChar('<')) then
     SaveRaiseCharExpectedButAtomFound(20170421195732,'<');
   if AtomIsChar('<')
-  and (IsGeneric or (Scanner.CompilerMode in [cmDELPHI,cmDELPHIUNICODE])) then
+  and (IsGeneric or (Scanner.CompilerMode in [cmDELPHI,cmDELPHIUNICODE]) or (cmsImplicitGenerics in Scanner.CompilerModeSwitches)) then
   begin
     TypeNode.Desc:=ctnGenericType;
     // name
@@ -4900,7 +4900,7 @@ begin
       ReadAnsiStringParams(Extract,Copying,Attr, ParserFlags);
       Next;
     end
-    else if (Scanner.CompilerMode in [cmDELPHI,cmDELPHIUNICODE]) then begin
+    else if (Scanner.CompilerMode in [cmDELPHI,cmDELPHIUNICODE]) or (cmsImplicitGenerics in Scanner.CompilerModeSwitches) then begin
       repeat
         // e.g. atype<params>
         if CurPos.StartPos = p then begin
@@ -6793,7 +6793,7 @@ begin
     {$ENDIF}
     CreateChildNode(ctnSpecialize, ParserFlags);
     Next;
-  end else if Scanner.CompilerMode in [cmDELPHI,cmDELPHIUNICODE] then begin
+  end else if (Scanner.CompilerMode in [cmDELPHI,cmDELPHIUNICODE]) or (cmsImplicitGenerics in Scanner.CompilerModeSwitches) then begin
     UndoReadNextAtom;
     CreateChildNode(ctnSpecialize, ParserFlags);
   end else begin
@@ -6805,7 +6805,7 @@ begin
   if not AtomIsIdentifierSaveE(20180411194257, not(ppDontRaiseExceptionOnError in ParserFlags)) then
     exit;
   CreateChildNode(ctnSpecializeType, CurPos.EndPos, ParserFlags);
-  if Scanner.CompilerMode in [cmDELPHI,cmDELPHIUNICODE] then
+  if (Scanner.CompilerMode in [cmDELPHI,cmDELPHIUNICODE]) or (cmsImplicitGenerics in Scanner.CompilerModeSwitches) then
     ReadNextAtom // if Extract=true: was already extracted
   else
     Next;

@@ -231,6 +231,7 @@ type
     cmsArrayEquality,      { allow array equality comparison }
     cmsInlineVars,         { allow inline variable declarations inside statement blocks }
     cmsTuples,             { allow anonymous tuple types and related syntax }
+    cmsImplicitGenerics,   { Delphi-style generic syntax: 'generic'/'specialize' keywords optional, <T> allowed }
 
     // not yet in FPC, supported by pas2js:
     cmsExternalClass,      { pas2js: allow  class external [pkgname] name [symbol] }
@@ -251,7 +252,7 @@ const
      cmsOut,cmsDefault_para,cmsDuplicate_names,cmsHintdirective,
      cmsProperty,cmsDefault_inline,cmsExcept,cmsAdvancedRecords,
      cmsPrefixedAttributes,cmsArrayOperators,cmsUnderscoreIsSeparator,
-     cmsFunctionReferences,cmsAnonymousFunctions],
+     cmsFunctionReferences,cmsAnonymousFunctions,cmsImplicitGenerics],
     // cmDELPHIUNICODE
     [cmsClass,cmsObjpas,cmsResult,cmsString_pchar,
      cmsPointer_2_procedure,cmsAutoderef,cmsTp_procvar,cmsInitfinal,
@@ -259,7 +260,7 @@ const
      cmsProperty,cmsDefault_inline,cmsExcept,cmsAdvancedRecords,
      cmsSystemcodepage,cmsDefault_unicodestring,
      cmsPrefixedAttributes,cmsArrayOperators,cmsUnderscoreIsSeparator,
-     cmsFunctionReferences,cmsAnonymousFunctions],
+     cmsFunctionReferences,cmsAnonymousFunctions,cmsImplicitGenerics],
     // cmTP
     [cmsTp_procvar,cmsDuplicate_names],
     // cmOBJFPC
@@ -338,6 +339,7 @@ const
     'ARRAYEQUALITY',
     'INLINEVARS',
     'TUPLES',
+    'IMPLICITGENERICS',
     // not yet in FPC, supported by pas2js:
     'EXTERNALCLASS',
     'IGNOREATTRIBUTES',
