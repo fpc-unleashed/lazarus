@@ -6911,21 +6911,35 @@ var
       cafEdgedBracketOpen:
         BeginBlock(Stack,btEdgedBracket,CurPos.StartPos);
       cafEdgedBracketClose:
-        if TopBlockType(Stack)=btEdgedBracket then begin
-          if not EndBlockIsOk then exit;
-        end else begin
-          // missing [
-          exit;
+        begin
+          // pop pending expression-level blocks (if/ifElse as statement expression)
+          while TopBlockType(Stack) in [btIf,btIfElse] do
+            if not EndBlockIsOk then exit;
+          if TopBlockType(Stack)=btEdgedBracket then begin
+            if not EndBlockIsOk then exit;
+          end else begin
+            // missing [
+            exit;
+          end;
         end;
       cafRoundBracketOpen:
         BeginBlock(Stack,btRoundBracket,CurPos.StartPos);
       cafRoundBracketClose:
-        if TopBlockType(Stack)=btRoundBracket then begin
-          if not EndBlockIsOk then exit;
-        end else begin
-          // missing (
-          exit;
+        begin
+          // pop pending expression-level blocks (if/ifElse as statement expression)
+          while TopBlockType(Stack) in [btIf,btIfElse] do
+            if not EndBlockIsOk then exit;
+          if TopBlockType(Stack)=btRoundBracket then begin
+            if not EndBlockIsOk then exit;
+          end else begin
+            // missing (
+            exit;
+          end;
         end;
+      cafComma:
+        // close if/ifElse statement expressions on argument separators
+        while TopBlockType(Stack) in [btIf,btIfElse] do
+          if not EndBlockIsOk then exit;
       cafColon:
         if TopBlockType(Stack)=btCaseOf then
           BeginBlock(Stack,btCaseColon,CurPos.StartPos);
@@ -6939,11 +6953,18 @@ var
           if UpAtomIs('BEGIN') then
             BeginBlock(Stack,btBegin,CurPos.StartPos)
           else if UpAtomIs('TRY') then begin
-            // Skip block push for statement expression try (e.g. s := try ... except ...)
-            if LastAtoms.GetPriorAtom.Flag<>cafAssignment then
-              BeginBlock(Stack,btTry,CurPos.StartPos)
+            // Skip block push for statement expression try where `try` starts an expression:
+            //   s := try X except Y
+            //   writeln(try X except Y)
+            //   arr[try X except Y]
+            //   foo(a, try X except Y)
+            //   const c = try X except Y
+            if LastAtoms.GetPriorAtom.Flag in
+              [cafAssignment,cafRoundBracketOpen,cafEdgedBracketOpen,
+               cafComma,cafEqual] then
+              DebugLn(['ReadStatements SKIPPING statement expression try at ',CleanPosToStr(CurPos.StartPos),' PriorAtom=',GetAtom(LastAtoms.GetPriorAtom)])
             else
-              DebugLn(['ReadStatements SKIPPING statement expression try at ',CleanPosToStr(CurPos.StartPos),' PriorAtom=',GetAtom(LastAtoms.GetPriorAtom)]);
+              BeginBlock(Stack,btTry,CurPos.StartPos);
           end else if UpAtomIs('FINALLY') then begin
             if TopBlockType(Stack)=btTry then begin
               if not EndBlockIsOk then exit;
