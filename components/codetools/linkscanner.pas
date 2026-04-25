@@ -284,7 +284,8 @@ const
      cmsHintdirective,cmsProperty,cmsDefault_inline,cmsExcept,
      cmsAdvancedRecords,cmsPrefixedAttributes,cmsMultiHelpers,
      cmsFunctionReferences,cmsAnonymousFunctions,
-     cmsStatementExpressions,cmsArrayEquality,cmsInlineVars,cmsTuples]
+     cmsStatementExpressions,cmsArrayEquality,cmsInlineVars,cmsTuples,
+     cmsMultiLineStrings]
     );
   cmAllModesWithGeneric = [cmDELPHI,cmDELPHIUNICODE,cmOBJFPC,cmUnleashed];
   Pas2jsFixedModeswitches = [cmsArray2dynarray,cmsArrayOperators,
@@ -1818,6 +1819,7 @@ var
   c1: char;
   c2: char;
   MacroID: LongInt;
+  StrLvl, StrI: integer; // for delphi multiline triple-quoted strings
   p: PChar;
 begin
   //DebugLn([' TLinkScanner.ReadNextToken SrcPos=',SrcPos,' SrcLen=',SrcLen,' "',dbgstr(Src,SrcPos,5),'"']);
@@ -1928,23 +1930,60 @@ begin
         '''':
           begin
             inc(p);
-            while true do begin
-              case p^ of
-              #0:
-                begin
-                  SrcPos:=p-PChar(Src)+1;
-                  if SrcPos>SrcLen then break;
-                  inc(p);
-                end;
-              '''':
-                begin
-                  inc(p);
-                  break;
-                end;
-              #10,#13:
-                break;
-              else
+            // Delphi-style multiline triple-quote string: '''<NL>...<NL>'''
+            // (also handles '''''<NL>...<NL>''''' with longer odd fences)
+            if (p^='''') and (p[1]='''') then begin
+              StrLvl:=3;
+              inc(p,2);
+              while p^='''' do begin
+                inc(StrLvl);
                 inc(p);
+              end;
+              if (StrLvl and 1)=1 then begin
+                if p^ in [#10,#13] then begin
+                  // multiline literal: read until matching StrLvl quotes
+                  while p^<>#0 do begin
+                    if (p^='''') and (p[1]='''') then begin
+                      StrI:=2;
+                      inc(p,2);
+                      while (p^='''') and (StrI<StrLvl) do begin
+                        inc(StrI);
+                        inc(p);
+                      end;
+                      if StrI=StrLvl then break;
+                    end else
+                      inc(p);
+                  end;
+                end else begin
+                  // odd quote count followed by inline content:
+                  // e.g. '''abc''' or '''''def'''''
+                  while not (p^ in ['''',#0,#10,#13]) do
+                    inc(p);
+                  if p^='''' then
+                    inc(p);
+                end;
+              end;
+              // even quote count (e.g. '''' or '''''') = empty literals,
+              // already consumed by the inc(p,2)+while loop above
+            end else begin
+              while true do begin
+                case p^ of
+                #0:
+                  begin
+                    SrcPos:=p-PChar(Src)+1;
+                    if SrcPos>SrcLen then break;
+                    inc(p);
+                  end;
+                '''':
+                  begin
+                    inc(p);
+                    break;
+                  end;
+                #10,#13:
+                  break;
+                else
+                  inc(p);
+                end;
               end;
             end;
           end;
