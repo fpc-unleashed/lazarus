@@ -279,6 +279,7 @@ type
     function IsIncomplePartAndWordIsPropSpec: boolean;
     function WordIsStatemendEnd: boolean;
     function IsTryExpression(TryStartPos: integer): boolean;
+    function IsCaseExpression(CaseStartPos: integer): boolean;
     function WordIsModifier: boolean;
     function WordIsGenericProcStart: boolean;
     function AllowAttributes: boolean; inline;
@@ -3027,6 +3028,9 @@ var BlockType: TEndBlockType;
   BlockStartPos: integer;
   Desc: TCodeTreeNodeDesc;
   IfType: TIfType;
+  IsExprCase: boolean;
+    // case-as-expression: when 'else' is reached, only one expression follows
+    // and 'end' belongs to the outer block (not to the case)
 
   procedure SaveRaiseExceptionWithBlockStartHint(const AMessage: string);
   var CaretXY: TCodeXYPosition;
@@ -3091,6 +3095,7 @@ begin
   TryType:=ttNone;
   IfType:=itNone;
   Desc:=ctnNone;
+  IsExprCase:=false;
   //debugln(['TPascalParserTool.ReadTilBlockEnd START ',GetAtom]);
   if UpAtomIs('BEGIN') then begin
     BlockType:=ebtBegin;
@@ -3101,8 +3106,10 @@ begin
     BlockType:=ebtTry
   else if UpAtomIs('IF') then
     BlockType:=ebtIf
-  else if UpAtomIs('CASE') or UpAtomIs('MATCH') then
-    BlockType:=ebtCase
+  else if UpAtomIs('CASE') or UpAtomIs('MATCH') then begin
+    BlockType:=ebtCase;
+    IsExprCase:=UpAtomIs('CASE') and IsCaseExpression(CurPos.StartPos);
+  end
   else if UpAtomIs('ASM') then
     BlockType:=ebtAsm
   else if UpAtomIs('RECORD') then
@@ -3195,6 +3202,31 @@ begin
           break;
         end;
       end else if BlockType=ebtCase then begin
+        if IsExprCase then begin
+          // case-as-expression with 'else': the else branch is a single
+          // expression and 'end' belongs to the outer block.
+          //   Result := case x of 1: 'a'; else 'b';
+          //   Result := case x of 1: 'a'; else 'b' end;  (end is outer's)
+          repeat
+            ReadNextAtom;
+            if (CurPos.StartPos>SrcLen) then break;
+            if (CurPos.Flag=cafSemicolon) then begin
+              // case-expression's else terminates here; '; ' belongs to the
+              // outer assignment statement
+              UndoReadNextAtom;
+              break;
+            end;
+            if (CurPos.Flag=cafEND) then begin
+              // 'end' belongs to the outer block
+              UndoReadNextAtom;
+              break;
+            end;
+            if (CurPos.Flag in [cafRoundBracketOpen,cafEdgedBracketOpen]) then
+              ReadTilBracketClose(true);
+          until false;
+          CloseNode;
+          break;
+        end;
       end;
     end else if CreateNodes and UpAtomIs('WITH') then begin
       ReadWithStatement(true,CreateNodes);
@@ -3430,6 +3462,39 @@ var
 begin
   Result:=false;
   p:=TryStartPos-1;
+  // skip whitespace backwards
+  while (p>=1) and (Src[p] in [#1..#32]) do
+    dec(p);
+  if p<1 then exit;
+  case Src[p] of
+    '(','[',',': Result:=true;                           // arg list / index / tuple
+    '=':
+      begin
+        // ':=' or '='
+        if (p>=2) and (Src[p-1]=':') then
+          Result:=true
+        else if (p<2) or not (Src[p-1] in ['<','>','=']) then
+          Result:=true; // '=' as in const/typed const initializer
+      end;
+  end;
+end;
+
+function TPascalParserTool.IsCaseExpression(CaseStartPos: integer): boolean;
+{ Returns true if the 'case' at CaseStartPos is a statement expression case
+  (starts at an expression boundary after skipping whitespace/comments).
+  Examples:
+    s := case x of 1:'a'; else 'b';        (with else: terminates without 'end')
+    s := case x of 1:'a'; 2:'b'; end;      (full coverage: terminates with 'end')
+    var c := case x of 1:'a'; else 'b';
+    writeln(case x of 1:'a'; else 'b');
+    arr[case x of 1:'a'; else 'b'];
+    foo(a, case x of 1:'a'; else 'b');
+    const c = case x of 1:'a'; else 'b'; }
+var
+  p: integer;
+begin
+  Result:=false;
+  p:=CaseStartPos-1;
   // skip whitespace backwards
   while (p>=1) and (Src[p] in [#1..#32]) do
     dec(p);
@@ -3713,12 +3778,16 @@ procedure TPascalParserTool.ReadInlineVarDeclaration(CreateNodes: boolean);
     var s1: string := 'test';
     var s2 := 'test';
     var s3 := try X except Y;
+    var s4 := case x of 1: 'a'; else 'b';
+    var s5 := case x of 1: 'a'; 2: 'b'; end;
     var t: SomeRecord;
   Creates ctnVarSection > ctnVarDefinition nodes when CreateNodes=true.
 }
 var
   BracketDepth: integer;
   TryExprDepth: integer;
+  CaseExprDepth: integer;
+  InCaseElse: boolean;
 begin
   if CreateNodes then begin
     CreateChildNode;
@@ -3756,6 +3825,8 @@ begin
     // Track bracket depth to handle nested expressions like func(a, b)
     BracketDepth := 0;
     TryExprDepth := 0;
+    CaseExprDepth := 0;
+    InCaseElse := false;
     repeat
       ReadNextAtom;
       if CurPos.StartPos > SrcLen then break;
@@ -3764,8 +3835,22 @@ begin
           inc(BracketDepth);
         cafRoundBracketClose, cafEdgedBracketClose:
           dec(BracketDepth);
+        cafEnd:
+          // 'end' inside an open case-expression (no else, full coverage)
+          // closes the case-expression. Otherwise it terminates the var stmt.
+          if BracketDepth = 0 then begin
+            if (CaseExprDepth > 0) and (not InCaseElse) then
+              dec(CaseExprDepth)
+            else begin
+              UndoReadNextAtom;
+              break;
+            end;
+          end;
         cafSemicolon:
-          if BracketDepth = 0 then break;
+          // ';' between case-expression branches (CaseExprDepth>0 and not yet
+          // in else) is part of the case, not the var statement terminator
+          if (BracketDepth = 0)
+          and ((CaseExprDepth = 0) or InCaseElse) then break;
       end;
       if (BracketDepth = 0) and (CurPos.Flag = cafWord) then begin
         // Track statement expression try depth
@@ -3780,6 +3865,22 @@ begin
         else if (TryExprDepth > 0)
         and (UpAtomIs('EXCEPT') or UpAtomIs('FINALLY')) then begin
           dec(TryExprDepth);
+        end
+        // Track statement expression case depth.
+        // case-expression with else has no 'end' (terminates after else expr).
+        // case-expression with full coverage uses 'end' to close.
+        else if UpAtomIs('CASE') then begin
+          if (LastAtoms.GetPriorAtom.Flag in
+              [cafAssignment,cafRoundBracketOpen,cafEdgedBracketOpen,
+               cafComma,cafEqual])
+          or (CaseExprDepth > 0) then begin
+            inc(CaseExprDepth);
+            InCaseElse := false;
+          end;
+        end
+        else if (CaseExprDepth > 0) and (not InCaseElse)
+        and (UpAtomIs('ELSE') or UpAtomIs('OTHERWISE')) then begin
+          InCaseElse := true;
         end
         else if UpAtomIs('END') or UpAtomIs('BEGIN') or UpAtomIs('VAR')
         or UpAtomIs('UNTIL') or UpAtomIs('FINALLY') or UpAtomIs('EXCEPT')
