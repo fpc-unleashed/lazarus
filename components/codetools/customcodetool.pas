@@ -1087,6 +1087,7 @@ procedure TCustomCodeTool.ReadNextAtom;
 var
   c1, c2: char;
   CommentLvl: integer;
+  StrLvl, StrI: integer; // for delphi multiline triple-quoted strings
   p: PChar;
 begin
   if LastAtoms.HasNext then begin
@@ -1262,17 +1263,55 @@ begin
         '''':
           begin
             inc(p);
-            while true do begin
-              case p^ of
-              '''':
-                begin
-                  inc(p);
-                  break;
-                end;
-              #0,#10,#13:
-                break;
-              else
+            // Delphi-style multiline triple-quote string: '''<NL>...<NL>'''
+            // (also handles '''''<NL>...<NL>''''' with longer odd fences)
+            if (p^='''') and (p[1]='''') then begin
+              StrLvl:=3;
+              inc(p,2);
+              while p^='''' do begin
+                inc(StrLvl);
                 inc(p);
+              end;
+              if (StrLvl and 1)=1 then begin
+                if p^ in [#10,#13] then begin
+                  // multiline literal: read until matching StrLvl quotes
+                  while p^<>#0 do begin
+                    if (p^='''') and (p[1]='''') then begin
+                      StrI:=2;
+                      inc(p,2);
+                      while (p^='''') and (StrI<StrLvl) do begin
+                        inc(StrI);
+                        inc(p);
+                      end;
+                      if StrI=StrLvl then break;
+                    end else
+                      inc(p);
+                  end;
+                end else begin
+                  // odd number of quotes followed by content on same line:
+                  // e.g. '''abc''' or '''''def'''''
+                  while not (p^ in ['''',#0,#10,#13]) do
+                    inc(p);
+                  if p^='''' then
+                    inc(p);
+                end;
+              end;
+              // even quote count (e.g. '''' or '''''') = empty literals,
+              // already consumed by the inc(p,2)+while-loop above
+            end else begin
+              // regular single-quote string
+              while true do begin
+                case p^ of
+                '''':
+                  begin
+                    inc(p);
+                    break;
+                  end;
+                #0,#10,#13:
+                  break;
+                else
+                  inc(p);
+                end;
               end;
             end;
           end;
