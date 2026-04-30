@@ -3372,10 +3372,12 @@ var
     if (Node.Parent<>nil)
     and (Node.Parent.Desc in AllClassSections)
     and (Node.Desc=ctnVarDefinition)
-    and (CurrentIdentifierList.StartAtomBehind.Flag<>cafColon) then begin
+    and (CurrentIdentifierList.StartAtomBehind.Flag<>cafColon)
+    and ((Node.Parent.Parent=nil)
+         or not (Node.Parent.Parent.Desc in AllPascalStatements)) then begin
       { cursor is at a class variable definition without type
         for example:
-        
+
         public
           MouseM|
         end;
