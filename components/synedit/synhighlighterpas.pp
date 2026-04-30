@@ -1342,7 +1342,8 @@ const
     'value'
   );
 
-  RESERVED_WORDS_FPC: array [1..7] of String = (
+  RESERVED_WORDS_FPC: array [1..9] of String = (
+    'autofree', 'defer',
     'dispose', 'exit', 'false', 'leave', 'match', 'new', 'true'
   );
 
@@ -2390,6 +2391,9 @@ end;
 
 function TSynPasSyn.Func38: TtkTokenKind;
 begin
+  if KeyCompU('DEFER') then
+    Result := tkKey
+  else
   if IsCallingConventionModifier('NEAR') then
     Result := DoCallingConventionModifier
   else
@@ -3241,6 +3245,9 @@ end;
 function TSynPasSyn.Func91: TtkTokenKind;
 begin
   if KeyCompU('DOWNTO') then
+    Result := tkKey
+  else
+  if KeyCompU('AUTOFREE') then
     Result := tkKey
   else
   if IsClassSection('PRIVATE') then
