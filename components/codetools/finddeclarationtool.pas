@@ -12419,8 +12419,8 @@ begin
     ReadNextAtom;
   if MaxEndPos<0 then MaxEndPos:=SrcLen;
 
-  // read unary operators which have no effect on the type: +, -, not
-  while AtomIsChar('+') or AtomIsChar('-') or UpAtomIs('NOT') do
+  // read unary operators which have no effect on the type: +, -, not, autofree
+  while AtomIsChar('+') or AtomIsChar('-') or UpAtomIs('NOT') or UpAtomIs('AUTOFREE') do
     ReadNextAtom;
   {$IFDEF ShowExprEval}
   DebugLn('[TFindDeclarationTool.ReadOperandTypeAtCursor] A Atom=',GetAtom);
