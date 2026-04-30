@@ -2887,9 +2887,13 @@ begin
       ScannedRange:=lsrFinalizationStart;
       if ord(ScanTill)<=ord(ScannedRange) then exit;
     end else if BlockStatementStartKeyWordFuncList.DoIdentifier(@Src[CurPos.StartPos])
-    and not (UpAtomIs('MATCH') and (LastAtoms.GetPriorAtom.Flag=cafPoint))
+    and not (UpAtomIs('MATCH') and (LastAtoms.GetPriorAtom.Flag in
+      [cafPoint,cafComma,cafRoundBracketOpen,cafEdgedBracketOpen,
+       cafAssignment,cafEqual,cafColon,cafOtherOperator]))
     then begin
-      // 'match' after '.' is a member access (e.g. obj.Match[i]), not a block
+      // 'match' is a context-sensitive keyword; only treat as block start when
+      // at statement position. Preceding ., (, [, ',', :=, =, :, or operator
+      // means it is an identifier (e.g. obj.Match, arr[Match], func(a,Match))
       if not ReadTilBlockEnd(false,true) then
         SaveRaiseEndOfSourceExpected(20170421195551);
     end else if UpAtomIs('WITH') then begin
@@ -3163,10 +3167,13 @@ begin
     end else if CurPos.Flag<>cafWord then begin
       continue;
     end else if BlockStatementStartKeyWordFuncList.DoIdentifier(@Src[CurPos.StartPos])
-    and not (UpAtomIs('MATCH') and (LastAtoms.GetPriorAtom.Flag=cafPoint))
+    and not (UpAtomIs('MATCH') and (LastAtoms.GetPriorAtom.Flag in
+      [cafPoint,cafComma,cafRoundBracketOpen,cafEdgedBracketOpen,
+       cafAssignment,cafEqual,cafColon,cafOtherOperator]))
     then begin
-      // 'match' is a context-sensitive keyword; when preceded by '.' it is a
-      // member access (e.g. obj.Match[i]), not a `match...end` block.
+      // 'match' is a context-sensitive keyword; only treat as block start when
+      // at statement position. Preceding ., (, [, ',', :=, =, :, or operator
+      // means it is an identifier (e.g. obj.Match, arr[Match], func(a,Match))
       if (BlockType<>ebtRecord) then begin
         ReadTilBlockEnd(false,CreateNodes);
         if (BlockType=ebtIf) and (CurPos.Flag in [cafSemicolon]) then
@@ -3569,9 +3576,13 @@ begin
   Result:=true;
   while CurPos.StartPos<=SrcLen do begin
     if BlockStatementStartKeyWordFuncList.DoIdentifier(@Src[CurPos.StartPos])
-    and not (UpAtomIs('MATCH') and (LastAtoms.GetPriorAtom.Flag=cafPoint))
+    and not (UpAtomIs('MATCH') and (LastAtoms.GetPriorAtom.Flag in
+      [cafPoint,cafComma,cafRoundBracketOpen,cafEdgedBracketOpen,
+       cafAssignment,cafEqual,cafColon,cafOtherOperator]))
     then begin
-      // 'match' after '.' is a member access (e.g. obj.Match[i]), not a block
+      // 'match' is a context-sensitive keyword; only treat as block start when
+      // at statement position. Preceding ., (, [, ',', :=, =, :, or operator
+      // means it is an identifier (e.g. obj.Match, arr[Match], func(a,Match))
       // Statement expression try (e.g. s := try X except Y) has no 'end'
       if UpAtomIs('TRY') and IsTryExpression(CurPos.StartPos) then begin
         // Note: except/finally/else are PART of the expression, not enders
