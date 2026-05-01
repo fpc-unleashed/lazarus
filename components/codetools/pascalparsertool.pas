@@ -6905,7 +6905,8 @@ function TPascalParserTool.ReadSpecialize(ParserFlags: TPascalParserFlags; Extra
 begin
   Result := False;
   //debugln(['TPascalParserTool.ReadSpecialize START ',GetAtom]);
-  if Scanner.CompilerMode in [cmOBJFPC,cmUnleashed] then begin
+  if (Scanner.CompilerMode in [cmOBJFPC,cmUnleashed])
+  and not (cmsImplicitGenerics in Scanner.CompilerModeSwitches) then begin
     {$IFDEF CheckNodeTool}
     if not UpAtomIs('SPECIALIZE') then
       SaveRaiseIllegalQualifier(20171106150016);
