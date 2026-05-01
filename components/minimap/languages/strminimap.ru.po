@@ -16,6 +16,10 @@ msgstr ""
 msgid "Initial font size"
 msgstr "Начальный размер шрифта"
 
+#: strminimap.skeepfontcolor
+msgid "Keep font color unchanged"
+msgstr ""
+
 #: strminimap.smapwidth
 msgid "Minimap width"
 msgstr "Ширина миникарты"

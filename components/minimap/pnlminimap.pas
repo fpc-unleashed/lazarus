@@ -14,7 +14,7 @@ unit PnlMiniMap;
 interface
 
 uses
-  Classes, SysUtils, Controls, ExtCtrls, SynEdit, SrcEditorIntf, Graphics, lclType,
+  Classes, SysUtils, Controls, ExtCtrls, Forms, SynEdit, SrcEditorIntf, Graphics, lclType,
   SynEditMarkupSpecialLine, SynEditTypes, SynEditMiscClasses, SynEditMarkupBracket, LazLogger,
   LazLoggerBase, LazEditTextAttributes, EditorOptionsIntf;
 
@@ -22,6 +22,7 @@ Const
   DefaultViewFontSize        = 3;
   DefaultViewWindowColor     = TColor($00E3F33F);
   DefaultViewWindowTextColor = clNone;
+  DefaultKeepFontColor       = False;
   DefaultMapWidth            = 200;
 
 Type
@@ -35,13 +36,17 @@ Type
     FSourceSynEdit: TCustomSynEdit;
     FViewWindowColor:TColor;
     FViewWindowTextColor:TColor;
+    FKeepFontColor: Boolean;
     FViewFontSize: Integer;
+    FInitTimer: TTimer;
     procedure ConfigMiniEdit;
     procedure SetSourceEditor(AValue: TSourceEditorInterface);
     procedure SetViewFontSize(AValue: Integer);
     procedure SetViewWindowColor(AValue: TColor);
     procedure SetViewWindowTextColor(AValue: TColor);
+    procedure SetKeepFontColor(AValue: Boolean);
     procedure SyncMiniMapProps;
+    procedure HandleInitTimer(Sender: TObject);
   Protected
     // Event handlers
     procedure HandleLineMarkup(Sender: TObject; const Info: TSpecialLineMarkupExInfo; var Special: boolean; Markup: TLazEditTextAttributeModifier); virtual;
@@ -58,6 +63,7 @@ Type
     Property SourceEditor: TSourceEditorInterface Read FSourceEditor Write SetSourceEditor;
     Property ViewWindowColor : TColor Read FViewWindowColor Write SetViewWindowColor;
     Property ViewWindowTextColor:TColor Read FViewWindowTextColor Write SetViewWindowTextColor;
+    Property KeepFontColor: Boolean Read FKeepFontColor Write SetKeepFontColor;
     Property ViewFontSize : Integer Read FViewFontSize Write SetViewFontSize;
   end;
 
@@ -79,7 +85,10 @@ begin
   if (Info.Line>=TopLine) and (Info.Line<=BottomLine) then
     begin
     Markup.Background:=FViewWindowColor;
-    Markup.Foreground:=FViewWindowTextColor;
+    if FKeepFontColor then
+      Markup.Foreground:=clNone
+    else
+      Markup.Foreground:=FViewWindowTextColor;
     Special:=True;
     end;
 end;
@@ -87,6 +96,17 @@ end;
 procedure TMiniMapControl.HandleStatusChange(Sender: TObject;
   Changes: TSynStatusChanges);
 begin
+  // handle creation or font/style change in source - re-sync visuals that may
+  // have been defaults when SetSourceEditor ran
+  if Assigned(FSourceSynEdit) and ((scHandleCreated in Changes) or (scFontOrStyleChanged in Changes)) then
+    begin
+    FMiniSynEdit.Color:=FSourceSynEdit.Color;
+    FMiniSynEdit.Font:=FSourceSynEdit.Font;
+    FMiniSynEdit.Font.Size:=FViewFontSize;
+    FMiniSynEdit.Highlighter:=nil;
+    FMiniSynEdit.Highlighter:=FSourceSynEdit.Highlighter;
+    FMiniSynEdit.Invalidate;
+    end;
   SyncViewWindow;
 end;
 
@@ -99,7 +119,25 @@ begin
     begin
     SyncMiniMapProps;
     SyncViewWindow;
+    // source editor's Font/Color/Highlighter/TopLine may still be defaults at
+    // semEditorCreate; defer a full resync past IDE startup paint cycle
+    FInitTimer.Enabled:=True;
     end;
+end;
+
+procedure TMiniMapControl.HandleInitTimer(Sender: TObject);
+begin
+  FInitTimer.Enabled:=False;
+  if not Assigned(FSourceSynEdit) then
+    Exit;
+  // re-pull source visuals; toggle highlighter via nil to force a markup refresh
+  FMiniSynEdit.Color:=FSourceSynEdit.Color;
+  FMiniSynEdit.Font:=FSourceSynEdit.Font;
+  FMiniSynEdit.Font.Size:=FViewFontSize;
+  FMiniSynEdit.Highlighter:=nil;
+  FMiniSynEdit.Highlighter:=FSourceSynEdit.Highlighter;
+  SyncViewWindow;
+  FMiniSynEdit.Invalidate;
 end;
 
 procedure TMiniMapControl.SetViewFontSize(AValue: Integer);
@@ -120,6 +158,13 @@ procedure TMiniMapControl.SetViewWindowTextColor(AValue: TColor);
 begin
   if FViewWindowTextColor=AValue then Exit;
   FViewWindowTextColor:=AValue;
+  FMiniSynEdit.Invalidate;
+end;
+
+procedure TMiniMapControl.SetKeepFontColor(AValue: Boolean);
+begin
+  if FKeepFontColor=AValue then Exit;
+  FKeepFontColor:=AValue;
   FMiniSynEdit.Invalidate;
 end;
 
@@ -158,7 +203,7 @@ begin
     RightEdge:=FSourceSynEdit.RightEdge;
     RightEdgeColor:=FSourceSynEdit.RightEdgeColor;
     Color:=FSourceSynEdit.Color;
-    FSourceSynEdit.RegisterStatusChangedHandler(@HandleStatusChange,[scTopLine, scLinesInWindow]);
+    FSourceSynEdit.RegisterStatusChangedHandler(@HandleStatusChange,[scTopLine, scLinesInWindow, scHandleCreated, scFontOrStyleChanged]);
     end;
 end;
 
@@ -251,6 +296,11 @@ begin
   FViewFontSize:=DefaultViewFontSize;
   FViewWindowColor:=DefaultViewWindowColor;
   FViewWindowTextColor:=DefaultViewWindowTextColor;
+  FKeepFontColor:=DefaultKeepFontColor;
+  FInitTimer:=TTimer.Create(Self);
+  FInitTimer.Enabled:=False;
+  FInitTimer.Interval:=250;
+  FInitTimer.OnTimer:=@HandleInitTimer;
   ConfigMiniEdit;
 end;
 
@@ -274,7 +324,14 @@ end;
 
 procedure TMiniMapControl.Reconfigure;
 begin
+  if not Assigned(FSourceSynEdit) then
+    Exit;
+  FMiniSynEdit.Color:=FSourceSynEdit.Color;
+  FMiniSynEdit.Font:=FSourceSynEdit.Font;
+  FMiniSynEdit.Font.Size:=FViewFontSize;
+  FMiniSynEdit.Highlighter:=nil;
   FMiniSynEdit.Highlighter:=FSourceSynEdit.Highlighter;
+  FMiniSynEdit.Invalidate;
 end;
 
 end.

@@ -23,6 +23,7 @@ type
 
   TMiniMapConfigFrame = class(TAbstractIDEOptionsEditor)
     cbEnabled: TCheckBox;
+    cbKeepFontColor: TCheckBox;
     cbViewWindow: TColorBox;
     cbViewText: TColorBox;
     CDView: TColorDialog;
@@ -33,8 +34,9 @@ type
     lblInitialFontSize: TLabel;
     seWidth: TSpinEditEx;
     seInitialFontSize: TSpinEditEx;
+    procedure cbKeepFontColorChange(Sender: TObject);
   private
-
+    procedure UpdateViewTextEnabled;
   public
     function GetTitle: String; override;
     procedure Setup({%H-}ADialog: TAbstractOptionsEditorDialog); override;
@@ -63,6 +65,18 @@ begin
   lblInitialFontSize.Caption:=SInitialFontSize;
   lblViewWindowColor.Caption:=SViewWindowColor;
   lblViewWindowTextColor.Caption:=SViewWindowTextColor;
+  cbKeepFontColor.Caption:=SKeepFontColor;
+end;
+
+procedure TMiniMapConfigFrame.cbKeepFontColorChange(Sender: TObject);
+begin
+  UpdateViewTextEnabled;
+end;
+
+procedure TMiniMapConfigFrame.UpdateViewTextEnabled;
+begin
+  cbViewText.Enabled:=not cbKeepFontColor.Checked;
+  lblViewWindowTextColor.Enabled:=not cbKeepFontColor.Checked;
 end;
 
 procedure TMiniMapConfigFrame.ReadSettings(AOptions: TAbstractIDEOptions);
@@ -78,6 +92,8 @@ begin
   seInitialFontSize.Value:=C.InitialViewFontSize;
   cbViewWindow.Selected:=C.ViewWindowColor;
   cbViewText.Selected:=C.ViewWindowTextColor;
+  cbKeepFontColor.Checked:=C.KeepFontColor;
+  UpdateViewTextEnabled;
 end;
 
 procedure TMiniMapConfigFrame.WriteSettings(AOptions: TAbstractIDEOptions);
@@ -92,6 +108,7 @@ begin
   C.InitialViewFontSize:=seInitialFontSize.Value;
   C.ViewWindowColor:=cbViewWindow.Selected;
   C.ViewWindowTextColor:=cbViewText.Selected;
+  C.KeepFontColor:=cbKeepFontColor.Checked;
   C.SaveConfig;
   C.ReconfigurePanels;
 end;

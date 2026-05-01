@@ -140,6 +140,19 @@ object MiniMapConfigFrame: TMiniMapConfigFrame
     ItemHeight = 0
     TabOrder = 4
   end
+  object cbKeepFontColor: TCheckBox
+    AnchorSideLeft.Control = cbViewText
+    AnchorSideTop.Control = cbViewText
+    AnchorSideTop.Side = asrBottom
+    Left = 6
+    Height = 23
+    Top = 242
+    Width = 175
+    BorderSpacing.Top = 6
+    Caption = 'Keep font color unchanged'
+    OnChange = cbKeepFontColorChange
+    TabOrder = 6
+  end
   object cbAlignLeft: TCheckBox
     AnchorSideLeft.Control = cbEnabled
     AnchorSideTop.Control = cbEnabled

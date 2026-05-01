@@ -36,6 +36,7 @@ type
     FMapWidth: Integer;
     FViewWindowColor: TColor;
     FViewWindowTextColor: TColor;
+    FKeepFontColor: Boolean;
     procedure EditorReconfigured(Sender: TObject);
     function FindMiniMapForEditor(aEditor: TSourceEditorInterface): TMiniMapControl;
     function GetMiniMap(aIndex : Integer): TMiniMapControl;
@@ -46,6 +47,7 @@ type
     procedure SetMapWidth(AValue: Integer);
     procedure SetViewWindowColor(AValue: TColor);
     procedure SetViewWindowTextColor(AValue: TColor);
+    procedure SetKeepFontColor(AValue: Boolean);
   protected
     procedure NewEditorCreated(Sender: TObject);
     procedure EditorDestroyed(Sender: TObject);
@@ -67,6 +69,7 @@ type
     Property InitialViewFontSize : Integer Read FInitialViewFontSize Write SetInitialViewFontSize;
     Property ViewWindowColor : TColor Read FViewWindowColor Write SetViewWindowColor;
     Property ViewWindowTextColor : TColor Read FViewWindowTextColor Write SetViewWindowTextColor;
+    Property KeepFontColor : Boolean Read FKeepFontColor Write SetKeepFontColor;
     Property ConfigFrame : TAbstractIDEOptionsEditorClass Read FConfigFrame Write FConfigFrame;
   end;
 
@@ -180,6 +183,13 @@ begin
   FNeedSave:=True;
 end;
 
+procedure TMinimapController.SetKeepFontColor(AValue: Boolean);
+begin
+  if FKeepFontColor=AValue then Exit;
+  FKeepFontColor:=AValue;
+  FNeedSave:=True;
+end;
+
 procedure TMinimapController.NewEditorCreated(Sender: TObject);
 
 var
@@ -231,6 +241,7 @@ begin
   aPanel.Width:=MapWidth;
   aPanel.ViewWindowColor:=ViewWindowColor;
   aPanel.ViewWindowTextColor:=ViewWindowTextColor;
+  aPanel.KeepFontColor:=KeepFontColor;
   if aFull then
     aPanel.ViewFontSize:=InitialViewFontSize;
 end;
@@ -243,6 +254,7 @@ begin
   FInitialViewFontSize:=DefaultViewFontSize;
   FViewWindowColor:=DefaultViewWindowColor;
   FViewWindowTextColor:=DefaultViewWindowTextColor;
+  FKeepFontColor:=DefaultKeepFontColor;
   FAlignLeft:=DefaultAlignLeft;
   Enabled:=True;
 end;
@@ -268,6 +280,7 @@ begin
       MapWidth:=GetValue(KeyWidth,DefaultMapWidth);
       ViewWindowColor:=GetValue(KeyViewWindowColor,DefaultViewWindowColor);
       ViewWindowTextColor:=GetValue(KeyViewWindowTextColor,DefaultViewWindowTextColor);
+      KeepFontColor:=GetValue(KeyKeepFontColor,DefaultKeepFontColor);
       InitialViewFontSize:=GetValue(KeyInitialFontSize,DefaultViewFontSize);
       FNeedSave := False;
     finally
@@ -287,6 +300,7 @@ begin
       SetDeleteValue(KeyWidth,MapWidth,DefaultMapWidth);
       SetDeleteValue(KeyViewWindowColor,ViewWindowColor,DefaultViewWindowColor);
       SetDeleteValue(KeyViewWindowTextColor,ViewWindowTextColor,DefaultViewWindowTextColor);
+      SetDeleteValue(KeyKeepFontColor,KeepFontColor,DefaultKeepFontColor);
       SetDeleteValue(KeyInitialFontSize,InitialViewFontSize,DefaultViewFontSize);
       FNeedSave := False;
     finally

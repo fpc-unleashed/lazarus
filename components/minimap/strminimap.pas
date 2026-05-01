@@ -12,6 +12,7 @@ const
   KeyWidth = 'Width';
   KeyViewWindowColor = 'ViewWindowColor';
   KeyViewWindowTextColor = 'ViewWindowTextColor';
+  KeyKeepFontColor = 'KeepFontColor';
   KeyInitialFontSize = 'InitialFontSize';
 
 resourcestring
@@ -23,6 +24,7 @@ resourcestring
   SInitialFontSize = 'Initial font size';
   SViewWindowColor = 'View window color';
   SViewWindowTextColor = 'View window text color';
+  SKeepFontColor = 'Keep font color unchanged';
 
 
 implementation

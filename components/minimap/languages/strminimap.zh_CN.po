@@ -8,6 +8,10 @@ msgstr ""
 msgid "Initial font size"
 msgstr "初始字体大小"
 
+#: strminimap.skeepfontcolor
+msgid "Keep font color unchanged"
+msgstr ""
+
 #: strminimap.smapwidth
 msgid "Minimap width"
 msgstr "小地图宽度"
