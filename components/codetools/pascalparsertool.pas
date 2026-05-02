@@ -3664,8 +3664,32 @@ function TPascalParserTool.ReadWithStatement(ExceptionOnError,
     end;
   end;
   
+  // unleashed: skip optional 'var IDENT [: TYPE] :=' inline-var declaration and
+  // 'autofree' prefix, so ctnWithVariable starts at the actual expression.
+  procedure SkipUnleashedPrefixes;
+  begin
+    if UpAtomIs('VAR') then begin
+      ReadNextAtom;
+      if AtomIsIdentifier then begin
+        ReadNextAtom;
+        if CurPos.Flag=cafColon then
+          while (CurPos.Flag<>cafAssignment)
+          and (CurPos.Flag<>cafComma)
+          and (CurPos.Flag<>cafSemicolon)
+          and (CurPos.StartPos<=SrcLen)
+          and not UpAtomIs('DO') do
+            ReadNextAtom;
+        if CurPos.Flag=cafAssignment then
+          ReadNextAtom;
+      end;
+    end;
+    if UpAtomIs('AUTOFREE') then
+      ReadNextAtom;
+  end;
+
 begin
   ReadNextAtom; // read start of variable
+  SkipUnleashedPrefixes;
   if CreateNodes then begin
     CreateChildNode;
     CurNode.Desc:=ctnWithVariable;
@@ -3681,6 +3705,7 @@ begin
     if CreateNodes then
       EndChildNode;
     ReadNextAtom;
+    SkipUnleashedPrefixes;
     if CreateNodes then begin
       CreateChildNode;
       CurNode.Desc:=ctnWithVariable
