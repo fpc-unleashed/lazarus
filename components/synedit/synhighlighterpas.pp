@@ -610,6 +610,7 @@ type
     FPasFoldFixLevel: Smallint;
     FSpecializeBracketNestLevel: integer;
     FTokenState: TTokenState;
+    FInInlineVarStmt: Boolean;
     procedure SetBracketNestLevel(AValue: integer); inline;
   public
     procedure Clear; override;
@@ -646,6 +647,9 @@ type
       read FLastLineCodeFoldLevelFix write FLastLineCodeFoldLevelFix;
     property PasFoldFixLevel: Smallint read FPasFoldFixLevel write FPasFoldFixLevel;
     property TokenState: TTokenState read FTokenState write FTokenState;
+    // set by `var` inside a statement block; cleared by `;` or `:=`
+    // so `:` is treated as a type intro and `^T` as a pointer type
+    property InInlineVarStmt: Boolean read FInInlineVarStmt write FInInlineVarStmt;
   end;
 
   TProcTableProc = procedure of object;
@@ -2466,7 +2470,11 @@ begin
         StartPascalCodeFoldBlock(cfbtLocalVarBlock)
       else
       if (tfb in [cfbtNone, cfbtProgram, cfbtUnit, cfbtUnitSection]) then
-        StartPascalCodeFoldBlock(cfbtVarBlock);
+        StartPascalCodeFoldBlock(cfbtVarBlock)
+      else
+      if tfb in PascalStatementBlocks then
+        // inline var inside a statement: "begin ... var x: T ... end"
+        PasCodeFoldRange.InInlineVarStmt := True;
       FNextTokenState := tsAfterVarConstType;
       fRange := fRange - [rsProperty, rsInPropertyNameOrIndex,
                           rsInProcHeader, rsInProcName, rsInParamDeclaration, rsInGenericParams, rsInGenericConstraint];
@@ -4987,8 +4995,15 @@ var
 begin
   fTokenID := tkSymbol;
   inc(Run);
-  if LinePtr[Run] = '=' then
-    inc(Run) // ":="
+  if LinePtr[Run] = '=' then begin
+    inc(Run); // ":="
+    // inline var initializer "var x: T := expr": expr is a normal statement,
+    // not a type intro - drop the type-context flags set by the preceding ":"
+    if PasCodeFoldRange.InInlineVarStmt then begin
+      PasCodeFoldRange.InInlineVarStmt := False;
+      fRange := fRange - [rsInTypeSpecification, rsAfterEqualOrColon];
+    end;
+  end
   else begin
     fRange := fRange - [rsAtCaseLabel];
 
@@ -5002,10 +5017,13 @@ begin
 
     tfb := TopPascalCodeFoldBlockType;
     if (not (tfb in PascalStatementBlocks + [cfbtUnit, cfbtUses])) or
-       (fRange * [rsInProcHeader, rsProperty] <> [])
+       (fRange * [rsInProcHeader, rsProperty] <> []) or
+       PasCodeFoldRange.InInlineVarStmt
     then
       fRange := fRange + [rsAfterEqualOrColon];
-    if (tfb in cfbtVarConstTypeExtOrClass + cfbtAnyProcedureContext) then
+    if (tfb in cfbtVarConstTypeExtOrClass + cfbtAnyProcedureContext) or
+       PasCodeFoldRange.InInlineVarStmt
+    then
       fRange := fRange + [rsInTypeSpecification];
 
     // modifiers "alias: 'foo';"
@@ -5018,7 +5036,9 @@ begin
       if tfb in [cfbtConstBlock, cfbtLocalConstBlock, cfbtClassConstBlock] then
         fRange := fRange + [rsInTypedConst]
       else
-      if tfb in PascalStatementBlocks then  // goto label
+      if (tfb in PascalStatementBlocks) and
+         not PasCodeFoldRange.InInlineVarStmt
+      then  // goto label
         FNextTokenState := tsAtBeginOfStatement;
 
     end;
@@ -5168,7 +5188,9 @@ begin
   fTokenID := tkSymbol;
 
   t := TopPascalCodeFoldBlockType;
-  if ( (t in PascalStatementBlocks - [cfbtAsm])                 //cfbtClass, cfbtClassSection,
+  if ( ( (t in PascalStatementBlocks - [cfbtAsm]) and
+         not(rsInTypeSpecification in fRange)        // inline var: "var x: ^T" type intro
+       )
        or
        ( (t in [cfbtVarBlock, cfbtLocalVarBlock, cfbtConstBlock, cfbtLocalConstBlock, cfbtClassConstBlock]) and
          (rsAfterEqual in fRange)
@@ -5621,6 +5643,7 @@ begin
     FNextTokenState := tsAtBeginOfStatement;
 
   fRange := fRange - [rsInTypeSpecification, rsAfterEqual, rsInTypedConst, rsInProcName];
+  PasCodeFoldRange.InInlineVarStmt := False;
 end;
 
 procedure TSynPasSyn.SlashProc;
@@ -8479,6 +8502,7 @@ begin
   FLastLineCodeFoldLevelFix := 0;
   FPasFoldFixLevel := 0;
   FTokenState := tsNone;
+  FInInlineVarStmt := False;
 end;
 
 function TSynPasSynRange.Compare(Range: TLazHighlighterRange): integer;
@@ -8498,6 +8522,7 @@ begin
     FSpecializeBracketNestLevel:=TSynPasSynRange(Src).FSpecializeBracketNestLevel;
     FLastLineCodeFoldLevelFix := TSynPasSynRange(Src).FLastLineCodeFoldLevelFix;
     FPasFoldFixLevel := TSynPasSynRange(Src).FPasFoldFixLevel;
+    FInInlineVarStmt := TSynPasSynRange(Src).FInInlineVarStmt;
   end;
 end;
 
