@@ -173,7 +173,12 @@ type
                           *)
     tsAfterRaise,         // After the raise keyword (or "." or operator inside rsInRaise)
     tsAfterDot,           // [OPT] In Code. For member detection
-    tsAfterMatch          // After "match" keyword, for "match all" highlighting
+    tsAfterMatch,         // After "match" keyword, for "match all" highlighting
+    tsInForHeader,        // Between "for" and "do", for contextual "step" keyword.
+                          //   Set right after "for", and after "to"/"downto"/operator (no value yet)
+    tsInForHeaderAfterValue  // In for-header AND last token completed an expression value:
+                             //   identifier, number, string, ")", "]", "^" deref.
+                             //   Only here is "step" recognized as the keyword.
   );
 
   TTokenStates = set of TTokenState;
@@ -2407,6 +2412,7 @@ begin
     if TopPascalCodeFoldBlockType in PascalStatementBlocks then begin
       DoCodeBlockStatement;
       StartPascalCodeFoldBlock(cfbtForDo);
+      FNextTokenState := tsInForHeader;
     end
     else
     if rsInTypeHelper in FOldRange then begin
@@ -2456,6 +2462,13 @@ begin
     end
   end
   else if KeyCompU('VAR') then begin
+    if FTokenState in [tsInForHeader, tsInForHeaderAfterValue] then begin
+      { inline var inside for-loop header: keep the for-header state alive
+        so contextual `step` later in the same header is still recognized.
+        `var` is not a value-completer, stay in the plain header state }
+      FNextTokenState := tsInForHeader;
+    end
+    else
     if (PasCodeFoldRange.BracketNestLevel = 0) then begin
       tfb := TopPascalCodeFoldBlockType;
       if tfb in cfbtVarConstTypeLabelExt then begin
@@ -2705,6 +2718,14 @@ begin
     Result := tkKey;
     StartPascalCodeFoldBlock(cfbtWithDo);
   end
+  else
+  if KeyCompU('STEP') and (FTokenState = tsInForHeaderAfterValue) then
+    { contextual keyword: only in for-header right after a value-completing
+      token (identifier, number, string, ")", "]"). After "to"/"downto" or
+      an operator, "step" is still part of the upper-bound expression and
+      stays an identifier - so `for i := 1 to step step 2 do` highlights
+      only the second `step`. }
+    Result := tkKey
   else Result := tkIdentifier;
 end;
 
@@ -6317,6 +6338,19 @@ begin
           case FTokenState of
             tsAtSpecializeName:
                 FNextTokenState := tsAfterSpecializeName;
+            tsInForHeader, tsInForHeaderAfterValue:
+                { keep for-header alive until "do" (or any other parser
+                  function that sets FNextTokenState explicitly) clears it.
+                  Track whether the last token completed a value: a value-
+                  completer flips to AfterValue (so a following "step" is
+                  the keyword), an operator/"to"/"downto" flips back to
+                  the plain header state (so "step" there is still an
+                  identifier - the upper-bound variable). }
+                if (FTokenID in [tkIdentifier, tkNumber, tkString]) or
+                   (rsAfterIdentifierOrValue in fRange) then
+                  FNextTokenState := tsInForHeaderAfterValue
+                else
+                  FNextTokenState := tsInForHeader;
           end;
         end;
 
