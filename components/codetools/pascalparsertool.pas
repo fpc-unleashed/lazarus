@@ -3931,7 +3931,9 @@ begin
         end
         else if UpAtomIs('END') or UpAtomIs('BEGIN') or UpAtomIs('VAR')
         or UpAtomIs('UNTIL') or UpAtomIs('FINALLY') or UpAtomIs('EXCEPT')
-        or UpAtomIs('ELSE') or UpAtomIs('THEN') then begin
+        or UpAtomIs('ELSE') or UpAtomIs('THEN')
+        or UpAtomIs('TO') or UpAtomIs('DOWNTO') or UpAtomIs('DO')
+        or UpAtomIs('OF') then begin
           UndoReadNextAtom;
           break;
         end;
