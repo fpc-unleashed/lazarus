@@ -4003,6 +4003,21 @@ begin
   // type
   ParseType(CurPos.StartPos);
 
+  // optional `count IDENT` clause for flexible array members:
+  // record field of type array[] of T may be followed by `count <field>`
+  // binding the FAM to a sibling integer field for debugger pretty-print
+  if UpAtomIs('COUNT') and (CurNode.LastChild<>nil)
+  and (CurNode.LastChild.Desc=ctnRangedArrayType) then
+  begin
+    ReadNextAtom;
+    AtomIsIdentifierSaveE(20260504123000);
+    CreateChildNode;
+    CurNode.Desc:=ctnIdentifier;
+    CurNode.EndPos:=CurPos.EndPos;
+    EndChildNode;
+    ReadNextAtom;
+  end;
+
   ParentNode:=CurNode.Parent;
 
   // optional: absolute
