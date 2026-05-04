@@ -173,7 +173,12 @@ type
                           *)
     tsAfterRaise,         // After the raise keyword (or "." or operator inside rsInRaise)
     tsAfterDot,           // [OPT] In Code. For member detection
-    tsAfterMatch          // After "match" keyword, for "match all" highlighting
+    tsAfterMatch,         // After "match" keyword, for "match all" highlighting
+    tsAfterArrayKw,       // After "array" keyword, watching for "[" of FAM
+    tsInArrayBracket,     // After "array [", watching for empty "]"
+    tsAfterEmptyArrayBracket, // After "array []", watching for "of"
+    tsAfterFamOf,         // After "array [] of", watching for type identifier
+    tsAfterFamType        // After "array [] of TYPE", watching for "count"
   );
 
   TTokenStates = set of TTokenState;
@@ -2054,6 +2059,8 @@ begin
       StartPascalCodeFoldBlock(tfb, True);
       fRange := fRange + [rsAtCaseLabel];
     end;
+    if FTokenState = tsAfterEmptyArrayBracket then
+      FNextTokenState := tsAfterFamOf;
   end
   else
   if (not(FTokenState in [tsAfterRaise, tsAtSpecializeName])) and (PasCodeFoldRange.BracketNestLevel = 0) and
@@ -2793,7 +2800,10 @@ begin
     end;
     Result := tkKey;
   end
-  else if KeyCompU('ARRAY') then Result := tkKey
+  else if KeyCompU('ARRAY') then begin
+    Result := tkKey;
+    FNextTokenState := tsAfterArrayKw;
+  end
   else if KeyCompU('TRY') then
   begin
     if TopPascalCodeFoldBlockType in PascalStatementBlocks + [cfbtUnitSection] then begin
@@ -3011,6 +3021,8 @@ begin
     if TopPascalCodeFoldBlockType = cfbtTry then
       StartPascalCodeFoldBlock(cfbtExcept);
    end
+   else if KeyCompU('COUNT') and (FTokenState = tsAfterFamType) then
+     Result := tkKey
    else Result := tkIdentifier;
 end;
 
@@ -5511,6 +5523,8 @@ begin
     FOldRange := FOldRange - [rsWasInProcHeader];
   if (rsInPropertyNameOrIndex in fRange) and (rrsInParamDeclaration in FRequiredStates) then
     fRange := fRange + [rsInParamDeclaration];
+  if FTokenState = tsAfterArrayKw then
+    FNextTokenState := tsInArrayBracket;
 
   PasCodeFoldRange.IncBracketNestLevel;
 end;
@@ -5522,6 +5536,8 @@ begin
   fRange := fRange + [rsAfterIdentifierOrValue];
   FOldRange := FOldRange - [rsAfterIdentifierOrValue];
   PasCodeFoldRange.DecBracketNestLevel;
+  if FTokenState = tsInArrayBracket then
+    FNextTokenState := tsAfterEmptyArrayBracket;
 
   if (PasCodeFoldRange.BracketNestLevel = 0) then begin
     if fRange * [rsInProcHeader, rsInPropertyNameOrIndex] <> [] then
@@ -6340,6 +6356,9 @@ begin
           case FTokenState of
             tsAtSpecializeName:
                 FNextTokenState := tsAfterSpecializeName;
+            tsAfterFamOf:
+                if FTokenID = tkIdentifier then
+                  FNextTokenState := tsAfterFamType;
           end;
         end;
 
