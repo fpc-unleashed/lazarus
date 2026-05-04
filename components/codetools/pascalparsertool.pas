@@ -3858,6 +3858,10 @@ begin
         // Simple / qualified / generic identifier type: 'TMyType', 'Unit.TMyType'
         ReadTypeReference(true); // creates ctnIdentifier child; CurPos on atom after type
         UndoReadNextAtom;        // put that atom back for the skip loop below
+      end else if (CurPos.StartPos<=SrcLen) and (Src[CurPos.StartPos]='^') then begin
+        // pointer type: `^TYPE`; full ParseType so refactor can resolve `p^.field`
+        ParseType(CurPos.StartPos);
+        UndoReadNextAtom;
       end else begin
         UndoReadNextAtom; // put back the type atom
         UndoReadNextAtom; // put back the colon
