@@ -46,7 +46,7 @@ const
   // CompilerMode names to be shown after -M...
   CompilerModesPretty: array[TCompilerMode] of shortstring = (
       'fpc', 'Delphi', 'DelphiUnicode', 'tp', 'ObjFPC', 'MacPas', 'iso',
-      'ExtPas', 'Unleashed'
+      'ExtPas', 'unleashed'
     );
   // CompilerMode descriptions.
   CompilerModesDescr: array[TCompilerMode] of shortstring = (

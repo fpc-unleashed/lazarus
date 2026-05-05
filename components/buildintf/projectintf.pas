@@ -1237,8 +1237,9 @@ end;
 
 function TFileDescPascalUnit.GetUnitDirectives: string;
 begin
-  Result:='{$mode objfpc}{$H+}';
-  if Owner is TLazProject then
+  Result:='{$mode unleashed}';
+  // delegate to project or package compiler options when present
+  if Assigned(Owner) then
     Result:=CompilerOptionsToUnitDirectives(Owner.LazCompilerOptions);
 end;
 

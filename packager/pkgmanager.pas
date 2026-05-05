@@ -858,7 +858,7 @@ begin
     UsesLine:=UsesLine+', LResources, Forms, Controls, Graphics, Dialogs';
   if (System.Pos(Params.UsedUnitname,UsesLine)<1) and (Params.UsedUnitname<>'') then
     UsesLine:=UsesLine+', '+Params.UsedUnitname;
-  UnitDirectives:='{$mode objfpc}{$H+}';
+  UnitDirectives:='{$mode unleashed}';
   if Params.Pkg<>nil then
     UnitDirectives:=TFileDescPascalUnit.CompilerOptionsToUnitDirectives(
                                                     Params.Pkg.CompilerOptions);
