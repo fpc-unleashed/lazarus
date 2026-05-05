@@ -153,7 +153,7 @@ begin
   // create program source
   NewSource:='program Project1;'+LineEnding
     +LineEnding
-    +'{$mode objfpc}{$H+}'+LineEnding
+    +'{$mode unleashed}'+LineEnding
     +LineEnding
     +'uses'+LineEnding
     +'  {$IFDEF UNIX}'+LineEnding
@@ -286,7 +286,7 @@ begin
   // create program source
   NewSource:='program Project1;'+LineEnding
     +LineEnding
-    +'{$mode objfpc}{$H+}'+LineEnding
+    +'{$mode unleashed}'+LineEnding
     +LineEnding
     +'uses'+LineEnding
     +'  {$IFDEF UNIX}'+LineEnding
@@ -353,7 +353,7 @@ begin
     // create program source
     NewSource:='program Project1;'+LineEnding
       +LineEnding
-      +'{$mode objfpc}{$H+}'+LineEnding
+      +'{$mode unleashed}'+LineEnding
       +LineEnding
       +'uses'+LineEnding
       +'  Classes, SysUtils'+LineEnding
@@ -450,7 +450,7 @@ begin
   NewSource:=TStringList.Create;
   NewSource.Add('program Project1;');
   NewSource.Add('');
-  NewSource.Add('{$mode objfpc}{$H+}');
+  NewSource.Add('{$mode unleashed}');
   NewSource.Add('');
   NewSource.Add('uses');
   NewSource.Add('  {$IFDEF UNIX}');
@@ -598,7 +598,7 @@ begin
   // create program source
   NewSource:='library Project1;'+LineEnding
     +LineEnding
-    +'{$mode objfpc}{$H+}'+LineEnding
+    +'{$mode unleashed}'+LineEnding
     +LineEnding
     +'uses'+LineEnding
     +'  Classes'+LineEnding

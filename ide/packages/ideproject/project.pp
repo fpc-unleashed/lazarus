@@ -5573,6 +5573,8 @@ end;
 procedure TProjectCompilerOptions.Clear;
 begin
   inherited Clear;
+  // user projects default to unleashed mode; lazarus packages keep ObjFPC
+  FSyntaxMode:='unleashed';
 end;
 
 function TProjectCompilerOptions.CanBeDefaultForProject: boolean;

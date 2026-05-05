@@ -1274,12 +1274,13 @@ class function TFileDescPascalUnit.CompilerOptionsToUnitDirectives(
 var
   SyntaxMode: String;
 begin
-  Result:='{$mode objfpc}{$H+}';
+  Result:='{$mode unleashed}';
   if CompOpts=nil then exit;
   SyntaxMode:=CompOpts.SyntaxMode;
   if SyntaxMode<>'' then begin
     Result:='{$mode '+SyntaxMode+'}';
-    if CompOpts.UseAnsiStrings and (CompareText(SyntaxMode,'Delphi')<>0) then
+    if CompOpts.UseAnsiStrings and (CompareText(SyntaxMode,'Delphi')<>0)
+    and (CompareText(SyntaxMode,'unleashed')<>0) then
       Result:=Result+'{$H+}';
   end;
 end;
