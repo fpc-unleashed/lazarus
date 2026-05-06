@@ -3142,6 +3142,12 @@ end;
 
 function TSynPasSyn.Func84: TtkTokenKind;
 begin
+  if KeyCompU('EXPOSE') and
+     (TopPascalCodeFoldBlockType in [cfbtTypeBlock, cfbtLocalTypeBlock]) and
+     (PasCodeFoldRange.BracketNestLevel = 0)
+  then
+    Result := tkKey
+  else
   if ( ( (PasCodeFoldRange.BracketNestLevel = 0) and
          (TopPascalCodeFoldBlockType in [cfbtClass, cfbtClassSection])
        ) or
