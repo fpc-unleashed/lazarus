@@ -4723,6 +4723,7 @@ procedure TPascalParserTool.ReadTypeNameAndDefinition;
     generic name<name>=type;  // this is the only case where >= are two operators
     name<name,name> = type;  // delphi style
     TTest19<T1: record; T2,T3: class; T4: constructor; T5: name> = type
+    expose name = type;     // unleashed: whitelist type from m_strip_rtti stripping
 }
 var
   TypeNode: TCodeTreeNode;
@@ -4731,6 +4732,14 @@ var
 begin
   CreateChildNode;
   TypeNode:=CurNode;
+  // unleashed: optional `expose` prefix whitelists the type from m_strip_rtti.
+  // contextual - skip only when the next atom is another identifier, so that
+  // `type expose = integer;` (alias named `expose`) keeps parsing correctly
+  if (Scanner.CompilerMode=cmUnleashed) and UpAtomIs('EXPOSE') then begin
+    ReadNextAtom;
+    if not AtomIsIdentifier then
+      UndoReadNextAtom;
+  end;
   if (Scanner.CompilerMode in [cmOBJFPC,cmFPC,cmUnleashed]) and UpAtomIs('GENERIC') then begin
     IsGeneric:=true;
     CurNode.Desc:=ctnGenericType;

@@ -232,6 +232,7 @@ type
     cmsInlineVars,         { allow inline variable declarations inside statement blocks }
     cmsTuples,             { allow anonymous tuple types and related syntax }
     cmsImplicitGenerics,   { Delphi-style generic syntax: 'generic'/'specialize' keywords optional, <T> allowed }
+    cmsStripRtti,          { strip type-name strings from RTTI/VMT (unleashed) }
 
     // not yet in FPC, supported by pas2js:
     cmsExternalClass,      { pas2js: allow  class external [pkgname] name [symbol] }
@@ -341,6 +342,7 @@ const
     'INLINEVARS',
     'TUPLES',
     'IMPLICITGENERICS',
+    'STRIPRTTI',
     // not yet in FPC, supported by pas2js:
     'EXTERNALCLASS',
     'IGNOREATTRIBUTES',
