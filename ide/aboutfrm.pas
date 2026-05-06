@@ -25,10 +25,11 @@ unit AboutFrm;
 interface
 
 uses
-  Classes, SysUtils,
+  Classes, SysUtils, Types, FPImage,
   // LCL
   Forms, Controls, Graphics, StdCtrls, Buttons, ExtCtrls, ComCtrls, Menus,
   LCLIntf, LazConf, InterfaceBase, LCLPlatformDef, Clipbrd, LCLVersion,
+  IntfGraphics,
   // LazUtils
   FPCAdds, LazFileUtils,
   // IDE
@@ -68,26 +69,64 @@ type
     property Lines: TStrings read FLines write FLines;
   end;
 
+  { TBoxedLabel - label with alpha-blended rounded background }
+
+  TBoxedLabel = class(TGraphicControl)
+  private
+    FBoxColor: TColor;
+    FBoxAlpha: Byte;
+    FPaddingX: Integer;
+    FPaddingY: Integer;
+    procedure SetBoxColor(AValue: TColor);
+    procedure SetBoxAlpha(AValue: Byte);
+    procedure SetPaddingX(AValue: Integer);
+    procedure SetPaddingY(AValue: Integer);
+  protected
+    procedure CalculatePreferredSize(var PreferredWidth,
+      PreferredHeight: integer; WithThemeSpace: Boolean); override;
+    procedure FontChanged(Sender: TObject); override;
+    procedure TextChanged; override;
+    procedure Paint; override;
+  public
+    constructor Create(AOwner: TComponent); override;
+  published
+    property Anchors;
+    property AnchorSideLeft;
+    property AnchorSideTop;
+    property AnchorSideRight;
+    property AnchorSideBottom;
+    property AutoSize default True;
+    property BorderSpacing;
+    property BoxAlpha: Byte read FBoxAlpha write SetBoxAlpha default 128;
+    property BoxColor: TColor read FBoxColor write SetBoxColor default clBlack;
+    property Caption;
+    property Font;
+    property PaddingX: Integer read FPaddingX write SetPaddingX default 6;
+    property PaddingY: Integer read FPaddingY write SetPaddingY default 2;
+    property ParentFont;
+    property Visible;
+  end;
+
   { TAboutForm }
 
   TAboutForm = class(TForm)
     CloseButton: TBitBtn;
-    BuildDateLabel: TLABEL;
+    BuildDateLabel: TBoxedLabel;
     AboutMemo: TMEMO;
     CopyToClipboardButton: TSpeedButton;
     DocumentationLabel: TLabel;
     DocumentationURLLabel: TLabel;
-    FPCVersionLabel: TLabel;
+    FPCVersionLabel: TBoxedLabel;
     LogoImage: TImage;
     miVerToClipboard: TMenuItem;
     OfficialLabel: TLabel;
     OfficialURLLabel: TLabel;
     VersionPage: TTabSheet;
     ButtonPanel: TPanel;
-    PlatformLabel: TLabel;
+    PlatformLabel: TBoxedLabel;
     PopupMenu1: TPopupMenu;
-    VersionLabel: TLABEL;
-    RevisionLabel: TLabel;
+    VersionLabel: TBoxedLabel;
+    RevisionLabel: TBoxedLabel;
     Notebook: TPageControl;
     AboutPage: TTabSheet;
     ContributorsPage: TTabSheet;
@@ -448,6 +487,118 @@ begin
   inherited Destroy;
 end;
 
+{ TBoxedLabel }
+
+constructor TBoxedLabel.Create(AOwner: TComponent);
+begin
+  inherited Create(AOwner);
+  ControlStyle := ControlStyle - [csOpaque];
+  FBoxColor := clBlack;
+  FBoxAlpha := 128;
+  FPaddingX := 6;
+  FPaddingY := 2;
+  AutoSize := True;
+end;
+
+procedure TBoxedLabel.SetBoxColor(AValue: TColor);
+begin
+  if FBoxColor = AValue then exit;
+  FBoxColor := AValue;
+  Invalidate;
+end;
+
+procedure TBoxedLabel.SetBoxAlpha(AValue: Byte);
+begin
+  if FBoxAlpha = AValue then exit;
+  FBoxAlpha := AValue;
+  Invalidate;
+end;
+
+procedure TBoxedLabel.SetPaddingX(AValue: Integer);
+begin
+  if FPaddingX = AValue then exit;
+  FPaddingX := AValue;
+  InvalidatePreferredSize;
+  AdjustSize;
+  Invalidate;
+end;
+
+procedure TBoxedLabel.SetPaddingY(AValue: Integer);
+begin
+  if FPaddingY = AValue then exit;
+  FPaddingY := AValue;
+  InvalidatePreferredSize;
+  AdjustSize;
+  Invalidate;
+end;
+
+procedure TBoxedLabel.FontChanged(Sender: TObject);
+begin
+  inherited FontChanged(Sender);
+  InvalidatePreferredSize;
+  AdjustSize;
+  Invalidate;
+end;
+
+procedure TBoxedLabel.TextChanged;
+begin
+  inherited TextChanged;
+  InvalidatePreferredSize;
+  AdjustSize;
+  Invalidate;
+end;
+
+procedure TBoxedLabel.CalculatePreferredSize(var PreferredWidth,
+  PreferredHeight: integer; WithThemeSpace: Boolean);
+var
+  TS: TSize;
+begin
+  Canvas.Font.Assign(Font);
+  TS := Canvas.TextExtent(Caption);
+  PreferredWidth := TS.cx + 2 * FPaddingX;
+  PreferredHeight := TS.cy + 2 * FPaddingY;
+end;
+
+procedure TBoxedLabel.Paint;
+var
+  Bmp: TBitmap;
+  IntfImg: TLazIntfImage;
+  X, Y: Integer;
+  BoxFP: TFPColor;
+  RR, RG, RB: Byte;
+begin
+  if (Width <= 0) or (Height <= 0) then exit;
+
+  RR := Red(ColorToRGB(FBoxColor));
+  RG := Green(ColorToRGB(FBoxColor));
+  RB := Blue(ColorToRGB(FBoxColor));
+  // FPColor is 16-bit per channel; replicate byte to high+low
+  BoxFP := FPColor(RR shl 8 or RR, RG shl 8 or RG, RB shl 8 or RB,
+                   FBoxAlpha shl 8 or FBoxAlpha);
+
+  Bmp := TBitmap.Create;
+  IntfImg := nil;
+  try
+    Bmp.PixelFormat := pf32bit;
+    Bmp.SetSize(Width, Height);
+    IntfImg := Bmp.CreateIntfImage;
+
+    for Y := 0 to Height - 1 do
+      for X := 0 to Width - 1 do
+        IntfImg.Colors[X, Y] := BoxFP;
+
+    Bmp.LoadFromIntfImage(IntfImg);
+    Canvas.Draw(0, 0, Bmp);
+  finally
+    IntfImg.Free;
+    Bmp.Free;
+  end;
+
+  Canvas.Brush.Style := bsClear;
+  Canvas.Font.Assign(Font);
+  Canvas.TextOut(FPaddingX, FPaddingY, Caption);
+end;
+
 function GetLazarusRevision: string;
 begin
   result := LazarusRevisionStr;
@@ -455,6 +606,7 @@ end;
 
 initialization
   lcl_revision_func := @GetLazarusRevision;
+  RegisterClasses([TBoxedLabel]);
 
 end.
 

@@ -43,82 +43,90 @@ object AboutForm: TAboutForm
         Proportional = True
         Stretch = True
       end
-      object VersionLabel: TLabel
-        AnchorSideLeft.Control = LogoImage
-        AnchorSideLeft.Side = asrCenter
-        AnchorSideTop.Control = LogoImage
-        Left = 204
-        Height = 15
-        Top = 127
-        Width = 54
-        Alignment = taCenter
-        BorderSpacing.Top = 115
-        BorderSpacing.Around = 6
+      object VersionLabel: TBoxedLabel
+        AnchorSideRight.Control = LogoImage
+        AnchorSideRight.Side = asrBottom
+        AnchorSideBottom.Control = BuildDateLabel
+        AnchorSideBottom.Side = asrTop
+        Left = 374
+        Height = 19
+        Top = 200
+        Width = 60
+        Anchors = [akRight, akBottom]
+        BorderSpacing.Right = 12
         Caption = 'Version #:'
-        Font.Color = clSilver
+        Font.Color = clWhite
+        Font.Quality = fqCleartype
         Font.Style = [fsBold]
-        ParentColor = False
         ParentFont = False
       end
-      object BuildDateLabel: TLabel
-        AnchorSideLeft.Control = LogoImage
-        AnchorSideLeft.Side = asrCenter
-        AnchorSideTop.Control = VersionLabel
-        AnchorSideTop.Side = asrBottom
-        Left = 218
-        Height = 15
-        Top = 148
-        Width = 27
-        Alignment = taCenter
-        BorderSpacing.Around = 6
+      object BuildDateLabel: TBoxedLabel
+        AnchorSideRight.Control = LogoImage
+        AnchorSideRight.Side = asrBottom
+        AnchorSideBottom.Control = FPCVersionLabel
+        AnchorSideBottom.Side = asrTop
+        Left = 401
+        Height = 19
+        Top = 219
+        Width = 33
+        Anchors = [akRight, akBottom]
+        BorderSpacing.Right = 12
         Caption = 'Date:'
-        Font.Color = clSilver
-        ParentColor = False
+        Font.Color = clWhite
+        Font.Quality = fqCleartype
+        Font.Style = [fsBold]
         ParentFont = False
       end
-      object RevisionLabel: TLabel
-        AnchorSideLeft.Control = LogoImage
-        AnchorSideLeft.Side = asrCenter
-        AnchorSideTop.Control = FPCVersionLabel
-        AnchorSideTop.Side = asrBottom
-        Left = 195
-        Height = 15
-        Top = 190
-        Width = 72
-        BorderSpacing.Around = 6
+      object RevisionLabel: TBoxedLabel
+        AnchorSideRight.Control = LogoImage
+        AnchorSideRight.Side = asrBottom
+        AnchorSideBottom.Control = PlatformLabel
+        AnchorSideBottom.Side = asrTop
+        Left = 356
+        Height = 19
+        Top = 257
+        Width = 78
+        Anchors = [akRight, akBottom]
+        BorderSpacing.Right = 12
         Caption = 'RevisionLabel'
-        Font.Color = clSilver
-        ParentColor = False
+        Font.Color = clWhite
+        Font.Quality = fqCleartype
+        Font.Style = [fsBold]
         ParentFont = False
       end
-      object PlatformLabel: TLabel
-        AnchorSideLeft.Control = LogoImage
-        AnchorSideLeft.Side = asrCenter
-        AnchorSideTop.Control = RevisionLabel
-        AnchorSideTop.Side = asrBottom
-        Left = 194
-        Height = 15
-        Top = 211
-        Width = 74
-        BorderSpacing.Around = 6
+      object PlatformLabel: TBoxedLabel
+        AnchorSideRight.Control = LogoImage
+        AnchorSideRight.Side = asrBottom
+        AnchorSideBottom.Control = LogoImage
+        AnchorSideBottom.Side = asrBottom
+        Left = 354
+        Height = 19
+        Top = 273
+        Width = 80
+        Anchors = [akRight, akBottom]
+        BorderSpacing.Right = 12
+        BorderSpacing.Bottom = 8
         Caption = 'PlatformLabel'
-        Font.Color = clSilver
-        ParentColor = False
+        Font.Color = clWhite
+        Font.Quality = fqCleartype
+        Font.Style = [fsBold]
         ParentFont = False
       end
-      object FPCVersionLabel: TLabel
-        AnchorSideLeft.Control = LogoImage
-        AnchorSideLeft.Side = asrCenter
-        AnchorSideTop.Control = BuildDateLabel
-        AnchorSideTop.Side = asrBottom
-        Left = 188
-        Height = 15
-        Top = 169
-        Width = 87
-        BorderSpacing.Around = 6
+      object FPCVersionLabel: TBoxedLabel
+        AnchorSideRight.Control = LogoImage
+        AnchorSideRight.Side = asrBottom
+        AnchorSideBottom.Control = RevisionLabel
+        AnchorSideBottom.Side = asrTop
+        Left = 341
+        Height = 19
+        Top = 238
+        Width = 93
+        Anchors = [akRight, akBottom]
+        BorderSpacing.Right = 12
         Caption = 'FPCVersionLabel'
-        Font.Color = clSilver
-        ParentColor = False
+        Font.Color = clWhite
+        Font.Quality = fqCleartype
+        Font.Style = [fsBold]
         ParentFont = False
       end
     end

@@ -20,10 +20,10 @@ uses
 
 Const
   DefaultViewFontSize        = 3;
-  DefaultViewWindowColor     = TColor($00E3F33F);
+  DefaultViewWindowColor     = TColor($808080);
   DefaultViewWindowTextColor = clNone;
-  DefaultKeepFontColor       = False;
-  DefaultMapWidth            = 200;
+  DefaultKeepFontColor       = True;
+  DefaultMapWidth            = 250;
 
 Type
 
