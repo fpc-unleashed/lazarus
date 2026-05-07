@@ -105,7 +105,7 @@ type
 const
   FirstCodeExplorerCategory = cecUses;
   DefaultCodeExplorerCategories = [cecUses,
-               cecTypes,cecVariables,cecConstants,cecProcedures];
+               cecVariables,cecProcedures];
   cefcAll = [low(TCEObserverCategory)..high(TCEObserverCategory)];
   DefaultCodeExplorerPage = cepCode;
   DefaultCodeObserverCategories = [
