@@ -3657,65 +3657,63 @@ function TPascalParserTool.ReadWithStatement(ExceptionOnError,
       // set all with variable ends
       repeat
         WithVarNode:=WithVarNode.PriorBrother;
-        if (WithVarNode=nil) or (WithVarNode.Desc<>ctnWithVariable)
-        or (WithVarNode.EndPos>0) then break;
+        if WithVarNode=nil then break;
+        // unleashed inline-var entries leave a ctnVarSection sibling between
+        // with-vars; step over it so EndPos still propagates to prior with-vars
+        if WithVarNode.Desc=ctnVarSection then continue;
+        if (WithVarNode.Desc<>ctnWithVariable) or (WithVarNode.EndPos>0) then
+          break;
         WithVarNode.EndPos:=EndPos;
       until false;
     end;
   end;
   
-  // unleashed: skip optional 'var IDENT [: TYPE] :=' inline-var declaration and
-  // 'autofree' prefix, so ctnWithVariable starts at the actual expression.
-  procedure SkipUnleashedPrefixes;
-  begin
+var
+  IdentStartPos: integer;
+begin
+  ReadNextAtom; // peek first with-entry atom
+  repeat
     if UpAtomIs('VAR') then begin
-      ReadNextAtom;
-      if AtomIsIdentifier then begin
+      // unleashed inline-var: var IDENT [: TYPE] [:= EXPR]
+      // ReadInlineVarDeclaration creates a ctnVarSection sibling so the
+      // identifier is registered in scope; cursor is left on the atom
+      // before the next terminator (',' or last decl atom before 'do')
+      ReadNextAtom; // peek IDENT to remember position for ctnWithVariable
+      IdentStartPos := CurPos.StartPos;
+      UndoReadNextAtom; // back to 'var'
+      ReadInlineVarDeclaration(CreateNodes);
+      // when followed by another entry cursor is already on ','; otherwise
+      // it sits on the last decl atom and we need one more step toward 'do'
+      if CurPos.Flag<>cafComma then
         ReadNextAtom;
-        if CurPos.Flag=cafColon then
-          while (CurPos.Flag<>cafAssignment)
-          and (CurPos.Flag<>cafComma)
-          and (CurPos.Flag<>cafSemicolon)
-          and (CurPos.StartPos<=SrcLen)
-          and not UpAtomIs('DO') do
-            ReadNextAtom;
-        if CurPos.Flag=cafAssignment then
-          ReadNextAtom;
+      // ctnWithVariable referencing the inline var so unprefixed member
+      // access in the with-body resolves the same way as classic 'with x do';
+      // EndPos is left at -1 for non-last entries - CloseNodes walks the
+      // PriorBrother chain (skipping ctnVarSection siblings) to set EndPos
+      // to end-of-with so the with-var range covers the body.
+      if CreateNodes then begin
+        CreateChildNode;
+        CurNode.Desc := ctnWithVariable;
+        CurNode.StartPos := IdentStartPos;
+      end;
+    end else begin
+      if UpAtomIs('AUTOFREE') then
+        ReadNextAtom;
+      if CreateNodes then begin
+        CreateChildNode;
+        CurNode.Desc:=ctnWithVariable;
+      end;
+      if not ReadTilVariableEnd(ExceptionOnError,true) then begin
+        CloseNodes;
+        Result:=false;
+        exit;
       end;
     end;
-    if UpAtomIs('AUTOFREE') then
-      ReadNextAtom;
-  end;
-
-begin
-  ReadNextAtom; // read start of variable
-  SkipUnleashedPrefixes;
-  if CreateNodes then begin
-    CreateChildNode;
-    CurNode.Desc:=ctnWithVariable;
-  end;
-  // read til the end of the variable
-  if not ReadTilVariableEnd(ExceptionOnError,true) then begin
-    CloseNodes;
-    Result:=false;
-    exit;
-  end;
-  // read all other variables
-  while CurPos.Flag=cafComma do begin
+    if CurPos.Flag<>cafComma then break;
     if CreateNodes then
       EndChildNode;
-    ReadNextAtom;
-    SkipUnleashedPrefixes;
-    if CreateNodes then begin
-      CreateChildNode;
-      CurNode.Desc:=ctnWithVariable
-    end;
-    if not ReadTilVariableEnd(ExceptionOnError,true) then begin
-      CloseNodes;
-      Result:=false;
-      exit;
-    end;
-  end;
+    ReadNextAtom; // past comma to next entry's first atom
+  until false;
   // read DO
   if not UpAtomIs('DO') then begin
     if ExceptionOnError then
@@ -3860,6 +3858,10 @@ begin
         UndoReadNextAtom;        // put that atom back for the skip loop below
       end else if (CurPos.StartPos<=SrcLen) and (Src[CurPos.StartPos]='^') then begin
         // pointer type: `^TYPE`; full ParseType so refactor can resolve `p^.field`
+        ParseType(CurPos.StartPos);
+        UndoReadNextAtom;
+      end else if AtomIsKeyWord then begin
+        // anonymous structured type: record/class/object/array/set/file/function...
         ParseType(CurPos.StartPos);
         UndoReadNextAtom;
       end else begin
