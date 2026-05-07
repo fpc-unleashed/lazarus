@@ -104,8 +104,8 @@ type
 const
   // Important: When changing any of these values increase EnvOptsVersion
   //            and add code to read old options
-  DefaultBackupTypeProject = bakSameName;
-  DefaultBackupTypeOther = bakUserDefinedAddExt;
+  DefaultBackupTypeProject = bakNone;
+  DefaultBackupTypeOther = bakNone;
   DefaultBackupAddExt = 'bak';
   DefaultBackupMaxCounter = 9;
   DefaultBackupSubDirectory = 'backup';
@@ -182,7 +182,7 @@ const
     'OpenFilesInRunning',  // mioOpenFilesInRunning
     'ForceSingleInstance'  // mioForceSingleInstance
     );
-  DefaultIDEMultipleInstancesOption = mioOpenFilesInRunning;
+  DefaultIDEMultipleInstancesOption = mioAlwaysStartNew;
 
   { External Tools - the user menu items in the Tools menu }
 type
@@ -1077,7 +1077,7 @@ begin
     LoadRecentList(FXMLCfg,FRecentProjectFiles,Path+'Recent/ProjectFiles/',rltFile);
     FMaxRecentPackageFiles:=FXMLCfg.GetValue(Path+'Recent/PackageFiles/Max',DefaultMaxRecentPackageFiles);
     LoadRecentList(FXMLCfg,FRecentPackageFiles,Path+'Recent/PackageFiles/',rltFile);
-    FNewProjectTemplateAtStart:=FXMLCfg.GetValue(Path+'NewProjectTemplateAtStart/Value','Application');
+    FNewProjectTemplateAtStart:=FXMLCfg.GetValue(Path+'NewProjectTemplateAtStart/Value','Simple Program');
     FMultipleInstances:=StrToIDEMultipleInstancesOption(FXMLCfg.GetValue(Path+'MultipleInstances/Value',''));
     FAlreadyPopulatedRecentFiles := FXMLCfg.GetValue(Path+'Recent/AlreadyPopulated', false);
 
@@ -1282,7 +1282,7 @@ begin
     SaveRecentList(FXMLCfg,FRecentProjectFiles,Path+'Recent/ProjectFiles/',FMaxRecentProjectFiles);
     FXMLCfg.SetDeleteValue(Path+'Recent/PackageFiles/Max',FMaxRecentPackageFiles,DefaultMaxRecentPackageFiles);
     SaveRecentList(FXMLCfg,FRecentPackageFiles,Path+'Recent/PackageFiles/',FMaxRecentPackageFiles);
-    FXMLCfg.SetDeleteValue(Path+'NewProjectTemplateAtStart/Value',FNewProjectTemplateAtStart,'Application');
+    FXMLCfg.SetDeleteValue(Path+'NewProjectTemplateAtStart/Value',FNewProjectTemplateAtStart,'Simple Program');
     FXMLCfg.SetDeleteValue(Path+'MultipleInstances/Value',
         IDEMultipleInstancesOptionNames[FMultipleInstances],
         IDEMultipleInstancesOptionNames[DefaultIDEMultipleInstancesOption]);

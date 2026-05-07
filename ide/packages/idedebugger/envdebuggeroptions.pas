@@ -333,8 +333,8 @@ begin
     LoadRecentList(XMLCfg,TStrings(FDebuggerFileHistory.Objects[i]),Path+'DebuggerFilename/History/',rltFile);
   end;
   // Debugger General Options
-  DebuggerShowStopMessage := XMLCfg.GetValue(Path+'DebuggerOptions/ShowStopMessage/Value', True);
-  DebuggerShowExitCodeMessage:=XMLCfg.GetValue(Path+'DebuggerOptions/DebuggerShowExitCodeMessage/Value', True);
+  DebuggerShowStopMessage := XMLCfg.GetValue(Path+'DebuggerOptions/ShowStopMessage/Value', False);
+  DebuggerShowExitCodeMessage:=XMLCfg.GetValue(Path+'DebuggerOptions/DebuggerShowExitCodeMessage/Value', False);
   DebuggerResetAfterRun := XMLCfg.GetValue(Path+'DebuggerOptions/DebuggerResetAfterRun/Value', False);
   FDebuggerAutoCloseAsm := XMLCfg.GetValue(Path+'DebuggerOptions/DebuggerAutoCloseAsm/Value', False);
   FDebuggerAutoSetInstanceFromClass := XMLCfg.GetValue(Path+'DebuggerOptions/DebuggerAutoSetInstanceFromClass/Value', False);
@@ -379,9 +379,9 @@ begin
 
   FDebuggerConfig.Save;
   XMLCfg.SetDeleteValue(Path+'DebuggerOptions/ShowStopMessage/Value',
-      FDebuggerShowStopMessage, True);
+      FDebuggerShowStopMessage, False);
   XMLCfg.SetDeleteValue(Path+'DebuggerOptions/DebuggerShowExitCodeMessage/Value',
-      FDebuggerShowExitCodeMessage, True);
+      FDebuggerShowExitCodeMessage, False);
   XMLCfg.SetDeleteValue(Path+'DebuggerOptions/DebuggerResetAfterRun/Value',
       FDebuggerResetAfterRun, False);
   XMLCfg.SetDeleteValue(Path+'DebuggerOptions/DebuggerAutoCloseAsm/Value',
