@@ -2138,16 +2138,16 @@ type
     property AutoDisplayFunctionPrototypes: Boolean
       read fAutoDisplayFuncPrototypes write fAutoDisplayFuncPrototypes default True;
     property AutoDelayInMSec: Integer read fAutoDelayInMSec
-      write fAutoDelayInMSec default 1000;
+      write fAutoDelayInMSec default 10;
     property AutoHintDelayInMSec: Integer read fAutoHintDelayInMSec
-      write fAutoHintDelayInMSec default 1000;
+      write fAutoHintDelayInMSec default 97;
     property CodeTemplateFileNameRaw: String
       read fCodeTemplateFileNameRaw write fCodeTemplateFileNameRaw;
     property CodeTemplateFileNameExpand: String read GetCodeTemplateFileNameExpand;
     property CodeTemplateIndentToTokenStart: Boolean
       read fCTemplIndentToTokenStart write fCTemplIndentToTokenStart;
     property AutoRemoveEmptyMethods: Boolean
-      read fAutoRemoveEmptyMethods write fAutoRemoveEmptyMethods default False;
+      read fAutoRemoveEmptyMethods write fAutoRemoveEmptyMethods default True;
     property CompletionLongLineHintInMSec: Integer
       read fCompletionLongLineHintInMSec write fCompletionLongLineHintInMSec;
     property CompletionLongLineHintType: TSynCompletionLongHintType
@@ -6161,16 +6161,16 @@ begin
     fAutoToolTipSymbTools :=
       XMLConfig.GetValue('EditorOptions/CodeTools/AutoToolTipSymbTools', True);
     fAutoDelayInMSec    :=
-      XMLConfig.GetValue('EditorOptions/CodeTools/AutoDelayInMSec', 1000);
+      XMLConfig.GetValue('EditorOptions/CodeTools/AutoDelayInMSec', 10);
     fAutoHintDelayInMSec    :=
-      XMLConfig.GetValue('EditorOptions/CodeTools/AutoDelayHintInMSec', 1000);
+      XMLConfig.GetValue('EditorOptions/CodeTools/AutoDelayHintInMSec', 97);
     fCodeTemplateFileNameRaw :=
       XMLConfig.GetValue('EditorOptions/CodeTools/CodeTemplateFileName'
       , TrimFilename(AppendPathDelim(GetPrimaryConfigPath) + DefaultCodeTemplatesFilename));
     fCTemplIndentToTokenStart :=
       XMLConfig.GetValue('EditorOptions/CodeTools/CodeTemplateIndentToTokenStart/Value', False);
     fAutoRemoveEmptyMethods :=
-      XMLConfig.GetValue('EditorOptions/CodeTools/AutoRemoveEmptyMethods', False);
+      XMLConfig.GetValue('EditorOptions/CodeTools/AutoRemoveEmptyMethods', True);
     FCompletionLongLineHintInMSec :=
       XMLConfig.GetValue('EditorOptions/CodeTools/CompletionLongLineHintInMSec', 0);
     // Read from old location
@@ -6374,15 +6374,15 @@ begin
     XMLConfig.SetDeleteValue('EditorOptions/CodeTools/AutoToolTipSymbTools'
       , fAutoToolTipSymbTools, True);
     XMLConfig.SetDeleteValue('EditorOptions/CodeTools/AutoDelayInMSec'
-      , fAutoDelayInMSec, 1000);
+      , fAutoDelayInMSec, 10);
     XMLConfig.SetDeleteValue('EditorOptions/CodeTools/AutoDelayHintInMSec'
-      , fAutoHintDelayInMSec, 1000);
+      , fAutoHintDelayInMSec, 97);
     XMLConfig.SetDeleteValue('EditorOptions/CodeTools/CodeTemplateFileName'
       , fCodeTemplateFileNameRaw, '');
     XMLConfig.SetDeleteValue('EditorOptions/CodeTools/CodeTemplateIndentToTokenStart/Value'
       , fCTemplIndentToTokenStart, False);
     XMLConfig.SetDeleteValue('EditorOptions/CodeTools/AutoRemoveEmptyMethods'
-      , fAutoRemoveEmptyMethods, False);
+      , fAutoRemoveEmptyMethods, True);
     XMLConfig.SetDeleteValue('EditorOptions/CodeTools/CompletionLongLineHintInMSec',
       FCompletionLongLineHintInMSec, 0);
     XMLConfig.SetDeleteValue('EditorOptions/CodeTools/CompletionLongLineHintType',
