@@ -925,7 +925,7 @@ const
     ) deprecated 'for internal use only';
 
 const
-  SynEditDefaultOptions = SYNEDIT_DEFAULT_OPTIONS - [eoShowScrollHint]
+  SynEditDefaultOptions = SYNEDIT_DEFAULT_OPTIONS - [eoShowScrollHint, eoSmartTabs]
                                                   + [eoHalfPageScroll, eoTabIndent];
   SynEditDefaultOptions2 = SYNEDIT_DEFAULT_OPTIONS2;
 
@@ -1220,7 +1220,7 @@ type
     property TextDrag: Boolean read FTextDrag write FTextDrag
              default True;
     property TextRightMoveCaret: Boolean read FTextRightMoveCaret  write FTextRightMoveCaret
-             default False;
+             default True;
     property DeclarationJumpIncludesExtLink: Boolean read FDeclarationJumpIncludesExtLink write FDeclarationJumpIncludesExtLink
              default False;
     // left multi click
@@ -2083,7 +2083,7 @@ type
     property TrimSpaceType: TSynEditStringTrimmingType
       read fTrimSpaceType write fTrimSpaceType default settLeaveLine;
     property UndoLimit: Integer read fUndoLimit write fUndoLimit default 32767;
-    property TabWidth: Integer read fTabWidth write fTabWidth default 8;
+    property TabWidth: Integer read fTabWidth write fTabWidth default 2;
     property BracketHighlightStyle: TSynEditBracketHighlightStyle
       read fBracketHighlightStyle write fBracketHighlightStyle default sbhsBoth;
     // Display options
@@ -4582,7 +4582,7 @@ begin
   FTextShiftCtrlExtra2Click := mbaNone;
   FTextShiftExtra2Click := mbaNone;
 
-  FTextRightMoveCaret  := False;
+  FTextRightMoveCaret  := True;
   FDeclarationJumpIncludesExtLink := False;
   FTextDrag            := True;
   FSelectOnLineNumbers := True;
@@ -5737,8 +5737,8 @@ begin
   fCtrlMiddleTabClickClosesOthers := True;
   fMiddleTabClickClosesOthersModifier := [ssCtrl];
   fMiddleTabClickClosesToRightModifier := [];
-  TabFont := '';
-  TabFontSize := 0;
+  TabFont := 'Arial';
+  TabFontSize := 10;
   TabFontDisableAntialiasing := DefaultEditorDisableAntiAliasing;
   // Comment
   FAnsiCommentContinueEnabled := False;
@@ -5893,7 +5893,7 @@ begin
   fBlockIndentType := sbitSpace;
   fTrimSpaceType := settEditLine;
   fUndoLimit := 32767;
-  fTabWidth := 8;
+  fTabWidth := 2;
   fElasticTabsMinWidth := 1;
   fBracketHighlightStyle := sbhsBoth;
   // Display options
@@ -6039,7 +6039,7 @@ begin
     fUndoLimit :=
       XMLConfig.GetValue('EditorOptions/General/Editor/UndoLimit', 32767);
     fTabWidth :=
-      XMLConfig.GetValue('EditorOptions/General/Editor/TabWidth', 8);
+      XMLConfig.GetValue('EditorOptions/General/Editor/TabWidth', 2);
     FBracketHighlightStyle :=
       TSynEditBracketHighlightStyle(XMLConfig.GetValue('EditorOptions/General/Editor/BracketHighlightStyle', 2));
 
@@ -6133,7 +6133,7 @@ begin
     FUserDefinedColors.LoadFromXMLConfig(xmlconfig, 'EditorOptions/UserDefinedColors');
 
     FMarkupCurWordTime :=
-      XMLConfig.GetValue('EditorOptions/Display/MarkupCurrentWord/Time', 1500);
+      XMLConfig.GetValue('EditorOptions/Display/MarkupCurrentWord/Time', 10);
     FMarkupCurWordFullLen :=
       XMLConfig.GetValue('EditorOptions/Display/MarkupCurrentWord/FullLen', 3);
     // check deprecated value
@@ -6298,7 +6298,7 @@ begin
     XMLConfig.SetDeleteValue('EditorOptions/General/Editor/UndoLimit'
       , fUndoLimit, 32767);
     XMLConfig.SetDeleteValue('EditorOptions/General/Editor/TabWidth'
-      , fTabWidth, 8);
+      , fTabWidth, 2);
     XMLConfig.SetDeleteValue('EditorOptions/General/Editor/BracketHighlightStyle'
       , Ord(FBracketHighlightStyle), 2);
 
@@ -6348,7 +6348,7 @@ begin
     FUserDefinedColors.SaveToXMLConfig(xmlconfig, 'EditorOptions/UserDefinedColors');
 
     XMLConfig.SetDeleteValue('EditorOptions/Display/MarkupCurrentWord/Time',
-      FMarkupCurWordTime, 1500);
+      FMarkupCurWordTime, 10);
     XMLConfig.SetDeleteValue('EditorOptions/Display/MarkupCurrentWord/FullLen',
       FMarkupCurWordFullLen, 3);
     XMLConfig.SetDeleteValue('EditorOptions/Display/MarkupCurrentWord/NoKeyword',
