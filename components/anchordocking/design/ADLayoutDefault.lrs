@@ -15,38 +15,45 @@ LazarusResources.Add('ADLayoutDefault','XML',[
   +'          <Bounds Left="177" Top="505" Width="651" Height="7"/>'#13#10'    '
   +'        <Anchors Left="AnchorDockSplitter4" Right="AnchorDockSplitter3"/>'
   +#13#10'          </Item2>'#13#10'          <Item3 Name="AnchorDockSite11" Ty'
-  +'pe="Pages" ChildCount="5">'#13#10'            <Bounds Left="177" Top="512" '
+  +'pe="Pages" ChildCount="8">'#13#10'            <Bounds Left="177" Top="512" '
   +'Width="651" Height="176"/>'#13#10'            <Anchors Left="AnchorDockSpli'
   +'tter4" Top="AnchorDockSplitter2" Right="AnchorDockSplitter3"/>'#13#10'     '
   +'       <Item1 Name="MessagesView" Type="Control">'#13#10'              <Bou'
   +'nds Width="643" Height="150"/>'#13#10'              <Anchors Align="Client"'
-  +'/>'#13#10'            </Item1>'#13#10'            <Item2 Name="Watches" Typ'
-  +'e="Control">'#13#10'              <Bounds Width="932" Height="119"/>'#13#10
-  +'              <Anchors Align="Client"/>'#13#10'            </Item2>'#13#10
-  +'            <Item3 Name="SearchResults" Type="Control">'#13#10'            '
-  +'  <Bounds Width="932" Height="119"/>'#13#10'              <Anchors Align="C'
-  +'lient"/>'#13#10'            </Item3>'#13#10'            <Item4 Name="Assemb'
-  +'ler" Type="Control">'#13#10'              <Bounds Width="932" Height="106"/'
-  +'>'#13#10'              <Anchors Align="Client"/>'#13#10'            </Item4'
-  +'>'#13#10'            <Item5 Name="BreakPoints" Type="Control">'#13#10'     '
-  +'         <Bounds Width="937" Height="106"/>'#13#10'              <Anchors A'
-  +'lign="Client"/>'#13#10'            </Item5>'#13#10'          </Item3>'#13#10
-  +'          <Item4 Name="AnchorDockSplitter3" Type="SplitterVertical">'#13#10
-  +'            <Bounds Left="828" Width="9" Height="688"/>'#13#10'          </'
-  +'Item4>'#13#10'          <Item5 Name="AnchorDockSite12" Type="Pages" ChildCo'
-  +'unt="2">'#13#10'            <Bounds Left="837" Width="187" Height="688"/>'
-  +#13#10'            <Anchors Left="AnchorDockSplitter3"/>'#13#10'            '
-  +'<Item1 Name="CodeExplorerView" Type="Control">'#13#10'              <Bounds'
-  +' Width="179" Height="662"/>'#13#10'              <Anchors Align="Client"/>'
-  +#13#10'            </Item1>'#13#10'            <Item2 Name="ComponentList" T'
-  +'ype="Control">'#13#10'              <Bounds Width="159" Height="626"/>'#13
+  +'/>'#13#10'            </Item1>'#13#10'            <Item2 Name="Assembler" T'
+  +'ype="Control">'#13#10'              <Bounds Width="643" Height="150"/>'#13
   +#10'              <Anchors Align="Client"/>'#13#10'            </Item2>'#13
-  +#10'          </Item5>'#13#10'          <Item6 Name="ObjectInspectorDlg" Typ'
-  +'e="Control">'#13#10'            <Bounds Width="173" Height="688"/>'#13#10' '
-  +'           <Anchors Right="AnchorDockSplitter4"/>'#13#10'          </Item6>'
-  +#13#10'          <Item7 Name="AnchorDockSplitter4" Type="SplitterVertical">'
-  +#13#10'            <Bounds Left="173" Width="4" Height="688"/>'#13#10'      '
-  +'    </Item7>'#13#10'        </Item1>'#13#10'      </Item1>'#13#10'    </Nod'
-  +'es>'#13#10'  </MainConfig>'#13#10'  <Settings FloatingWindowsOnTop="True"/>'
-  +#13#10'</CONFIG>'#13#10
+  +#10'            <Item3 Name="Locals" Type="Control">'#13#10'              <B'
+  +'ounds Width="643" Height="150"/>'#13#10'              <Anchors Align="Clien'
+  +'t"/>'#13#10'            </Item3>'#13#10'            <Item4 Name="Watches" T'
+  +'ype="Control">'#13#10'              <Bounds Width="643" Height="150"/>'#13
+  +#10'              <Anchors Align="Client"/>'#13#10'            </Item4>'#13
+  +#10'            <Item5 Name="CallStack" Type="Control">'#13#10'             '
+  +' <Bounds Width="643" Height="150"/>'#13#10'              <Anchors Align="Cl'
+  +'ient"/>'#13#10'            </Item5>'#13#10'            <Item6 Name="Registe'
+  +'rs" Type="Control">'#13#10'              <Bounds Width="643" Height="150"/>'
+  +#13#10'              <Anchors Align="Client"/>'#13#10'            </Item6>'
+  +#13#10'            <Item7 Name="BreakPoints" Type="Control">'#13#10'        '
+  +'      <Bounds Width="643" Height="150"/>'#13#10'              <Anchors Alig'
+  +'n="Client"/>'#13#10'            </Item7>'#13#10'            <Item8 Name="Db'
+  +'gHistory" Type="Control">'#13#10'              <Bounds Width="643" Height="'
+  +'150"/>'#13#10'              <Anchors Align="Client"/>'#13#10'            </'
+  +'Item8>'#13#10'          </Item3>'#13#10'          <Item4 Name="AnchorDockSp'
+  +'litter3" Type="SplitterVertical">'#13#10'            <Bounds Left="828" Wid'
+  +'th="9" Height="688"/>'#13#10'          </Item4>'#13#10'          <Item5 Nam'
+  +'e="AnchorDockSite12" Type="Pages" ChildCount="2">'#13#10'            <Bound'
+  +'s Left="837" Width="187" Height="688"/>'#13#10'            <Anchors Left="A'
+  +'nchorDockSplitter3"/>'#13#10'            <Item1 Name="CodeExplorerView" Typ'
+  +'e="Control">'#13#10'              <Bounds Width="179" Height="662"/>'#13#10
+  +'              <Anchors Align="Client"/>'#13#10'            </Item1>'#13#10
+  +'            <Item2 Name="ComponentList" Type="Control">'#13#10'            '
+  +'  <Bounds Width="159" Height="626"/>'#13#10'              <Anchors Align="C'
+  +'lient"/>'#13#10'            </Item2>'#13#10'          </Item5>'#13#10'     '
+  +'     <Item6 Name="ObjectInspectorDlg" Type="Control">'#13#10'            <B'
+  +'ounds Width="173" Height="688"/>'#13#10'            <Anchors Right="AnchorD'
+  +'ockSplitter4"/>'#13#10'          </Item6>'#13#10'          <Item7 Name="Anc'
+  +'horDockSplitter4" Type="SplitterVertical">'#13#10'            <Bounds Left='
+  +'"173" Width="4" Height="688"/>'#13#10'          </Item7>'#13#10'        </I'
+  +'tem1>'#13#10'      </Item1>'#13#10'    </Nodes>'#13#10'  </MainConfig>'#13
+  +#10'  <Settings FloatingWindowsOnTop="True"/>'#13#10'</CONFIG>'#13#10
 ]);
