@@ -4081,7 +4081,7 @@ begin
     FGutterColor:=ConfigStore.GetValue(Path+'Color/Gutter',DefGutterColor);
     FGutterEdgeColor:=ConfigStore.GetValue(Path+'Color/GutterEdge',DefGutterEdgeColor);
 
-    FShowHints:=ConfigStore.GetValue(Path+'ShowHints',FileVersion>=3);
+    FShowHints:=ConfigStore.GetValue(Path+'ShowHints',False);
     FAutoShow := ConfigStore.GetValue(Path+'AutoShow',True);
     FCheckboxForBoolean := ConfigStore.GetValue(Path+'CheckboxForBoolean',True);
     FBoldNonDefaultValues := ConfigStore.GetValue(Path+'BoldNonDefaultValues',True);
@@ -4137,7 +4137,7 @@ begin
     ConfigStore.SetDeleteValue(Path+'Color/Gutter',FGutterColor,DefGutterColor);
     ConfigStore.SetDeleteValue(Path+'Color/GutterEdge',FGutterEdgeColor,DefGutterEdgeColor);
 
-    ConfigStore.SetDeleteValue(Path+'ShowHints',FShowHints, True);
+    ConfigStore.SetDeleteValue(Path+'ShowHints',FShowHints, False);
     ConfigStore.SetDeleteValue(Path+'AutoShow',FAutoShow, True);
     ConfigStore.SetDeleteValue(Path+'CheckboxForBoolean',FCheckboxForBoolean, True);
     ConfigStore.SetDeleteValue(Path+'BoldNonDefaultValues',FBoldNonDefaultValues, True);

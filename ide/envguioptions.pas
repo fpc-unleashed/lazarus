@@ -461,7 +461,7 @@ var
   I: TObjectInspectorPage;
 begin
   FComponentTreeHeight := -1;
-  FInfoBoxHeight := -1;
+  FInfoBoxHeight := 50;
   FShowComponentTree := True;
   FShowInfoBox := True;
   for I in TObjectInspectorPage do
@@ -535,7 +535,7 @@ begin
   ShowComponentTree := XMLConfig.GetValue(Path+'ComponentTree/Show/Value',True);
   ComponentTreeHeight := XMLConfig.GetValue(Path+'ComponentTree/Height/Value',-1);
   ShowInfoBox := XMLConfig.GetValue(Path+'InfoBox/Show/Value',True);
-  InfoBoxHeight := XMLConfig.GetValue(Path+'InfoBox/Height/Value',-1);
+  InfoBoxHeight := XMLConfig.GetValue(Path+'InfoBox/Height/Value',50);
 end;
 
 procedure TDesktopOIOptions.Save(XMLConfig: TXMLConfig; Path: String);
@@ -548,7 +548,7 @@ begin
   XMLConfig.SetDeleteValue(Path+'ComponentTree/Show/Value',ShowComponentTree,True);
   XMLConfig.SetDeleteValue(Path+'ComponentTree/Height/Value',ComponentTreeHeight,-1);
   XMLConfig.SetDeleteValue(Path+'InfoBox/Show/Value',ShowInfoBox,True);
-  XMLConfig.SetDeleteValue(Path+'InfoBox/Height/Value',InfoBoxHeight,-1);
+  XMLConfig.SetDeleteValue(Path+'InfoBox/Height/Value',InfoBoxHeight,50);
 end;
 
 procedure TDesktopOIOptions.SetSplitterX(const APage: TObjectInspectorPage;
@@ -1176,9 +1176,9 @@ begin
   XMLCfg.SetDeleteValue(Path+'FormEditor/MarkerColor/Value',FMarkerColor,clDkGray);
   XMLCfg.SetDeleteValue(Path+'FormEditor/NonFormBackgroundColor/Value',FNonFormBackgroundColor,clWindow);
   XMLCfg.SetDeleteValue(Path+'FormEditor/Rubberband/SelectionColor/Value',
-     FRubberbandSelectionColor,clBlack);
+     FRubberbandSelectionColor,clNavy);
   XMLCfg.SetDeleteValue(Path+'FormEditor/Rubberband/CreationColor/Value',
-     FRubberbandCreationColor,clRed);
+     FRubberbandCreationColor,clMaroon);
   XMLCfg.SetDeleteValue(Path+'FormEditor/Rubberband/SelectsGrandChilds/Value',
      FRubberbandSelectsGrandChilds,DefaultRubberbandSelectsGrandChilds);
   XMLCfg.SetDeleteValue(Path+'FormEditor/CreateComponentFocusNameProperty/Value',
