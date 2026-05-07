@@ -847,7 +847,7 @@ type
     property OuterBorderAreaInPercent: integer read FOuterBorderAreaInPercent write SetOuterBorderAreaInPercent default 10; // size of area for docking to the outside of a paged area (percent of total size)
     property ShowHeader: boolean read FShowHeader write SetShowHeader default true; // set to false to hide all headers
     property ShowMenuItemShowHeader: boolean read FShowMenuItemShowHeader write SetShowMenuItemShowHeader default false;
-    property ShowHeaderCaption: boolean read FShowHeaderCaption write SetShowHeaderCaption default true; // set to false to remove the text in the headers
+    property ShowHeaderCaption: boolean read FShowHeaderCaption write SetShowHeaderCaption default false; // set to false to remove the text in the headers
     property HideHeaderCaptionFloatingControl: boolean read FHideHeaderCaptionFloatingControl
                           write SetHideHeaderCaptionFloatingControl default true; // disables ShowHeaderCaption for floating controls
     property HeaderAlignTop: integer read FHeaderAlignTop write SetHeaderAlignTop default 80; // move header to top, when (width/height)*100<=HeaderAlignTop
@@ -855,7 +855,7 @@ type
     property HeaderHint: string read FHeaderHint write SetHeaderHint; // if empty it uses resourcestring adrsDragAndDockC
     property HeaderStyle: THeaderStyleName read FHeaderStyle write SetHeaderStyle;
     property HeaderFlatten: boolean read FHeaderFlatten write SetHeaderFlatten default true;
-    property HeaderFilled: boolean read FHeaderFilled write SetHeaderFilled default true;
+    property HeaderFilled: boolean read FHeaderFilled write SetHeaderFilled default false;
     property HeaderHighlightFocused: boolean read FHeaderHighlightFocused write SetHeaderHighlightFocused default false;
     property DockSitesCanBeMinimized: boolean read FDockSitesCanBeMinimized write SetDockSitesCanBeMinimized default false;
     property FlatHeadersButtons: boolean read FFlatHeadersButtons write SetFlatHeadersButtons default false;
@@ -863,7 +863,7 @@ type
     property SplitterWidth: integer read FSplitterWidth write SetSplitterWidth default 4;
     property SplitterResizeStyle: TResizeStyle read FSplitterResizeStyle write SetSplitterResizeStyle default rsUpdate;
     property ScaleOnResize: boolean read FScaleOnResize write SetScaleOnResize default true; // scale children when resizing a site
-    property AllowDragging: boolean read FAllowDragging write SetAllowDragging default true;
+    property AllowDragging: boolean read FAllowDragging write SetAllowDragging default false;
     property MultiLinePages: boolean read FMultiLinePages write SetMultiLinePages default false;
     property OptionsChangeStamp: int64 read FOptionsChangeStamp;
     procedure IncreaseOptionsChangeStamp; inline;
@@ -1625,7 +1625,7 @@ begin
   HeaderFilled                     := Config.GetValue('HeaderFilled',true);
   HeaderFlatten                    := Config.GetValue('HeaderFlatten',true);
   HeaderHighlightFocused           := Config.GetValue('HeaderHighlightFocused',False);
-  HeaderStyle                      := Config.GetValue('HeaderStyle','Frame3D');
+  HeaderStyle                      := Config.GetValue('HeaderStyle','Line');
   HideHeaderCaptionFloatingControl := Config.GetValue('HideHeaderCaptionFloatingControl',true);
   MultiLinePages                   := Config.GetValue('MultiLinePages',false);
   PageAreaInPercent                := Config.GetValue('PageAreaInPercent',40);
@@ -1653,7 +1653,7 @@ begin
   Config.SetDeleteValue(Path+'HeaderFilled',HeaderFilled,true);
   Config.SetDeleteValue(Path+'HeaderFlatten',HeaderFlatten,true);
   Config.SetDeleteValue(Path+'HeaderHighlightFocused',HeaderHighlightFocused,False);
-  Config.SetDeleteValue(Path+'HeaderStyle',HeaderStyle,'Frame3D');
+  Config.SetDeleteValue(Path+'HeaderStyle',HeaderStyle,'Line');
   Config.SetDeleteValue(Path+'HideHeaderCaptionFloatingControl',HideHeaderCaptionFloatingControl,true);
   Config.SetDeleteValue(Path+'MultiLinePages',MultiLinePages,false);
   Config.SetDeleteValue(Path+'PageAreaInPercent',PageAreaInPercent,40);
@@ -1681,7 +1681,7 @@ begin
   Config.SetDeleteValue('HeaderFilled',HeaderFilled,true);
   Config.SetDeleteValue('HeaderFlatten',HeaderFlatten,true);
   Config.SetDeleteValue('HeaderHighlightFocused',HeaderHighlightFocused,False);
-  Config.SetDeleteValue('HeaderStyle',HeaderStyle,'Frame3D');
+  Config.SetDeleteValue('HeaderStyle',HeaderStyle,'Line');
   Config.SetDeleteValue('HideHeaderCaptionFloatingControl',HideHeaderCaptionFloatingControl,true);
   Config.SetDeleteValue('MultiLinePages',MultiLinePages,false);
   Config.SetDeleteValue('PageAreaInPercent',PageAreaInPercent,40);
@@ -1739,7 +1739,7 @@ begin
   HeaderFilled                     := Config.GetValue(Path+'HeaderFilled',true);
   HeaderFlatten                    := Config.GetValue(Path+'HeaderFlatten',true);
   HeaderHighlightFocused           := Config.GetValue(Path+'HeaderHighlightFocused',false);
-  HeaderStyle                      := Config.GetValue(Path+'HeaderStyle','Frame3D');
+  HeaderStyle                      := Config.GetValue(Path+'HeaderStyle','Line');
   HideHeaderCaptionFloatingControl := Config.GetValue(Path+'HideHeaderCaptionFloatingControl',true);
   MultiLinePages                   := Config.GetValue(Path+'MultiLinePages',false);
   PageAreaInPercent                := Config.GetValue(Path+'PageAreaInPercent',40);
@@ -3277,7 +3277,7 @@ begin
   FFormStyles:=TFormStyles.Create;
   FMainDockForm:=nil;
   FControls:=TFPList.Create;
-  FAllowDragging:=true;
+  FAllowDragging:=false;
   FDragTreshold:=4;
   FDockOutsideMargin:=10;
   FDockParentMargin:=10;
@@ -3290,7 +3290,7 @@ begin
   FHeaderHint:='';
   FMultiLinePages:=false;
   FShowHeader:=true;
-  FShowHeaderCaption:=true;
+  FShowHeaderCaption:=false;
   FHideHeaderCaptionFloatingControl:=true;
   FSplitterResizeStyle:=rsUpdate;
   FSplitterWidth:=4;
@@ -3304,7 +3304,7 @@ begin
   FManagerClass:=TAnchorDockManager;
   FHeaderClass:=TAnchorDockHeader;
   FHeaderFlatten:=true;
-  FHeaderFilled:=true;
+  FHeaderFilled:=false;
   FPageControlClass:=TAnchorDockPageControl;
   FPageClass:=TAnchorDockPage;
   FRestoreLayouts:=TAnchorDockRestoreLayouts.Create;
@@ -8705,8 +8705,8 @@ end;
 
 initialization
   DockMaster:=TAnchorDockMaster.Create(nil);
-  DockMaster.RegisterHeaderStyle('Frame3D', @DrawFrame3DHeader, true, true);
   DockMaster.RegisterHeaderStyle('Line', @DrawFrameLine, true, true);
+  DockMaster.RegisterHeaderStyle('Frame3D', @DrawFrame3DHeader, true, true);
   DockMaster.RegisterHeaderStyle('Lines', @DrawFrameLines, true, true);
   DockMaster.RegisterHeaderStyle('Points', @DrawFramePoints, true, true);
   DockMaster.RegisterHeaderStyle('ThemedCaption', @DrawFrameThemedCaption, false, false);

@@ -4,13 +4,13 @@
   <MainConfig>
     <Nodes ChildCount="1">
       <Item1 Name="MainIDE" Type="CustomSite" ChildCount="1">
-        <Bounds Width="1024" Height="768">
+        <Bounds Width="1600" Height="900">
           <WorkArea>
             <Rect Right="1920" Bottom="1036"/>
           </WorkArea>
         </Bounds>
         <Item1 Name="AnchorDockSite10" Type="Layout" ChildCount="7">
-          <Bounds Top="60" Width="1024" Height="688" SplitterPos="58"/>
+          <Bounds Top="60" Width="1600" Height="820" SplitterPos="58"/>
           <Anchors Align="Bottom"/>
           <Item1 Name="SourceNotebook" Type="Control">
             <Bounds Left="177" Width="651" Height="505"/>
