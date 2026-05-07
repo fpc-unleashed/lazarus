@@ -606,7 +606,7 @@ var
   EditorOptionsDividerInfoPas: Array [0..8] of TEditorOptionsDividerInfo
   = (
       (Name: dlgDivPasUnitSectionName;  Xml: 'Sect';    BoolOpt: True;  MaxLevel: 1),
-      (Name: dlgDivPasUsesName;         Xml: 'Uses';    BoolOpt: True;  MaxLevel: 0),
+      (Name: dlgDivPasUsesName;         Xml: 'Uses';    BoolOpt: True;  MaxLevel: 1),
       (Name: dlgDivPasVarGlobalName;    Xml: 'GVar';    BoolOpt: True;  MaxLevel: 1),
       (Name: dlgDivPasVarLocalName;     Xml: 'LVar';    BoolOpt: False; MaxLevel: 0),
       (Name: dlgDivPasStructGlobalName; Xml: 'GStruct'; BoolOpt: False; MaxLevel: 1),
@@ -681,13 +681,13 @@ const
       (Name:  dlgFoldPasProcedure;     Xml:     'Procedure';
        Index: ord(cfbtProcedure);    Enabled: True),
       (Name:  dlgFoldPasAnonProcedure; Xml:     'AnonymousProcedure';
-       Index: ord(cfbtAnonymousProcedure);    Enabled: True),
+       Index: ord(cfbtAnonymousProcedure);    Enabled: False),
       (Name:  dlgFoldLocalPasVarType;  Xml:     'LocalVarType';
-       Index: ord(cfbtLocalVarType); Enabled: True),
+       Index: ord(cfbtLocalVarType); Enabled: False),
       (Name:  dlgFoldPasProcBeginEnd;  Xml:     'ProcBeginEnd';
-       Index: ord(cfbtTopBeginEnd);  Enabled: True),
+       Index: ord(cfbtTopBeginEnd);  Enabled: False),
       (Name:  dlgFoldPasBeginEnd;      Xml:     'BeginEnd';
-       Index: ord(cfbtBeginEnd);     Enabled: True),
+       Index: ord(cfbtBeginEnd);     Enabled: False),
       (Name:  dlgFoldPasRepeat;        Xml:     'Repeat';
        Index: ord(cfbtRepeat);       Enabled: False),
       (Name:  dlgFoldPasCase;          Xml:     'Case';
@@ -697,25 +697,25 @@ const
       (Name:  dlgFoldPasExcept;        Xml:     'Except';
        Index: ord(cfbtExcept);       Enabled: False),
       (Name:  dlgFoldPasAsm;           Xml:     'Asm';
-       Index: ord(cfbtAsm);          Enabled: True),
+       Index: ord(cfbtAsm);          Enabled: False),
 
       (Name:  dlgFoldPasProgram;       Xml:     'Program';
        Index: ord(cfbtProgram);      Enabled: False),
       (Name:  dlgFoldPasUnit;          Xml:     'Unit';
        Index: ord(cfbtUnit);         Enabled: False),
       (Name:  dlgFoldPasUnitSection;   Xml:     'UnitSection';
-       Index: ord(cfbtUnitSection);  Enabled: False),
+       Index: ord(cfbtUnitSection);  Enabled: True),
       (Name:  dlgFoldPasUses;          Xml:     'Uses';
-       Index: ord(cfbtUses);         Enabled: True),
+       Index: ord(cfbtUses);         Enabled: False),
 
       (Name:  dlgFoldPasVarType;       Xml:     'VarType';
        Index: ord(cfbtVarType);      Enabled: False),
       (Name:  dlgFoldPasClass;         Xml:     'Class';
-       Index: ord(cfbtClass);        Enabled: True),
+       Index: ord(cfbtClass);        Enabled: False),
       (Name:  dlgFoldPasClassSection;  Xml:     'ClassSection';
-       Index: ord(cfbtClassSection); Enabled: True),
+       Index: ord(cfbtClassSection); Enabled: False),
       (Name:  dlgFoldPasRecord;        Xml:     'Record';
-       Index: ord(cfbtRecord);       Enabled: True),
+       Index: ord(cfbtRecord);       Enabled: False),
       (Name:  dlgFoldPasRecordCase;    Xml:     'RecordCase';
        Index: ord(cfbtRecordCase);   Enabled: False),
       (Name:  dlgFoldPasRecordCaseSect;    Xml:     'RecordCaseSection';
@@ -727,14 +727,14 @@ const
        Index: ord(cfbtRegion);       Enabled: True),
 
       (Name:  dlgFoldPasAnsiComment;   Xml:     'AnsiComment';
-       Index: ord(cfbtAnsiComment);  Enabled: True),
+       Index: ord(cfbtAnsiComment);  Enabled: False),
       (Name:  dlgFoldPasBorComment;    Xml:     'BorComment';
-       Index: ord(cfbtBorCommand);   Enabled: True),
+       Index: ord(cfbtBorCommand);   Enabled: False),
       (Name:  dlgFoldPasSlashComment;    Xml:     'SlashComment';
-       Index: ord(cfbtSlashComment); Enabled: True),
+       Index: ord(cfbtSlashComment); Enabled: False),
 
       (Name:  dlgFoldPasNestedComment; Xml:     'NestedComment';
-       Index: ord(cfbtNestedComment);Enabled: True),
+       Index: ord(cfbtNestedComment);Enabled: False),
 
       (Name:  dlgFoldPasIfThen; Xml:     'IfThen';
        Index: ord(cfbtIfThen); Enabled: False),
