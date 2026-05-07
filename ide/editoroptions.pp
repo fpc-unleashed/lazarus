@@ -5884,7 +5884,7 @@ begin
   fSynEditOptions := SynEditDefaultOptions;
   fSynEditOptions2 := SynEditDefaultOptions2;
   fShowFileNameInCaption := False;
-  fShowTabCloseButtons := True;
+  fShowTabCloseButtons := False;
   fHideSingleTabInWindow := False;
   fCopyWordAtCursorOnCopyNone := True;
   fShowGutterHints := True;
@@ -6011,7 +6011,7 @@ begin
     end;
 
     fShowTabCloseButtons :=
-      XMLConfig.GetValue('EditorOptions/General/Editor/ShowTabCloseButtons', True);
+      XMLConfig.GetValue('EditorOptions/General/Editor/ShowTabCloseButtons', False);
     FHideSingleTabInWindow :=
       XMLConfig.GetValue('EditorOptions/General/Editor/HideSingleTabInWindow', False);
     fShowTabNumbers :=
@@ -6270,7 +6270,7 @@ begin
     end;
 
     XMLConfig.SetDeleteValue('EditorOptions/General/Editor/ShowTabCloseButtons'
-      , fShowTabCloseButtons, True);
+      , fShowTabCloseButtons, False);
     XMLConfig.SetDeleteValue('EditorOptions/General/Editor/HideSingleTabInWindow'
       , FHideSingleTabInWindow, False);
     XMLConfig.SetDeleteValue('EditorOptions/General/Editor/ShowTabNumbers'
