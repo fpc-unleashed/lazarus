@@ -60,17 +60,20 @@
           <Item4 Name="AnchorDockSplitter3" Type="SplitterVertical">
             <Bounds Left="828" Width="9" Height="688"/>
           </Item4>
-          <Item5 Name="AnchorDockSite12" Type="Pages" ChildCount="2">
+          <Item5 Name="AnchorDockSite12" Type="Layout" ChildCount="3">
             <Bounds Left="837" Width="187" Height="688"/>
             <Anchors Left="AnchorDockSplitter3"/>
-            <Item1 Name="CodeExplorerView" Type="Control">
-              <Bounds Width="179" Height="662"/>
-              <Anchors Align="Client"/>
+            <Item1 Name="ComponentList" Type="Control">
+              <Bounds Top="344" Width="187" Height="344"/>
+              <Anchors Top="AnchorDockSplitter5"/>
             </Item1>
-            <Item2 Name="ComponentList" Type="Control">
-              <Bounds Width="159" Height="626"/>
-              <Anchors Align="Client"/>
+            <Item2 Name="AnchorDockSplitter5" Type="SplitterHorizontal">
+              <Bounds Top="340" Width="187" Height="4"/>
             </Item2>
+            <Item3 Name="ProjectInspector" Type="Control">
+              <Bounds Width="187" Height="340"/>
+              <Anchors Bottom="AnchorDockSplitter5"/>
+            </Item3>
           </Item5>
           <Item6 Name="ObjectInspectorDlg" Type="Control">
             <Bounds Width="173" Height="688"/>

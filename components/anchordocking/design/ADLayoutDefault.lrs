@@ -41,19 +41,22 @@ LazarusResources.Add('ADLayoutDefault','XML',[
   +'Item8>'#13#10'          </Item3>'#13#10'          <Item4 Name="AnchorDockSp'
   +'litter3" Type="SplitterVertical">'#13#10'            <Bounds Left="828" Wid'
   +'th="9" Height="688"/>'#13#10'          </Item4>'#13#10'          <Item5 Nam'
-  +'e="AnchorDockSite12" Type="Pages" ChildCount="2">'#13#10'            <Bound'
-  +'s Left="837" Width="187" Height="688"/>'#13#10'            <Anchors Left="A'
-  +'nchorDockSplitter3"/>'#13#10'            <Item1 Name="CodeExplorerView" Typ'
-  +'e="Control">'#13#10'              <Bounds Width="179" Height="662"/>'#13#10
-  +'              <Anchors Align="Client"/>'#13#10'            </Item1>'#13#10
-  +'            <Item2 Name="ComponentList" Type="Control">'#13#10'            '
-  +'  <Bounds Width="159" Height="626"/>'#13#10'              <Anchors Align="C'
-  +'lient"/>'#13#10'            </Item2>'#13#10'          </Item5>'#13#10'     '
-  +'     <Item6 Name="ObjectInspectorDlg" Type="Control">'#13#10'            <B'
-  +'ounds Width="173" Height="688"/>'#13#10'            <Anchors Right="AnchorD'
-  +'ockSplitter4"/>'#13#10'          </Item6>'#13#10'          <Item7 Name="Anc'
-  +'horDockSplitter4" Type="SplitterVertical">'#13#10'            <Bounds Left='
-  +'"173" Width="4" Height="688"/>'#13#10'          </Item7>'#13#10'        </I'
-  +'tem1>'#13#10'      </Item1>'#13#10'    </Nodes>'#13#10'  </MainConfig>'#13
-  +#10'  <Settings FloatingWindowsOnTop="True"/>'#13#10'</CONFIG>'#13#10
+  +'e="AnchorDockSite12" Type="Layout" ChildCount="3">'#13#10'            <Boun'
+  +'ds Left="837" Width="187" Height="688"/>'#13#10'            <Anchors Left="'
+  +'AnchorDockSplitter3"/>'#13#10'            <Item1 Name="ComponentList" Type='
+  +'"Control">'#13#10'              <Bounds Top="344" Width="187" Height="344"/'
+  +'>'#13#10'              <Anchors Top="AnchorDockSplitter5"/>'#13#10'        '
+  +'    </Item1>'#13#10'            <Item2 Name="AnchorDockSplitter5" Type="Spl'
+  +'itterHorizontal">'#13#10'              <Bounds Top="340" Width="187" Height'
+  +'="4"/>'#13#10'            </Item2>'#13#10'            <Item3 Name="ProjectI'
+  +'nspector" Type="Control">'#13#10'              <Bounds Width="187" Height="'
+  +'340"/>'#13#10'              <Anchors Bottom="AnchorDockSplitter5"/>'#13#10
+  +'            </Item3>'#13#10'          </Item5>'#13#10'          <Item6 Name'
+  +'="ObjectInspectorDlg" Type="Control">'#13#10'            <Bounds Width="173'
+  +'" Height="688"/>'#13#10'            <Anchors Right="AnchorDockSplitter4"/>'
+  +#13#10'          </Item6>'#13#10'          <Item7 Name="AnchorDockSplitter4"'
+  +' Type="SplitterVertical">'#13#10'            <Bounds Left="173" Width="4" H'
+  +'eight="688"/>'#13#10'          </Item7>'#13#10'        </Item1>'#13#10'    '
+  +'  </Item1>'#13#10'    </Nodes>'#13#10'  </MainConfig>'#13#10'  <Settings Fl'
+  +'oatingWindowsOnTop="True"/>'#13#10'</CONFIG>'#13#10
 ]);
