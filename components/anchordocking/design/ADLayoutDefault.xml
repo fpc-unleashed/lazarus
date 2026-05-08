@@ -13,65 +13,65 @@
           <Bounds Top="60" Width="1600" Height="820" SplitterPos="58"/>
           <Anchors Align="Bottom"/>
           <Item1 Name="SourceNotebook" Type="Control">
-            <Bounds Left="177" Width="651" Height="505"/>
+            <Bounds Left="177" Width="1183" Height="505"/>
             <Anchors Left="AnchorDockSplitter4" Right="AnchorDockSplitter3" Bottom="AnchorDockSplitter2"/>
             <Header Position="left"/>
           </Item1>
           <Item2 Name="AnchorDockSplitter2" Type="SplitterHorizontal">
-            <Bounds Left="177" Top="505" Width="651" Height="7"/>
+            <Bounds Left="177" Top="505" Width="1183" Height="7"/>
             <Anchors Left="AnchorDockSplitter4" Right="AnchorDockSplitter3"/>
           </Item2>
           <Item3 Name="AnchorDockSite11" Type="Pages" ChildCount="8">
-            <Bounds Left="177" Top="512" Width="651" Height="176"/>
+            <Bounds Left="177" Top="512" Width="1183" Height="176"/>
             <Anchors Left="AnchorDockSplitter4" Top="AnchorDockSplitter2" Right="AnchorDockSplitter3"/>
             <Item1 Name="MessagesView" Type="Control">
-              <Bounds Width="643" Height="150"/>
+              <Bounds Width="1175" Height="150"/>
               <Anchors Align="Client"/>
             </Item1>
             <Item2 Name="Assembler" Type="Control">
-              <Bounds Width="643" Height="150"/>
+              <Bounds Width="1175" Height="150"/>
               <Anchors Align="Client"/>
             </Item2>
             <Item3 Name="Locals" Type="Control">
-              <Bounds Width="643" Height="150"/>
+              <Bounds Width="1175" Height="150"/>
               <Anchors Align="Client"/>
             </Item3>
             <Item4 Name="Watches" Type="Control">
-              <Bounds Width="643" Height="150"/>
+              <Bounds Width="1175" Height="150"/>
               <Anchors Align="Client"/>
             </Item4>
             <Item5 Name="CallStack" Type="Control">
-              <Bounds Width="643" Height="150"/>
+              <Bounds Width="1175" Height="150"/>
               <Anchors Align="Client"/>
             </Item5>
             <Item6 Name="Registers" Type="Control">
-              <Bounds Width="643" Height="150"/>
+              <Bounds Width="1175" Height="150"/>
               <Anchors Align="Client"/>
             </Item6>
             <Item7 Name="BreakPoints" Type="Control">
-              <Bounds Width="643" Height="150"/>
+              <Bounds Width="1175" Height="150"/>
               <Anchors Align="Client"/>
             </Item7>
             <Item8 Name="DbgHistory" Type="Control">
-              <Bounds Width="643" Height="150"/>
+              <Bounds Width="1175" Height="150"/>
               <Anchors Align="Client"/>
             </Item8>
           </Item3>
           <Item4 Name="AnchorDockSplitter3" Type="SplitterVertical">
-            <Bounds Left="828" Width="9" Height="688"/>
+            <Bounds Left="1360" Width="9" Height="688"/>
           </Item4>
           <Item5 Name="AnchorDockSite12" Type="Layout" ChildCount="3">
-            <Bounds Left="837" Width="187" Height="688"/>
+            <Bounds Left="1369" Width="231" Height="688"/>
             <Anchors Left="AnchorDockSplitter3"/>
             <Item1 Name="ComponentList" Type="Control">
-              <Bounds Top="344" Width="187" Height="344"/>
+              <Bounds Top="344" Width="231" Height="344"/>
               <Anchors Top="AnchorDockSplitter5"/>
             </Item1>
             <Item2 Name="AnchorDockSplitter5" Type="SplitterHorizontal">
-              <Bounds Top="340" Width="187" Height="4"/>
+              <Bounds Top="340" Width="231" Height="4"/>
             </Item2>
             <Item3 Name="ProjectInspector" Type="Control">
-              <Bounds Width="187" Height="340"/>
+              <Bounds Width="231" Height="340"/>
               <Anchors Bottom="AnchorDockSplitter5"/>
             </Item3>
           </Item5>
