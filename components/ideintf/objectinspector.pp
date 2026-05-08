@@ -4010,7 +4010,7 @@ begin
   FDefaultItemHeight:=0;
   FShowComponentTree:=true;
   FComponentTreeHeight:=160;
-  FInfoBoxHeight:=80;
+  FInfoBoxHeight:=50;
 
   FGridBackgroundColor := DefBackgroundColor;
   FSubPropertiesColor := DefSubPropertiesColor;
@@ -4081,7 +4081,7 @@ begin
     FGutterColor:=ConfigStore.GetValue(Path+'Color/Gutter',DefGutterColor);
     FGutterEdgeColor:=ConfigStore.GetValue(Path+'Color/GutterEdge',DefGutterEdgeColor);
 
-    FShowHints:=ConfigStore.GetValue(Path+'ShowHints',FileVersion>=3);
+    FShowHints:=ConfigStore.GetValue(Path+'ShowHints',False);
     FAutoShow := ConfigStore.GetValue(Path+'AutoShow',True);
     FCheckboxForBoolean := ConfigStore.GetValue(Path+'CheckboxForBoolean',True);
     FBoldNonDefaultValues := ConfigStore.GetValue(Path+'BoldNonDefaultValues',True);
@@ -4090,7 +4090,7 @@ begin
     FShowGutter := ConfigStore.GetValue(Path+'ShowGutter',True);
     FShowStatusBar := ConfigStore.GetValue(Path+'ShowStatusBar',True);
     FShowInfoBox := ConfigStore.GetValue(Path+'ShowInfoBox',True);
-    FInfoBoxHeight := ConfigStore.GetValue(Path+'InfoBoxHeight',80);
+    FInfoBoxHeight := ConfigStore.GetValue(Path+'InfoBoxHeight',50);
   except
     on E: Exception do begin
       DebugLn('ERROR: TOIOptions.Load: ',E.Message);
@@ -4137,7 +4137,7 @@ begin
     ConfigStore.SetDeleteValue(Path+'Color/Gutter',FGutterColor,DefGutterColor);
     ConfigStore.SetDeleteValue(Path+'Color/GutterEdge',FGutterEdgeColor,DefGutterEdgeColor);
 
-    ConfigStore.SetDeleteValue(Path+'ShowHints',FShowHints, True);
+    ConfigStore.SetDeleteValue(Path+'ShowHints',FShowHints, False);
     ConfigStore.SetDeleteValue(Path+'AutoShow',FAutoShow, True);
     ConfigStore.SetDeleteValue(Path+'CheckboxForBoolean',FCheckboxForBoolean, True);
     ConfigStore.SetDeleteValue(Path+'BoldNonDefaultValues',FBoldNonDefaultValues, True);
@@ -4146,7 +4146,7 @@ begin
     ConfigStore.SetDeleteValue(Path+'ShowGutter',FShowGutter, True);
     ConfigStore.SetDeleteValue(Path+'ShowStatusBar',FShowStatusBar, True);
     ConfigStore.SetDeleteValue(Path+'ShowInfoBox',FShowInfoBox, True);
-    ConfigStore.SetDeleteValue(Path+'InfoBoxHeight',FInfoBoxHeight,80);
+    ConfigStore.SetDeleteValue(Path+'InfoBoxHeight',FInfoBoxHeight,50);
   except
     on E: Exception do begin
       DebugLn('ERROR: TOIOptions.Save: ',E.Message);
@@ -4308,7 +4308,7 @@ begin
   FShowFavorites := False;
   FShowRestricted := False;
   FShowStatusBar := True;
-  FInfoBoxHeight := 80;
+  FInfoBoxHeight := 50;
   FPropFilterUpdating := False;
   FShowInfoBox := True;
   FComponentEditor := nil;

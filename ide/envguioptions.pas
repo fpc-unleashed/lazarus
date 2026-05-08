@@ -461,7 +461,7 @@ var
   I: TObjectInspectorPage;
 begin
   FComponentTreeHeight := -1;
-  FInfoBoxHeight := -1;
+  FInfoBoxHeight := 50;
   FShowComponentTree := True;
   FShowInfoBox := True;
   for I in TObjectInspectorPage do
@@ -535,7 +535,7 @@ begin
   ShowComponentTree := XMLConfig.GetValue(Path+'ComponentTree/Show/Value',True);
   ComponentTreeHeight := XMLConfig.GetValue(Path+'ComponentTree/Height/Value',-1);
   ShowInfoBox := XMLConfig.GetValue(Path+'InfoBox/Show/Value',True);
-  InfoBoxHeight := XMLConfig.GetValue(Path+'InfoBox/Height/Value',-1);
+  InfoBoxHeight := XMLConfig.GetValue(Path+'InfoBox/Height/Value',50);
 end;
 
 procedure TDesktopOIOptions.Save(XMLConfig: TXMLConfig; Path: String);
@@ -548,7 +548,7 @@ begin
   XMLConfig.SetDeleteValue(Path+'ComponentTree/Show/Value',ShowComponentTree,True);
   XMLConfig.SetDeleteValue(Path+'ComponentTree/Height/Value',ComponentTreeHeight,-1);
   XMLConfig.SetDeleteValue(Path+'InfoBox/Show/Value',ShowInfoBox,True);
-  XMLConfig.SetDeleteValue(Path+'InfoBox/Height/Value',InfoBoxHeight,-1);
+  XMLConfig.SetDeleteValue(Path+'InfoBox/Height/Value',InfoBoxHeight,50);
 end;
 
 procedure TDesktopOIOptions.SetSplitterX(const APage: TObjectInspectorPage;
@@ -571,7 +571,7 @@ begin
 
   FSingleTaskBarButton:=false;
   FHideIDEOnRun:=false;
-  FAutoAdjustIDEHeight:=true;
+  FAutoAdjustIDEHeight:=false;
   FAutoAdjustIDEHeightFullCompPal := true;
   // window menu
   FIDENameForDesignedFormList:=false;
@@ -592,7 +592,7 @@ begin
   // object inspector
   FObjectInspectorOptions:=TDesktopOIOptions.Create;
   // project inspector
-  FProjectInspectorShowProps := true;
+  FProjectInspectorShowProps := false;
   FProjectInspectorPropsPanelHeight := cDefaultPropsPanelHeight;
   // Windows layout
   InitLayoutList;
@@ -678,7 +678,7 @@ begin
 
   FSingleTaskBarButton:=FXMLCfg.GetValue(Path+'SingleTaskBarButton/Value', False);
   FHideIDEOnRun:=FXMLCfg.GetValue(Path+'HideIDEOnRun/Value',false);
-  FAutoAdjustIDEHeight:=FXMLCfg.GetValue(Path+'AutoAdjustIDEHeight/Value',true);
+  FAutoAdjustIDEHeight:=FXMLCfg.GetValue(Path+'AutoAdjustIDEHeight/Value',false);
   FAutoAdjustIDEHeightFullCompPal:=FXMLCfg.GetValue(Path+'AutoAdjustIDEHeightFullComponentPalette/Value',true);
   // Window menu
   FIDENameForDesignedFormList:=FXMLCfg.GetValue(Path+'IDENameForDesignedFormList/Value',false);
@@ -699,7 +699,7 @@ begin
   FCompletionWindowWidth:=FXMLCfg.GetValue(Path+'CompletionWindowOptions/Width/Value', FCompletionWindowWidth);
   FCompletionWindowHeight:=FXMLCfg.GetValue(Path+'CompletionWindowOptions/Height/Value', 6);
   // Project Inspector
-  FProjectInspectorShowProps := FXMLCfg.GetValue(Path+'ProjectInspectorShowProps/Value', true);
+  FProjectInspectorShowProps := FXMLCfg.GetValue(Path+'ProjectInspectorShowProps/Value', false);
   FProjectInspectorPropsPanelHeight := FXMLCfg.GetValue(Path+'ProjectInspectorPropsPanelHeight/Value', cDefaultPropsPanelHeight);
 
   if not FXMLCfg.HasPath(Path+'IDECoolBarOptions/', True) then
@@ -739,7 +739,7 @@ begin
   FXMLCfg.SetDeleteValue(Path+'AssociatedDebugDesktopName/Value', FAssociatedDebugDesktopName, '');
   FXMLCfg.SetDeleteValue(Path+'SingleTaskBarButton/Value',FSingleTaskBarButton, False);
   FXMLCfg.SetDeleteValue(Path+'HideIDEOnRun/Value',FHideIDEOnRun,false);
-  FXMLCfg.SetDeleteValue(Path+'AutoAdjustIDEHeight/Value',FAutoAdjustIDEHeight,true);
+  FXMLCfg.SetDeleteValue(Path+'AutoAdjustIDEHeight/Value',FAutoAdjustIDEHeight,false);
   FXMLCfg.SetDeleteValue(Path+'AutoAdjustIDEHeightFullComponentPalette/Value',
                            FAutoAdjustIDEHeightFullCompPal,true);
   // Window menu
@@ -753,7 +753,7 @@ begin
   FXMLCfg.SetValue(Path+'CompletionWindowOptions/Width/Value',FCompletionWindowWidth);
   FXMLCfg.SetDeleteValue(Path+'CompletionWindowOptions/Height/Value',FCompletionWindowHeight, 6);
   // Project Inspector
-  FXMLCfg.SetDeleteValue(Path+'ProjectInspectorShowProps/Value', FProjectInspectorShowProps, true);
+  FXMLCfg.SetDeleteValue(Path+'ProjectInspectorShowProps/Value', FProjectInspectorShowProps, false);
   FXMLCfg.SetDeleteValue(Path+'ProjectInspectorPropsPanelHeight/Value', FProjectInspectorPropsPanelHeight, cDefaultPropsPanelHeight);
   // IDE Coolbar
   FIDECoolBarOptions.Save(FXMLCfg, Path);
@@ -1176,9 +1176,9 @@ begin
   XMLCfg.SetDeleteValue(Path+'FormEditor/MarkerColor/Value',FMarkerColor,clDkGray);
   XMLCfg.SetDeleteValue(Path+'FormEditor/NonFormBackgroundColor/Value',FNonFormBackgroundColor,clWindow);
   XMLCfg.SetDeleteValue(Path+'FormEditor/Rubberband/SelectionColor/Value',
-     FRubberbandSelectionColor,clBlack);
+     FRubberbandSelectionColor,clNavy);
   XMLCfg.SetDeleteValue(Path+'FormEditor/Rubberband/CreationColor/Value',
-     FRubberbandCreationColor,clRed);
+     FRubberbandCreationColor,clMaroon);
   XMLCfg.SetDeleteValue(Path+'FormEditor/Rubberband/SelectsGrandChilds/Value',
      FRubberbandSelectsGrandChilds,DefaultRubberbandSelectsGrandChilds);
   XMLCfg.SetDeleteValue(Path+'FormEditor/CreateComponentFocusNameProperty/Value',

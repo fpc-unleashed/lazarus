@@ -1489,7 +1489,7 @@ begin
   ecCleanUpAndBuild:     SetSingle(VK_UNKNOWN,[]);
   ecBuildManyModes:      SetSingle(VK_UNKNOWN,[]);
   ecAbortBuild:          SetSingle(VK_UNKNOWN,[]);
-  ecRunWithoutDebugging: SetSingle(VK_F9, [XCtrl, ssShift]);
+  ecRunWithoutDebugging: SetSingle(VK_F9, [XCtrl, ssAlt]);
   ecRunWithDebugging:    SetSingle(VK_F9, [ssAlt, ssShift]);
   ecRun:                 SetSingle(VK_F9,[]);
   ecPause:               SetSingle(VK_UNKNOWN,[]);
@@ -1950,7 +1950,7 @@ begin
   ecCleanUpAndBuild:     SetSingle(VK_UNKNOWN,[]);
   ecBuildManyModes:      SetSingle(VK_UNKNOWN,[]);
   ecAbortBuild:          SetSingle(VK_UNKNOWN,[]);
-  ecRunWithoutDebugging: SetSingle(VK_F9,[ssCtrl, ssShift]);
+  ecRunWithoutDebugging: SetSingle(VK_F9,[ssCtrl, ssAlt]);
   ecRunWithDebugging:    SetSingle(VK_F9, [ssAlt, ssShift]);
   ecRun:                 SetSingle(VK_F9,[]);
   ecPause:               SetSingle(VK_UNKNOWN,[]);

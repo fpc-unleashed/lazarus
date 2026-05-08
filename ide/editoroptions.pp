@@ -606,7 +606,7 @@ var
   EditorOptionsDividerInfoPas: Array [0..8] of TEditorOptionsDividerInfo
   = (
       (Name: dlgDivPasUnitSectionName;  Xml: 'Sect';    BoolOpt: True;  MaxLevel: 1),
-      (Name: dlgDivPasUsesName;         Xml: 'Uses';    BoolOpt: True;  MaxLevel: 0),
+      (Name: dlgDivPasUsesName;         Xml: 'Uses';    BoolOpt: True;  MaxLevel: 1),
       (Name: dlgDivPasVarGlobalName;    Xml: 'GVar';    BoolOpt: True;  MaxLevel: 1),
       (Name: dlgDivPasVarLocalName;     Xml: 'LVar';    BoolOpt: False; MaxLevel: 0),
       (Name: dlgDivPasStructGlobalName; Xml: 'GStruct'; BoolOpt: False; MaxLevel: 1),
@@ -681,13 +681,13 @@ const
       (Name:  dlgFoldPasProcedure;     Xml:     'Procedure';
        Index: ord(cfbtProcedure);    Enabled: True),
       (Name:  dlgFoldPasAnonProcedure; Xml:     'AnonymousProcedure';
-       Index: ord(cfbtAnonymousProcedure);    Enabled: True),
+       Index: ord(cfbtAnonymousProcedure);    Enabled: False),
       (Name:  dlgFoldLocalPasVarType;  Xml:     'LocalVarType';
-       Index: ord(cfbtLocalVarType); Enabled: True),
+       Index: ord(cfbtLocalVarType); Enabled: False),
       (Name:  dlgFoldPasProcBeginEnd;  Xml:     'ProcBeginEnd';
-       Index: ord(cfbtTopBeginEnd);  Enabled: True),
+       Index: ord(cfbtTopBeginEnd);  Enabled: False),
       (Name:  dlgFoldPasBeginEnd;      Xml:     'BeginEnd';
-       Index: ord(cfbtBeginEnd);     Enabled: True),
+       Index: ord(cfbtBeginEnd);     Enabled: False),
       (Name:  dlgFoldPasRepeat;        Xml:     'Repeat';
        Index: ord(cfbtRepeat);       Enabled: False),
       (Name:  dlgFoldPasCase;          Xml:     'Case';
@@ -697,25 +697,25 @@ const
       (Name:  dlgFoldPasExcept;        Xml:     'Except';
        Index: ord(cfbtExcept);       Enabled: False),
       (Name:  dlgFoldPasAsm;           Xml:     'Asm';
-       Index: ord(cfbtAsm);          Enabled: True),
+       Index: ord(cfbtAsm);          Enabled: False),
 
       (Name:  dlgFoldPasProgram;       Xml:     'Program';
        Index: ord(cfbtProgram);      Enabled: False),
       (Name:  dlgFoldPasUnit;          Xml:     'Unit';
        Index: ord(cfbtUnit);         Enabled: False),
       (Name:  dlgFoldPasUnitSection;   Xml:     'UnitSection';
-       Index: ord(cfbtUnitSection);  Enabled: False),
+       Index: ord(cfbtUnitSection);  Enabled: True),
       (Name:  dlgFoldPasUses;          Xml:     'Uses';
-       Index: ord(cfbtUses);         Enabled: True),
+       Index: ord(cfbtUses);         Enabled: False),
 
       (Name:  dlgFoldPasVarType;       Xml:     'VarType';
        Index: ord(cfbtVarType);      Enabled: False),
       (Name:  dlgFoldPasClass;         Xml:     'Class';
-       Index: ord(cfbtClass);        Enabled: True),
+       Index: ord(cfbtClass);        Enabled: False),
       (Name:  dlgFoldPasClassSection;  Xml:     'ClassSection';
-       Index: ord(cfbtClassSection); Enabled: True),
+       Index: ord(cfbtClassSection); Enabled: False),
       (Name:  dlgFoldPasRecord;        Xml:     'Record';
-       Index: ord(cfbtRecord);       Enabled: True),
+       Index: ord(cfbtRecord);       Enabled: False),
       (Name:  dlgFoldPasRecordCase;    Xml:     'RecordCase';
        Index: ord(cfbtRecordCase);   Enabled: False),
       (Name:  dlgFoldPasRecordCaseSect;    Xml:     'RecordCaseSection';
@@ -727,14 +727,14 @@ const
        Index: ord(cfbtRegion);       Enabled: True),
 
       (Name:  dlgFoldPasAnsiComment;   Xml:     'AnsiComment';
-       Index: ord(cfbtAnsiComment);  Enabled: True),
+       Index: ord(cfbtAnsiComment);  Enabled: False),
       (Name:  dlgFoldPasBorComment;    Xml:     'BorComment';
-       Index: ord(cfbtBorCommand);   Enabled: True),
+       Index: ord(cfbtBorCommand);   Enabled: False),
       (Name:  dlgFoldPasSlashComment;    Xml:     'SlashComment';
-       Index: ord(cfbtSlashComment); Enabled: True),
+       Index: ord(cfbtSlashComment); Enabled: False),
 
       (Name:  dlgFoldPasNestedComment; Xml:     'NestedComment';
-       Index: ord(cfbtNestedComment);Enabled: True),
+       Index: ord(cfbtNestedComment);Enabled: False),
 
       (Name:  dlgFoldPasIfThen; Xml:     'IfThen';
        Index: ord(cfbtIfThen); Enabled: False),
@@ -925,7 +925,7 @@ const
     ) deprecated 'for internal use only';
 
 const
-  SynEditDefaultOptions = SYNEDIT_DEFAULT_OPTIONS - [eoShowScrollHint]
+  SynEditDefaultOptions = SYNEDIT_DEFAULT_OPTIONS - [eoShowScrollHint, eoSmartTabs]
                                                   + [eoHalfPageScroll, eoTabIndent];
   SynEditDefaultOptions2 = SYNEDIT_DEFAULT_OPTIONS2;
 
@@ -1220,7 +1220,7 @@ type
     property TextDrag: Boolean read FTextDrag write FTextDrag
              default True;
     property TextRightMoveCaret: Boolean read FTextRightMoveCaret  write FTextRightMoveCaret
-             default False;
+             default True;
     property DeclarationJumpIncludesExtLink: Boolean read FDeclarationJumpIncludesExtLink write FDeclarationJumpIncludesExtLink
              default False;
     // left multi click
@@ -2083,7 +2083,7 @@ type
     property TrimSpaceType: TSynEditStringTrimmingType
       read fTrimSpaceType write fTrimSpaceType default settLeaveLine;
     property UndoLimit: Integer read fUndoLimit write fUndoLimit default 32767;
-    property TabWidth: Integer read fTabWidth write fTabWidth default 8;
+    property TabWidth: Integer read fTabWidth write fTabWidth default 2;
     property BracketHighlightStyle: TSynEditBracketHighlightStyle
       read fBracketHighlightStyle write fBracketHighlightStyle default sbhsBoth;
     // Display options
@@ -2138,16 +2138,16 @@ type
     property AutoDisplayFunctionPrototypes: Boolean
       read fAutoDisplayFuncPrototypes write fAutoDisplayFuncPrototypes default True;
     property AutoDelayInMSec: Integer read fAutoDelayInMSec
-      write fAutoDelayInMSec default 1000;
+      write fAutoDelayInMSec default 10;
     property AutoHintDelayInMSec: Integer read fAutoHintDelayInMSec
-      write fAutoHintDelayInMSec default 1000;
+      write fAutoHintDelayInMSec default 97;
     property CodeTemplateFileNameRaw: String
       read fCodeTemplateFileNameRaw write fCodeTemplateFileNameRaw;
     property CodeTemplateFileNameExpand: String read GetCodeTemplateFileNameExpand;
     property CodeTemplateIndentToTokenStart: Boolean
       read fCTemplIndentToTokenStart write fCTemplIndentToTokenStart;
     property AutoRemoveEmptyMethods: Boolean
-      read fAutoRemoveEmptyMethods write fAutoRemoveEmptyMethods default False;
+      read fAutoRemoveEmptyMethods write fAutoRemoveEmptyMethods default True;
     property CompletionLongLineHintInMSec: Integer
       read fCompletionLongLineHintInMSec write fCompletionLongLineHintInMSec;
     property CompletionLongLineHintType: TSynCompletionLongHintType
@@ -4582,7 +4582,7 @@ begin
   FTextShiftCtrlExtra2Click := mbaNone;
   FTextShiftExtra2Click := mbaNone;
 
-  FTextRightMoveCaret  := False;
+  FTextRightMoveCaret  := True;
   FDeclarationJumpIncludesExtLink := False;
   FTextDrag            := True;
   FSelectOnLineNumbers := True;
@@ -5737,8 +5737,8 @@ begin
   fCtrlMiddleTabClickClosesOthers := True;
   fMiddleTabClickClosesOthersModifier := [ssCtrl];
   fMiddleTabClickClosesToRightModifier := [];
-  TabFont := '';
-  TabFontSize := 0;
+  TabFont := 'Arial';
+  TabFontSize := 10;
   TabFontDisableAntialiasing := DefaultEditorDisableAntiAliasing;
   // Comment
   FAnsiCommentContinueEnabled := False;
@@ -5884,7 +5884,7 @@ begin
   fSynEditOptions := SynEditDefaultOptions;
   fSynEditOptions2 := SynEditDefaultOptions2;
   fShowFileNameInCaption := False;
-  fShowTabCloseButtons := True;
+  fShowTabCloseButtons := False;
   fHideSingleTabInWindow := False;
   fCopyWordAtCursorOnCopyNone := True;
   fShowGutterHints := True;
@@ -5893,7 +5893,7 @@ begin
   fBlockIndentType := sbitSpace;
   fTrimSpaceType := settEditLine;
   fUndoLimit := 32767;
-  fTabWidth := 8;
+  fTabWidth := 2;
   fElasticTabsMinWidth := 1;
   fBracketHighlightStyle := sbhsBoth;
   // Display options
@@ -6011,7 +6011,7 @@ begin
     end;
 
     fShowTabCloseButtons :=
-      XMLConfig.GetValue('EditorOptions/General/Editor/ShowTabCloseButtons', True);
+      XMLConfig.GetValue('EditorOptions/General/Editor/ShowTabCloseButtons', False);
     FHideSingleTabInWindow :=
       XMLConfig.GetValue('EditorOptions/General/Editor/HideSingleTabInWindow', False);
     fShowTabNumbers :=
@@ -6039,7 +6039,7 @@ begin
     fUndoLimit :=
       XMLConfig.GetValue('EditorOptions/General/Editor/UndoLimit', 32767);
     fTabWidth :=
-      XMLConfig.GetValue('EditorOptions/General/Editor/TabWidth', 8);
+      XMLConfig.GetValue('EditorOptions/General/Editor/TabWidth', 2);
     FBracketHighlightStyle :=
       TSynEditBracketHighlightStyle(XMLConfig.GetValue('EditorOptions/General/Editor/BracketHighlightStyle', 2));
 
@@ -6133,7 +6133,7 @@ begin
     FUserDefinedColors.LoadFromXMLConfig(xmlconfig, 'EditorOptions/UserDefinedColors');
 
     FMarkupCurWordTime :=
-      XMLConfig.GetValue('EditorOptions/Display/MarkupCurrentWord/Time', 1500);
+      XMLConfig.GetValue('EditorOptions/Display/MarkupCurrentWord/Time', 10);
     FMarkupCurWordFullLen :=
       XMLConfig.GetValue('EditorOptions/Display/MarkupCurrentWord/FullLen', 3);
     // check deprecated value
@@ -6161,16 +6161,16 @@ begin
     fAutoToolTipSymbTools :=
       XMLConfig.GetValue('EditorOptions/CodeTools/AutoToolTipSymbTools', True);
     fAutoDelayInMSec    :=
-      XMLConfig.GetValue('EditorOptions/CodeTools/AutoDelayInMSec', 1000);
+      XMLConfig.GetValue('EditorOptions/CodeTools/AutoDelayInMSec', 10);
     fAutoHintDelayInMSec    :=
-      XMLConfig.GetValue('EditorOptions/CodeTools/AutoDelayHintInMSec', 1000);
+      XMLConfig.GetValue('EditorOptions/CodeTools/AutoDelayHintInMSec', 97);
     fCodeTemplateFileNameRaw :=
       XMLConfig.GetValue('EditorOptions/CodeTools/CodeTemplateFileName'
       , TrimFilename(AppendPathDelim(GetPrimaryConfigPath) + DefaultCodeTemplatesFilename));
     fCTemplIndentToTokenStart :=
       XMLConfig.GetValue('EditorOptions/CodeTools/CodeTemplateIndentToTokenStart/Value', False);
     fAutoRemoveEmptyMethods :=
-      XMLConfig.GetValue('EditorOptions/CodeTools/AutoRemoveEmptyMethods', False);
+      XMLConfig.GetValue('EditorOptions/CodeTools/AutoRemoveEmptyMethods', True);
     FCompletionLongLineHintInMSec :=
       XMLConfig.GetValue('EditorOptions/CodeTools/CompletionLongLineHintInMSec', 0);
     // Read from old location
@@ -6270,7 +6270,7 @@ begin
     end;
 
     XMLConfig.SetDeleteValue('EditorOptions/General/Editor/ShowTabCloseButtons'
-      , fShowTabCloseButtons, True);
+      , fShowTabCloseButtons, False);
     XMLConfig.SetDeleteValue('EditorOptions/General/Editor/HideSingleTabInWindow'
       , FHideSingleTabInWindow, False);
     XMLConfig.SetDeleteValue('EditorOptions/General/Editor/ShowTabNumbers'
@@ -6298,7 +6298,7 @@ begin
     XMLConfig.SetDeleteValue('EditorOptions/General/Editor/UndoLimit'
       , fUndoLimit, 32767);
     XMLConfig.SetDeleteValue('EditorOptions/General/Editor/TabWidth'
-      , fTabWidth, 8);
+      , fTabWidth, 2);
     XMLConfig.SetDeleteValue('EditorOptions/General/Editor/BracketHighlightStyle'
       , Ord(FBracketHighlightStyle), 2);
 
@@ -6348,7 +6348,7 @@ begin
     FUserDefinedColors.SaveToXMLConfig(xmlconfig, 'EditorOptions/UserDefinedColors');
 
     XMLConfig.SetDeleteValue('EditorOptions/Display/MarkupCurrentWord/Time',
-      FMarkupCurWordTime, 1500);
+      FMarkupCurWordTime, 10);
     XMLConfig.SetDeleteValue('EditorOptions/Display/MarkupCurrentWord/FullLen',
       FMarkupCurWordFullLen, 3);
     XMLConfig.SetDeleteValue('EditorOptions/Display/MarkupCurrentWord/NoKeyword',
@@ -6374,15 +6374,15 @@ begin
     XMLConfig.SetDeleteValue('EditorOptions/CodeTools/AutoToolTipSymbTools'
       , fAutoToolTipSymbTools, True);
     XMLConfig.SetDeleteValue('EditorOptions/CodeTools/AutoDelayInMSec'
-      , fAutoDelayInMSec, 1000);
+      , fAutoDelayInMSec, 10);
     XMLConfig.SetDeleteValue('EditorOptions/CodeTools/AutoDelayHintInMSec'
-      , fAutoHintDelayInMSec, 1000);
+      , fAutoHintDelayInMSec, 97);
     XMLConfig.SetDeleteValue('EditorOptions/CodeTools/CodeTemplateFileName'
       , fCodeTemplateFileNameRaw, '');
     XMLConfig.SetDeleteValue('EditorOptions/CodeTools/CodeTemplateIndentToTokenStart/Value'
       , fCTemplIndentToTokenStart, False);
     XMLConfig.SetDeleteValue('EditorOptions/CodeTools/AutoRemoveEmptyMethods'
-      , fAutoRemoveEmptyMethods, False);
+      , fAutoRemoveEmptyMethods, True);
     XMLConfig.SetDeleteValue('EditorOptions/CodeTools/CompletionLongLineHintInMSec',
       FCompletionLongLineHintInMSec, 0);
     XMLConfig.SetDeleteValue('EditorOptions/CodeTools/CompletionLongLineHintType',

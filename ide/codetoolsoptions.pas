@@ -508,7 +508,7 @@ begin
     FSkipForwardDeclarations:=XMLConfig.GetValue(
       'CodeToolsOptions/SkipForwardDeclarations/Value',false);
     FJumpToMethodBody:=XMLConfig.GetValue(
-      'CodeToolsOptions/JumpToMethodBody/Value',false);
+      'CodeToolsOptions/JumpToMethodBody/Value',true);
 
     // Define templates
     LoadGlobalDefineTemplates;
@@ -547,9 +547,9 @@ begin
     FOverrideStringTypesWithFirstParamType:=XMLConfig.GetValue(
       'CodeToolsOptions/OverrideStringTypesWithFirstParamType/Value',true);
     FClassHeaderComments:=XMLConfig.GetValue(
-      'CodeToolsOptions/ClassHeaderComments/Value',true);
+      'CodeToolsOptions/ClassHeaderComments/Value',false);
     FClassImplementationComments:=XMLConfig.GetValue(
-      'CodeToolsOptions/ClassImplementationComments/Value',true);
+      'CodeToolsOptions/ClassImplementationComments/Value',false);
 
     FMethodInsertPolicy:=MethodInsertPolicyNameToPolicy(XMLConfig.GetValue(
       'CodeToolsOptions/MethodInsertPolicy/Value',
@@ -562,7 +562,7 @@ begin
       WordPolicyNames[wpLowerCase]));
     FIdentifierPolicy:=WordPolicyNameToPolicy(XMLConfig.GetValue(
       'CodeToolsOptions/IdentifierPolicy/Value',
-      WordPolicyNames[wpNone]));
+      WordPolicyNames[wpLowerCase]));
     WordPolicyExceptions.Text:=LineBreaksToSystemLineBreaks(XMLConfig.GetValue(
       'CodeToolsOptions/WordPolicyExceptions/Value', ''));
     FDoNotSplitLineInFront:=ReadAtomTypesFromXML(XMLConfig,
@@ -593,29 +593,29 @@ begin
 
     // identifier completion
     FIdentComplAddSemicolon:=XMLConfig.GetValue(
-      'CodeToolsOptions/IdentifierCompletion/AddSemicolon',true);
+      'CodeToolsOptions/IdentifierCompletion/AddSemicolon',false);
     FIdentComplAddAssignOperator:=XMLConfig.GetValue(
-      'CodeToolsOptions/IdentifierCompletion/AddAssignOperator',true);
+      'CodeToolsOptions/IdentifierCompletion/AddAssignOperator',false);
     FIdentComplAddDo:=XMLConfig.GetValue(
-      'CodeToolsOptions/IdentifierCompletion/AddDo',true);
+      'CodeToolsOptions/IdentifierCompletion/AddDo',false);
     FIdentComplAutoInvokeOnType:=XMLConfig.GetValue(
       'CodeToolsOptions/IdentifierCompletion/AutoInvokeOnType',False);
     FIdentComplOnTypeUseTimer:=XMLConfig.GetValue(
-      'CodeToolsOptions/IdentifierCompletion/OnTypeUseTimer',true);
+      'CodeToolsOptions/IdentifierCompletion/OnTypeUseTimer',false);
     FIdentComplOnTypeOnlyWordEnd:=XMLConfig.GetValue(
-      'CodeToolsOptions/IdentifierCompletion/OnTypeOnlyWordEnd',true);
+      'CodeToolsOptions/IdentifierCompletion/OnTypeOnlyWordEnd',false);
     FIdentComplOnTypeMinLength:=XMLConfig.GetValue(
-      'CodeToolsOptions/IdentifierCompletion/OnTypeMinLength',2);
+      'CodeToolsOptions/IdentifierCompletion/OnTypeMinLength',1);
     FIdentComplAutoStartAfterPoint:=XMLConfig.GetValue(
       'CodeToolsOptions/IdentifierCompletion/AutoStartAfterPoint',true);
     FIdentComplAutoUseSingleIdent:=XMLConfig.GetValue(
-      'CodeToolsOptions/IdentifierCompletion/AutoUseSingleIdent',true);
+      'CodeToolsOptions/IdentifierCompletion/AutoUseSingleIdent',false);
     FIdentComplUseContainsFilter:=XMLConfig.GetValue(
       'CodeToolsOptions/IdentifierCompletion/UseContainsFilter',true);
     FIdentComplIncludeKeywords:=XMLConfig.GetValue(
       'CodeToolsOptions/IdentifierCompletion/IncludeKeywords',false);
     FIdentComplIncludeCodeTemplates:=XMLConfig.GetValue(
-      'CodeToolsOptions/IdentifierCompletion/IncludeCodeTemplates',true);
+      'CodeToolsOptions/IdentifierCompletion/IncludeCodeTemplates',false);
     FIdentComplIncludeWords:=IdentComplIncludeWordsNamesToEnum(XMLConfig.GetValue(
       'CodeToolsOptions/IdentifierCompletion/IncludeWords',
       IdentComplIncludeWordsNames[icwIncludeFromAllUnits]));
@@ -628,7 +628,7 @@ begin
     FIdentComplJumpToError:=XMLConfig.GetValue(
       'CodeToolsOptions/IdentifierCompletion/JumpToError',true);
     FIdentComplShowHelp:=XMLConfig.GetValue(
-      'CodeToolsOptions/IdentifierCompletion/ShowHelp',false);
+      'CodeToolsOptions/IdentifierCompletion/ShowHelp',true);
     FIdentComplSortForHistory:=XMLConfig.GetValue(
       'CodeToolsOptions/IdentifierCompletion/SortForHistory',true);
     FIdentComplHistoryLimit := XMLConfig.GetValue(
@@ -645,7 +645,7 @@ begin
 
     // indentation
     FIndentOnLineBreak :=
-      XMLConfig.GetValue('CodeToolsOptions/Indentation/OnLineBreak/Enabled',true);
+      XMLConfig.GetValue('CodeToolsOptions/Indentation/OnLineBreak/Enabled',false);
     FIndentOnPaste :=
       XMLConfig.GetValue('CodeToolsOptions/Indentation/OnPaste/Enabled',true);
     fIndentationFilename :=
@@ -702,7 +702,7 @@ begin
     XMLConfig.SetDeleteValue('CodeToolsOptions/SkipForwardDeclarations/Value',
                              FSkipForwardDeclarations,false);
     XMLConfig.SetDeleteValue('CodeToolsOptions/JumpToMethodBody/Value',
-                             FJumpToMethodBody,false);
+                             FJumpToMethodBody,true);
     // Define templates
     SaveGlobalDefineTemplates;
     XMLConfig.SetDeleteValue('CodeToolsOptions/DefinesEditMainSplitter/Top',
@@ -735,7 +735,7 @@ begin
     XMLConfig.SetDeleteValue(
       'CodeToolsOptions/KeepForwardProcOrder/Value',FKeepForwardProcOrder,true);
     XMLConfig.SetDeleteValue(
-      'CodeToolsOptions/ClassHeaderComments/Value',FClassHeaderComments,true);
+      'CodeToolsOptions/ClassHeaderComments/Value',FClassHeaderComments,false);
     XMLConfig.SetDeleteValue(
       'CodeToolsOptions/UpdateMultiProcSignatures/Value',FUpdateMultiProcSignatures,
       true);
@@ -750,7 +750,7 @@ begin
       true);
     XMLConfig.SetDeleteValue(
       'CodeToolsOptions/ClassImplementationComments/Value',
-      FClassImplementationComments,true);
+      FClassImplementationComments,false);
     XMLConfig.SetDeleteValue('CodeToolsOptions/MethodInsertPolicy/Value',
       MethodInsertPolicyNames[FMethodInsertPolicy],
       MethodInsertPolicyNames[mipClassOrder]);
@@ -762,7 +762,7 @@ begin
       WordPolicyNames[wpLowerCase]);
     XMLConfig.SetDeleteValue('CodeToolsOptions/IdentifierPolicy/Value',
       WordPolicyNames[FIdentifierPolicy],
-      WordPolicyNames[wpNone]);
+      WordPolicyNames[wpLowerCase]);
     XMLConfig.SetDeleteValue('CodeToolsOptions/WordPolicyExceptions/Value',
       Trim(LineBreaksToSystemLineBreaks(WordPolicyExceptions.Text)),'');
     WriteAtomTypesToXML(XMLConfig,'CodeToolsOptions/DoNotSplitLineInFront/',
@@ -793,29 +793,29 @@ begin
 
     // identifier completion
     XMLConfig.SetDeleteValue('CodeToolsOptions/IdentifierCompletion/AddSemicolon',
-      FIdentComplAddSemicolon,true);
+      FIdentComplAddSemicolon,false);
     XMLConfig.SetDeleteValue('CodeToolsOptions/IdentifierCompletion/AddAssignOperator',
-      FIdentComplAddAssignOperator,true);
+      FIdentComplAddAssignOperator,false);
     XMLConfig.SetDeleteValue('CodeToolsOptions/IdentifierCompletion/AddDo',
-      FIdentComplAddDo,true);
+      FIdentComplAddDo,false);
     XMLConfig.SetDeleteValue('CodeToolsOptions/IdentifierCompletion/AutoInvokeOnType',
       FIdentComplAutoInvokeOnType,False);
     XMLConfig.SetDeleteValue('CodeToolsOptions/IdentifierCompletion/OnTypeUseTimer',
-      FIdentComplOnTypeUseTimer,true);
+      FIdentComplOnTypeUseTimer,false);
     XMLConfig.SetDeleteValue('CodeToolsOptions/IdentifierCompletion/OnTypeOnlyWordEnd',
-      FIdentComplOnTypeOnlyWordEnd,true);
+      FIdentComplOnTypeOnlyWordEnd,false);
     XMLConfig.SetDeleteValue('CodeToolsOptions/IdentifierCompletion/OnTypeMinLength',
-      FIdentComplOnTypeMinLength,2);
+      FIdentComplOnTypeMinLength,1);
     XMLConfig.SetDeleteValue('CodeToolsOptions/IdentifierCompletion/AutoStartAfterPoint',
       FIdentComplAutoStartAfterPoint,true);
     XMLConfig.SetDeleteValue('CodeToolsOptions/IdentifierCompletion/AutoUseSingleIdent',
-      FIdentComplAutoUseSingleIdent,true);
+      FIdentComplAutoUseSingleIdent,false);
     XMLConfig.SetDeleteValue('CodeToolsOptions/IdentifierCompletion/UseContainsFilter',
       FIdentComplUseContainsFilter,true);
     XMLConfig.SetDeleteValue('CodeToolsOptions/IdentifierCompletion/IncludeKeywords',
       FIdentComplIncludeKeywords,false);
     XMLConfig.SetDeleteValue('CodeToolsOptions/IdentifierCompletion/IncludeCodeTemplates',
-      FIdentComplIncludeCodeTemplates,true);
+      FIdentComplIncludeCodeTemplates,false);
     XMLConfig.SetDeleteValue('CodeToolsOptions/IdentifierCompletion/IncludeWords',
       IdentComplIncludeWordsNames[FIdentComplIncludeWords],
       IdentComplIncludeWordsNames[icwIncludeFromAllUnits]);
@@ -828,7 +828,7 @@ begin
     XMLConfig.SetDeleteValue('CodeToolsOptions/IdentifierCompletion/JumpToError',
       FIdentComplJumpToError,true);
     XMLConfig.SetDeleteValue('CodeToolsOptions/IdentifierCompletion/ShowHelp',
-      FIdentComplShowHelp,false);
+      FIdentComplShowHelp,true);
     XMLConfig.SetDeleteValue('CodeToolsOptions/IdentifierCompletion/SortForHistory',
       FIdentComplSortForHistory,true);
     XMLConfig.SetDeleteValue('CodeToolsOptions/IdentifierCompletion/SortForHistoryLimit',
@@ -839,7 +839,7 @@ begin
 
     // indentation
     XMLConfig.SetDeleteValue('CodeToolsOptions/Indentation/OnLineBreak/Enabled'
-      , FIndentOnLineBreak, true);
+      , FIndentOnLineBreak, false);
     XMLConfig.SetDeleteValue('CodeToolsOptions/Indentation/OnPaste/Enabled'
       , FIndentOnPaste, true);
     XMLConfig.SetDeleteValue('CodeToolsOptions/Indentation/FileName'
@@ -1022,12 +1022,12 @@ begin
   FUpdateOtherProcSignaturesCase:=true;
   FGroupLocalVariables:=true;
   FOverrideStringTypesWithFirstParamType:=true;
-  FClassHeaderComments:=true;
-  FClassImplementationComments:=true;
+  FClassHeaderComments:=false;
+  FClassImplementationComments:=false;
   FMethodInsertPolicy:=mipClassOrder;
   FMethodDefaultSection:=DefaultMethodDefaultSection;
   FKeyWordPolicy:=wpLowerCase;
-  FIdentifierPolicy:=wpNone;
+  FIdentifierPolicy:=wpLowerCase;
   FDoNotSplitLineInFront:=DefaultDoNotSplitLineInFront;
   FDoNotSplitLineAfter:=DefaultDoNotSplitLineAfter;
   FDoInsertSpaceInFront:=DefaultDoInsertSpaceInFront;
@@ -1042,29 +1042,29 @@ begin
   FUsesInsertPolicy:=DefaultUsesInsertPolicy;
 
   // identifier completion
-  FIdentComplAddSemicolon:=true;
-  FIdentComplAddAssignOperator:=true;
-  FIdentComplAddDo:=true;
+  FIdentComplAddSemicolon:=false;
+  FIdentComplAddAssignOperator:=false;
+  FIdentComplAddDo:=false;
   FIdentComplAutoInvokeOnType:=False;
-  FIdentComplOnTypeUseTimer:=true;
-  FIdentComplOnTypeOnlyWordEnd:=true;
-  FIdentComplOnTypeMinLength:=2;
+  FIdentComplOnTypeUseTimer:=false;
+  FIdentComplOnTypeOnlyWordEnd:=false;
+  FIdentComplOnTypeMinLength:=1;
   FIdentComplAutoStartAfterPoint:=true;
-  FIdentComplAutoUseSingleIdent:=true;
+  FIdentComplAutoUseSingleIdent:=false;
   FIdentComplUseContainsFilter:=true;
   FIdentComplIncludeKeywords := false;
-  FIdentComplIncludeCodeTemplates:=true;
+  FIdentComplIncludeCodeTemplates:=false;
   FIdentComplShowIcons:=false;
   FIdentComplAddParameterBrackets:=true;
   FIdentComplReplaceIdentifier:=true;
   FIdentComplJumpToError:=true;
-  FIdentComplShowHelp:=false;
+  FIdentComplShowHelp:=true;
   FIdentComplSortForHistory:=true;
   FIdentComplHistoryLimit:=5;
   FIdentComplSortMethod:=icsScopedAlphabetic;
 
   // indentation
-  FIndentOnLineBreak:=true;
+  FIndentOnLineBreak:=false;
   FIndentOnPaste:=true;
   fIndentationFilename:=
     TrimFilename(AppendPathDelim(GetPrimaryConfigPath)+DefaultIndentationFilename);

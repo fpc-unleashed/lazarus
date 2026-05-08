@@ -55,7 +55,7 @@ type
     procedure CreateDefaultToolbars;
   public
     const
-      cDefaultVisible = true;
+      cDefaultVisible = false;
       cDefaultWidth = 230;
       cDefaultGrabStyle = 1;
       cDefaultGrabWidth = 5;
