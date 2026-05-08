@@ -571,7 +571,7 @@ begin
 
   FSingleTaskBarButton:=false;
   FHideIDEOnRun:=false;
-  FAutoAdjustIDEHeight:=true;
+  FAutoAdjustIDEHeight:=false;
   FAutoAdjustIDEHeightFullCompPal := true;
   // window menu
   FIDENameForDesignedFormList:=false;
@@ -592,7 +592,7 @@ begin
   // object inspector
   FObjectInspectorOptions:=TDesktopOIOptions.Create;
   // project inspector
-  FProjectInspectorShowProps := true;
+  FProjectInspectorShowProps := false;
   FProjectInspectorPropsPanelHeight := cDefaultPropsPanelHeight;
   // Windows layout
   InitLayoutList;
@@ -678,7 +678,7 @@ begin
 
   FSingleTaskBarButton:=FXMLCfg.GetValue(Path+'SingleTaskBarButton/Value', False);
   FHideIDEOnRun:=FXMLCfg.GetValue(Path+'HideIDEOnRun/Value',false);
-  FAutoAdjustIDEHeight:=FXMLCfg.GetValue(Path+'AutoAdjustIDEHeight/Value',true);
+  FAutoAdjustIDEHeight:=FXMLCfg.GetValue(Path+'AutoAdjustIDEHeight/Value',false);
   FAutoAdjustIDEHeightFullCompPal:=FXMLCfg.GetValue(Path+'AutoAdjustIDEHeightFullComponentPalette/Value',true);
   // Window menu
   FIDENameForDesignedFormList:=FXMLCfg.GetValue(Path+'IDENameForDesignedFormList/Value',false);
@@ -699,7 +699,7 @@ begin
   FCompletionWindowWidth:=FXMLCfg.GetValue(Path+'CompletionWindowOptions/Width/Value', FCompletionWindowWidth);
   FCompletionWindowHeight:=FXMLCfg.GetValue(Path+'CompletionWindowOptions/Height/Value', 6);
   // Project Inspector
-  FProjectInspectorShowProps := FXMLCfg.GetValue(Path+'ProjectInspectorShowProps/Value', true);
+  FProjectInspectorShowProps := FXMLCfg.GetValue(Path+'ProjectInspectorShowProps/Value', false);
   FProjectInspectorPropsPanelHeight := FXMLCfg.GetValue(Path+'ProjectInspectorPropsPanelHeight/Value', cDefaultPropsPanelHeight);
 
   if not FXMLCfg.HasPath(Path+'IDECoolBarOptions/', True) then
@@ -739,7 +739,7 @@ begin
   FXMLCfg.SetDeleteValue(Path+'AssociatedDebugDesktopName/Value', FAssociatedDebugDesktopName, '');
   FXMLCfg.SetDeleteValue(Path+'SingleTaskBarButton/Value',FSingleTaskBarButton, False);
   FXMLCfg.SetDeleteValue(Path+'HideIDEOnRun/Value',FHideIDEOnRun,false);
-  FXMLCfg.SetDeleteValue(Path+'AutoAdjustIDEHeight/Value',FAutoAdjustIDEHeight,true);
+  FXMLCfg.SetDeleteValue(Path+'AutoAdjustIDEHeight/Value',FAutoAdjustIDEHeight,false);
   FXMLCfg.SetDeleteValue(Path+'AutoAdjustIDEHeightFullComponentPalette/Value',
                            FAutoAdjustIDEHeightFullCompPal,true);
   // Window menu
@@ -753,7 +753,7 @@ begin
   FXMLCfg.SetValue(Path+'CompletionWindowOptions/Width/Value',FCompletionWindowWidth);
   FXMLCfg.SetDeleteValue(Path+'CompletionWindowOptions/Height/Value',FCompletionWindowHeight, 6);
   // Project Inspector
-  FXMLCfg.SetDeleteValue(Path+'ProjectInspectorShowProps/Value', FProjectInspectorShowProps, true);
+  FXMLCfg.SetDeleteValue(Path+'ProjectInspectorShowProps/Value', FProjectInspectorShowProps, false);
   FXMLCfg.SetDeleteValue(Path+'ProjectInspectorPropsPanelHeight/Value', FProjectInspectorPropsPanelHeight, cDefaultPropsPanelHeight);
   // IDE Coolbar
   FIDECoolBarOptions.Save(FXMLCfg, Path);
