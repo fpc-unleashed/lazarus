@@ -7042,13 +7042,17 @@ var
             end;
           end else if UpAtomIs('VAR')
           and (TopBlockType(Stack) in [btBegin,btTry,btFinally,btExcept,btRepeat,btCaseColon,btCaseElse]) then begin
-            // inline var declaration (e.g. var s := expr;) - skip over it
+            // inline var declaration (e.g. var s := expr;) - skip over it.
+            // also stop on header terminators 'do'/'then' so inline var inside
+            // 'with var X: T do begin ...' or 'for var i := A to B do ...'
+            // returns control to the main loop before the body keyword.
             repeat
               ReadNextAtom;
               if CurPos.StartPos>SrcLen then break;
               if CurPos.Flag=cafSemicolon then break;
               if (CurPos.Flag=cafEND)
-              or ((CurPos.Flag=cafWord) and WordIsStatemendEnd) then begin
+              or ((CurPos.Flag=cafWord) and (WordIsStatemendEnd
+                  or UpAtomIs('DO') or UpAtomIs('THEN'))) then begin
                 UndoReadNextAtom;
                 break;
               end;
