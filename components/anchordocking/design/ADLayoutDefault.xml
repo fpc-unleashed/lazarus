@@ -10,19 +10,19 @@
           </WorkArea>
         </Bounds>
         <Item1 Name="AnchorDockSite10" Type="Layout" ChildCount="7">
-          <Bounds Top="60" Width="1600" Height="820" SplitterPos="58"/>
+          <Bounds Top="5" Width="1600" Height="895" SplitterPos="1"/>
           <Anchors Align="Bottom"/>
           <Item1 Name="SourceNotebook" Type="Control">
-            <Bounds Left="177" Width="1183" Height="505"/>
+            <Bounds Left="177" Width="1183" Height="580"/>
             <Anchors Left="AnchorDockSplitter4" Right="AnchorDockSplitter3" Bottom="AnchorDockSplitter2"/>
             <Header Position="left"/>
           </Item1>
           <Item2 Name="AnchorDockSplitter2" Type="SplitterHorizontal">
-            <Bounds Left="177" Top="505" Width="1183" Height="7"/>
+            <Bounds Left="177" Top="580" Width="1183" Height="7"/>
             <Anchors Left="AnchorDockSplitter4" Right="AnchorDockSplitter3"/>
           </Item2>
           <Item3 Name="AnchorDockSite11" Type="Pages" ChildCount="8">
-            <Bounds Left="177" Top="512" Width="1183" Height="176"/>
+            <Bounds Left="177" Top="587" Width="1183" Height="176"/>
             <Anchors Left="AnchorDockSplitter4" Top="AnchorDockSplitter2" Right="AnchorDockSplitter3"/>
             <Item1 Name="MessagesView" Type="Control">
               <Bounds Width="1175" Height="150"/>
@@ -58,29 +58,29 @@
             </Item8>
           </Item3>
           <Item4 Name="AnchorDockSplitter3" Type="SplitterVertical">
-            <Bounds Left="1360" Width="9" Height="688"/>
+            <Bounds Left="1360" Width="9" Height="763"/>
           </Item4>
           <Item5 Name="AnchorDockSite12" Type="Layout" ChildCount="3">
-            <Bounds Left="1369" Width="231" Height="688"/>
+            <Bounds Left="1369" Width="231" Height="763"/>
             <Anchors Left="AnchorDockSplitter3"/>
             <Item1 Name="ComponentList" Type="Control">
-              <Bounds Top="344" Width="231" Height="344"/>
+              <Bounds Top="383" Width="231" Height="380"/>
               <Anchors Top="AnchorDockSplitter5"/>
             </Item1>
             <Item2 Name="AnchorDockSplitter5" Type="SplitterHorizontal">
-              <Bounds Top="340" Width="231" Height="4"/>
+              <Bounds Top="379" Width="231" Height="4"/>
             </Item2>
             <Item3 Name="ProjectInspector" Type="Control">
-              <Bounds Width="231" Height="340"/>
+              <Bounds Width="231" Height="379"/>
               <Anchors Bottom="AnchorDockSplitter5"/>
             </Item3>
           </Item5>
           <Item6 Name="ObjectInspectorDlg" Type="Control">
-            <Bounds Width="173" Height="688"/>
+            <Bounds Width="173" Height="763"/>
             <Anchors Right="AnchorDockSplitter4"/>
           </Item6>
           <Item7 Name="AnchorDockSplitter4" Type="SplitterVertical">
-            <Bounds Left="173" Width="4" Height="688"/>
+            <Bounds Left="173" Width="4" Height="763"/>
           </Item7>
         </Item1>
       </Item1>
