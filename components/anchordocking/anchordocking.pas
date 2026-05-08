@@ -845,7 +845,7 @@ type
     property PageAreaInPercent: integer read FPageAreaInPercent write SetPageAreaInPercent default 40; // size of inner mouse snapping area for page docking
     property OuterBorderAreaMaxPixel: integer read FOuterBorderAreaMaxPixel write SetOuterBorderAreaMaxPixel default 50; // size of area for docking to the outside of a paged area (on each border)
     property OuterBorderAreaInPercent: integer read FOuterBorderAreaInPercent write SetOuterBorderAreaInPercent default 10; // size of area for docking to the outside of a paged area (percent of total size)
-    property ShowHeader: boolean read FShowHeader write SetShowHeader default true; // set to false to hide all headers
+    property ShowHeader: boolean read FShowHeader write SetShowHeader default false; // set to false to hide all headers
     property ShowMenuItemShowHeader: boolean read FShowMenuItemShowHeader write SetShowMenuItemShowHeader default false;
     property ShowHeaderCaption: boolean read FShowHeaderCaption write SetShowHeaderCaption default false; // set to false to remove the text in the headers
     property HideHeaderCaptionFloatingControl: boolean read FHideHeaderCaptionFloatingControl
@@ -858,7 +858,7 @@ type
     property HeaderFilled: boolean read FHeaderFilled write SetHeaderFilled default false;
     property HeaderHighlightFocused: boolean read FHeaderHighlightFocused write SetHeaderHighlightFocused default false;
     property DockSitesCanBeMinimized: boolean read FDockSitesCanBeMinimized write SetDockSitesCanBeMinimized default false;
-    property FlatHeadersButtons: boolean read FFlatHeadersButtons write SetFlatHeadersButtons default false;
+    property FlatHeadersButtons: boolean read FFlatHeadersButtons write SetFlatHeadersButtons default true;
 
     property SplitterWidth: integer read FSplitterWidth write SetSplitterWidth default 4;
     property SplitterResizeStyle: TResizeStyle read FSplitterResizeStyle write SetSplitterResizeStyle default rsUpdate;
@@ -1617,12 +1617,12 @@ begin
   DockOutsideMargin                := Config.GetValue('DockOutsideMargin',10);
   DockParentMargin                 := Config.GetValue('DockParentMargin',10);
   DockSitesCanBeMinimized          := Config.GetValue('DockSitesCanBeMinimized',False);
-  FlatHeadersButtons               := Config.GetValue('FlatHeadersButtons',False);
+  FlatHeadersButtons               := Config.GetValue('FlatHeadersButtons',True);
   DragTreshold                     := Config.GetValue('DragThreshold',4);
   FloatingWindowsOnTop             := Config.GetValue('FloatingWindowsOnTop',false);
   HeaderAlignLeft                  := Config.GetValue('HeaderAlignLeft',120);
   HeaderAlignTop                   := Config.GetValue('HeaderAlignTop',80);
-  HeaderFilled                     := Config.GetValue('HeaderFilled',true);
+  HeaderFilled                     := Config.GetValue('HeaderFilled',false);
   HeaderFlatten                    := Config.GetValue('HeaderFlatten',true);
   HeaderHighlightFocused           := Config.GetValue('HeaderHighlightFocused',False);
   HeaderStyle                      := Config.GetValue('HeaderStyle','Line');
@@ -1632,7 +1632,7 @@ begin
   OuterBorderAreaMaxPixel          := Config.GetValue('OuterBorderAreaMaxPixel',50);
   OuterBorderAreaInPercent         := Config.GetValue('OuterBorderAreaInPercent',10);
   ScaleOnResize                    := Config.GetValue('ScaleOnResize',true);
-  ShowHeader                       := Config.GetValue('ShowHeader',true);
+  ShowHeader                       := Config.GetValue('ShowHeader',false);
   ShowHeaderCaption                := Config.GetValue('ShowHeaderCaption',true);
   SplitterWidth                    := Config.GetValue('SplitterWidth',4);
   SplitterResizeStyle              := Str2ResizeStyle(Config.GetValue('SplitterResizeStyle',crsUpdate));
@@ -1645,12 +1645,12 @@ begin
   Config.SetDeleteValue(Path+'DockOutsideMargin',DockOutsideMargin,10);
   Config.SetDeleteValue(Path+'DockParentMargin',DockParentMargin,10);
   Config.SetDeleteValue(Path+'DockSitesCanBeMinimized',DockSitesCanBeMinimized,False);
-  Config.SetDeleteValue(Path+'FlatHeadersButtons',FlatHeadersButtons,False);
+  Config.SetDeleteValue(Path+'FlatHeadersButtons',FlatHeadersButtons,True);
   Config.SetDeleteValue(Path+'DragThreshold',DragTreshold,4);
   Config.SetDeleteValue(Path+'FloatingWindowsOnTop',FloatingWindowsOnTop,false);
   Config.SetDeleteValue(Path+'HeaderAlignLeft',HeaderAlignLeft,120);
   Config.SetDeleteValue(Path+'HeaderAlignTop',HeaderAlignTop,80);
-  Config.SetDeleteValue(Path+'HeaderFilled',HeaderFilled,true);
+  Config.SetDeleteValue(Path+'HeaderFilled',HeaderFilled,false);
   Config.SetDeleteValue(Path+'HeaderFlatten',HeaderFlatten,true);
   Config.SetDeleteValue(Path+'HeaderHighlightFocused',HeaderHighlightFocused,False);
   Config.SetDeleteValue(Path+'HeaderStyle',HeaderStyle,'Line');
@@ -1660,7 +1660,7 @@ begin
   Config.SetDeleteValue(Path+'OuterBorderAreaMaxPixel',OuterBorderAreaMaxPixel,50);
   Config.SetDeleteValue(Path+'OuterBorderAreaInPercent',OuterBorderAreaInPercent,10);
   Config.SetDeleteValue(Path+'ScaleOnResize',ScaleOnResize,true);
-  Config.SetDeleteValue(Path+'ShowHeader',ShowHeader,true);
+  Config.SetDeleteValue(Path+'ShowHeader',ShowHeader,false);
   Config.SetDeleteValue(Path+'ShowHeaderCaption',ShowHeaderCaption,true);
   Config.SetDeleteValue(Path+'SplitterWidth',SplitterWidth,4);
   Config.SetDeleteValue(Path+'SplitterResizeStyle',ResizeStyle2Str[SplitterResizeStyle],crsUpdate);
@@ -1673,12 +1673,12 @@ begin
   Config.SetDeleteValue('DockOutsideMargin',DockOutsideMargin,10);
   Config.SetDeleteValue('DockParentMargin',DockParentMargin,10);
   Config.SetDeleteValue('DockSitesCanBeMinimized',DockSitesCanBeMinimized,False);
-  Config.SetDeleteValue('FlatHeadersButtons',DockSitesCanBeMinimized,False);
+  Config.SetDeleteValue('FlatHeadersButtons',DockSitesCanBeMinimized,True);
   Config.SetDeleteValue('DragThreshold',DragTreshold,4);
   Config.SetDeleteValue('FloatingWindowsOnTop',FloatingWindowsOnTop,false);
   Config.SetDeleteValue('HeaderAlignLeft',HeaderAlignLeft,120);
   Config.SetDeleteValue('HeaderAlignTop',HeaderAlignTop,80);
-  Config.SetDeleteValue('HeaderFilled',HeaderFilled,true);
+  Config.SetDeleteValue('HeaderFilled',HeaderFilled,false);
   Config.SetDeleteValue('HeaderFlatten',HeaderFlatten,true);
   Config.SetDeleteValue('HeaderHighlightFocused',HeaderHighlightFocused,False);
   Config.SetDeleteValue('HeaderStyle',HeaderStyle,'Line');
@@ -1688,7 +1688,7 @@ begin
   Config.SetDeleteValue('OuterBorderAreaMaxPixel',OuterBorderAreaMaxPixel,50);
   Config.SetDeleteValue('OuterBorderAreaInPercent',OuterBorderAreaInPercent,10);
   Config.SetDeleteValue('ScaleOnResize',ScaleOnResize,true);
-  Config.SetDeleteValue('ShowHeader',ShowHeader,true);
+  Config.SetDeleteValue('ShowHeader',ShowHeader,false);
   Config.SetDeleteValue('ShowHeaderCaption',ShowHeaderCaption,true);
   Config.SetDeleteValue('SplitterWidth',SplitterWidth,4);
   Config.SetDeleteValue('SplitterResizeStyle',ResizeStyle2Str[SplitterResizeStyle],crsUpdate);
@@ -1731,12 +1731,12 @@ begin
   DockOutsideMargin                := Config.GetValue(Path+'DockOutsideMargin',10);
   DockParentMargin                 := Config.GetValue(Path+'DockParentMargin',10);
   DockSitesCanBeMinimized          := Config.GetValue(Path+'DockSitesCanBeMinimized',false);
-  FlatHeadersButtons               := Config.GetValue(Path+'FlatHeadersButtons',false);
+  FlatHeadersButtons               := Config.GetValue(Path+'FlatHeadersButtons',true);
   DragTreshold                     := Config.GetValue(Path+'DragThreshold',4);
   FloatingWindowsOnTop             := Config.GetValue(Path+'FloatingWindowsOnTop',false);  ;
   HeaderAlignLeft                  := Config.GetValue(Path+'HeaderAlignLeft',120);
   HeaderAlignTop                   := Config.GetValue(Path+'HeaderAlignTop',80);
-  HeaderFilled                     := Config.GetValue(Path+'HeaderFilled',true);
+  HeaderFilled                     := Config.GetValue(Path+'HeaderFilled',false);
   HeaderFlatten                    := Config.GetValue(Path+'HeaderFlatten',true);
   HeaderHighlightFocused           := Config.GetValue(Path+'HeaderHighlightFocused',false);
   HeaderStyle                      := Config.GetValue(Path+'HeaderStyle','Line');
@@ -1746,7 +1746,7 @@ begin
   OuterBorderAreaMaxPixel          := Config.GetValue(Path+'OuterBorderAreaMaxPixel',50);
   OuterBorderAreaInPercent         := Config.GetValue(Path+'OuterBorderAreaInPercent',10);
   ScaleOnResize                    := Config.GetValue(Path+'ScaleOnResize',true);
-  ShowHeader                       := Config.GetValue(Path+'ShowHeader',true);
+  ShowHeader                       := Config.GetValue(Path+'ShowHeader',false);
   ShowHeaderCaption                := Config.GetValue(Path+'ShowHeaderCaption',true);
   SplitterWidth                    := Config.GetValue(Path+'SplitterWidth',4);
   SplitterResizeStyle              := Str2ResizeStyle(Config.GetValue(Path+'SplitterResizeStyle',crsUpdate));
@@ -3289,7 +3289,7 @@ begin
   HeaderAlignLeft:=120;
   FHeaderHint:='';
   FMultiLinePages:=false;
-  FShowHeader:=true;
+  FShowHeader:=false;
   FShowHeaderCaption:=false;
   FHideHeaderCaptionFloatingControl:=true;
   FSplitterResizeStyle:=rsUpdate;
@@ -3310,7 +3310,7 @@ begin
   FRestoreLayouts:=TAnchorDockRestoreLayouts.Create;
   FHeaderHighlightFocused:=false;
   FDockSitesCanBeMinimized:=false;
-  FFlatHeadersButtons:=False;
+  FFlatHeadersButtons:=True;
   FOverlappingForm:=nil;
   FAllClosing:=False;
   FHeaderStyleName2ADHeaderStyle:=THeaderStyleName2ADHeaderStylesMap.create;
