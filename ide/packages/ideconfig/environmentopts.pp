@@ -313,6 +313,9 @@ type
     FMultipleInstances: TIDEMultipleInstancesOption;
     // Prevent repopulating Recent project files menu with example projects if it was already cleared up.
     FAlreadyPopulatedRecentFiles: Boolean;
+    // Force one FPC source rescan after a fresh install so code completion
+    // works without the user having to invoke Tools > Rescan FPC Source Dir.
+    FInitialFPCSrcRescanDone: Boolean;
     //other recent settings
     FLastEventMethodCCResult: TCodeCreationDlgResult;
     FLastVariableCCResult: TCodeCreationDlgResult;
@@ -494,6 +497,8 @@ type
                                                            write FMultipleInstances;
     property AlreadyPopulatedRecentFiles: Boolean read FAlreadyPopulatedRecentFiles
                                                  write FAlreadyPopulatedRecentFiles;
+    property InitialFPCSrcRescanDone: Boolean read FInitialFPCSrcRescanDone
+                                              write FInitialFPCSrcRescanDone;
     // other recent settings
     property LastEventMethodCCResult: TCodeCreationDlgResult
       read FLastEventMethodCCResult write FLastEventMethodCCResult;
@@ -1080,6 +1085,7 @@ begin
     FNewProjectTemplateAtStart:=FXMLCfg.GetValue(Path+'NewProjectTemplateAtStart/Value','Simple Program');
     FMultipleInstances:=StrToIDEMultipleInstancesOption(FXMLCfg.GetValue(Path+'MultipleInstances/Value',''));
     FAlreadyPopulatedRecentFiles := FXMLCfg.GetValue(Path+'Recent/AlreadyPopulated', false);
+    FInitialFPCSrcRescanDone := FXMLCfg.GetValue(Path+'InitialFPCSrcRescanDone/Value', false);
 
     // other recent settings
     LoadCCResult(FLastEventMethodCCResult, Path+'Recent/EventMethodCCResult', icsPublic);
@@ -1287,6 +1293,7 @@ begin
         IDEMultipleInstancesOptionNames[FMultipleInstances],
         IDEMultipleInstancesOptionNames[DefaultIDEMultipleInstancesOption]);
     FXMLCfg.SetDeleteValue(Path+'Recent/AlreadyPopulated', FAlreadyPopulatedRecentFiles, false);
+    FXMLCfg.SetDeleteValue(Path+'InitialFPCSrcRescanDone/Value', FInitialFPCSrcRescanDone, false);
 
     // other recent settings
     SaveCCResult(FLastEventMethodCCResult, Path+'Recent/EventMethodCCResult', icsPublic);

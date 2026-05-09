@@ -1731,6 +1731,15 @@ begin
     Application.Terminate;
     exit;
   end;
+  // After a fresh install the FPC source cache is empty/stale and code
+  // completion fails until the user clicks Tools > Rescan FPC Source
+  // Directory. Run that rescan once automatically and persist a flag so
+  // subsequent starts skip it.
+  if not EnvironmentOptions.InitialFPCSrcRescanDone then begin
+    IncreaseBuildMacroChangeStamp;
+    MainBuildBoss.RescanCompilerDefines(false,true,false,true);
+    EnvironmentOptions.InitialFPCSrcRescanDone := true;
+  end;
   // Idle work gets done initially before user action.
   FIdleIdeActions := [iiaUserInputSinceLastIdle, iiaUpdateDefineTemplates];
   MainIDEBar.ApplicationIsActivate:=true;
