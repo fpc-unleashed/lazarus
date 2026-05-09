@@ -10431,6 +10431,15 @@ begin
         FirstIdentifier:=false;
         ReadSpecialize(False);
         NextReadDone := True;
+      end else if AtomIsChar('<') and (not FirstIdentifier)
+        and ((Scanner.CompilerMode in [cmDELPHI,cmDELPHIUNICODE])
+          or (cmsImplicitGenerics in Scanner.CompilerModeSwitches))
+      then begin
+        // Delphi-style generic instantiation `TFoo<X>` after the name;
+        // ReadSpecialize for Delphi/implicit mode expects cursor on '<' and
+        // undoes back to the name internally.
+        ReadSpecialize(False);
+        NextReadDone := True;
       end else
         break;
     end;
@@ -12433,6 +12442,7 @@ begin
   if (MaybeFuncAtCursor)
   or (CurPos.Flag=cafRoundBracketOpen)
   or UpAtomIs('ARRAY')
+  or UpAtomIs('SPECIALIZE')
   then begin
     // read variable
     SubStartPos:=CurPos.StartPos;
