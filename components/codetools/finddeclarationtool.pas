@@ -12438,11 +12438,10 @@ begin
   DebugLn('[TFindDeclarationTool.ReadOperandTypeAtCursor] A Atom=',GetAtom);
   debugln(['TFindDeclarationTool.ReadOperandTypeAtCursor StartContext=',Params.ContextNode.DescAsString,'="',dbgstr(Src,Params.ContextNode.StartPos,15),'"']);
   {$ENDIF}
-  MaybeFuncAtCursor := AtomIsIdentifier or UpAtomIs('INHERITED');
+  MaybeFuncAtCursor := AtomIsIdentifier or UpAtomIs('INHERITED') or UpAtomIs('SPECIALIZE');
   if (MaybeFuncAtCursor)
   or (CurPos.Flag=cafRoundBracketOpen)
   or UpAtomIs('ARRAY')
-  or UpAtomIs('SPECIALIZE')
   then begin
     // read variable
     SubStartPos:=CurPos.StartPos;
