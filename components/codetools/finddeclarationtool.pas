@@ -7044,6 +7044,16 @@ var
     then
       exit(true);
 
+    // ctnGenericType wraps a ctnGenericName name child - FindIdentifierInContext
+    // returns the parent ctnGenericType while DeclarationNode is the deepest
+    // node (ctnGenericName), so accept the wrapper as the same declaration.
+    if (Node.Desc=ctnGenericType) and (Node.FirstChild<>nil)
+    and (Node.FirstChild=DeclarationNode) then
+      exit(true);
+    if (Node.Desc=ctnGenericName) and (Node.Parent<>nil)
+    and (Node.Parent=DeclarationNode) then
+      exit(true);
+
     // check method overrides
     if Node.Desc=ctnProcedureHead then begin
       if ArrayHasNode(OverrideProcNodes,Node.Parent) then
