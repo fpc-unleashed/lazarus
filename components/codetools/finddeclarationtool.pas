@@ -13691,8 +13691,15 @@ begin
     if UpAtomIs('SPECIALIZE') and (not ((Scanner.CompilerMode in [cmDELPHI,cmDELPHIUNICODE]) or (cmsImplicitGenerics in Scanner.CompilerModeSwitches)))
     then begin
       Node:=FindDeepestNodeAtPos(CurPos.StartPos,false);
-      //if (Node<>nil) and (Node.Desc in [ctnSpecialize,ctnSpecializeParams,ctnSpecializeParam,ctnSpecializeType]) then
-      if (Node<>nil) and (Node.Desc in [ctnSpecialize, ctnBeginBlock]) then // no nodes in begin...end code
+      // ctnSpecialize for type/inheritance contexts. ctnBeginBlock for free
+      // expression code in a procedure body. ctnVarDefinition / ctnConstDefinition
+      // for inline-var initializers (`var t := specialize TFoo<X>.Create(...)`)
+      // - the parser does not split the initializer into expression nodes, so
+      // the deepest node at the SPECIALIZE position stays the surrounding
+      // definition rather than ctnSpecialize.
+      if (Node<>nil) and (Node.Desc in
+          [ctnSpecialize, ctnBeginBlock, ctnVarDefinition, ctnConstDefinition])
+      then
         exit(vatSpecialize)
       else
         exit(vatIdentifier);
