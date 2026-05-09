@@ -10377,7 +10377,14 @@ var
     end;
     FirstIdentifier:=true;
     if not (CurPos.Flag in AllCommonAtomWords) then exit;
-    if UpAtomIs('SPECIALIZE') then exit;
+    if UpAtomIs('SPECIALIZE') then begin
+      // term starting with 'specialize TFoo<X>' (e.g. inline-var initializer
+      // 'specialize TFoo<X>.Create(...)'); consume the specialize block and
+      // let the main loop continue with the trailing '.', '(', etc.
+      ReadSpecialize(False);
+      FirstIdentifier:=false;
+      exit;
+    end;
     AtomIsIdentifierE;
     FirstIdentifier:=false;
     ReadNextAtom;
