@@ -5377,11 +5377,14 @@ var
         ctnClassClassVar,
         ctnRecordVariant,
         ctnProcedureHead, ctnParameterList,
-        ctnClassInheritance,ctnHelperFor:
+        ctnClassInheritance,ctnHelperFor,
+        ctnBeginBlock:
           // these codetreenodes build a parent-child-relationship, but
           // for pascal it is only a range, hence after searching in the
           // children of the last node, search must continue in the children
-          // of the prior node
+          // of the prior node.
+          // Note: ctnBeginBlock is transparent so inline-var declarations
+          // inside the body are visible to identifier completion.
           ;
 
         ctnClass, ctnClassInterface, ctnDispinterface, ctnObject,
@@ -5557,10 +5560,13 @@ begin
           ctnRecordType, ctnRecordVariant,
           ctnClassHelper, ctnRecordHelper, ctnTypeHelper,
           ctnEnumerationType,
-          ctnParameterList:
+          ctnParameterList,
+          ctnBeginBlock:
             // these nodes build a parent-child relationship. But in pascal
             // they just define a range and not a context.
             // -> search in all children
+            // Note: ctnBeginBlock is included so inline-var declarations
+            // inside the body are visible to identifier completion.
             MoveContextNodeToChildren;
 
           ctnTypeDefinition, ctnVarDefinition, ctnConstDefinition,
