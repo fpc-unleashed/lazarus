@@ -37,7 +37,7 @@
     <RunParams>
       <FormatVersion Value="2"/>
     </RunParams>
-    <RequiredPackages Count="16">
+    <RequiredPackages Count="15">
       <Item1>
         <PackageName Value="IdePackager"/>
       </Item1>
@@ -85,9 +85,6 @@
       <Item15>
         <PackageName Value="SynEdit"/>
       </Item15>
-      <Item16>
-        <PackageName Value="LazMinimap"/>
-      </Item16>
     </RequiredPackages>
     <Units Count="215">
       <Unit0>

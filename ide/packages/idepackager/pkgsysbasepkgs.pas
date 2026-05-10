@@ -33,8 +33,7 @@ type
     libpIdeConfig,
     libpIdePackager,
     libpIdeProject,
-    libpIdeDebugger,
-    libpLazMinimap
+    libpIdeDebugger
     );
 const
   LazarusIDEBasePkgNames: array[TLazarusIDEBasePkg] of string = (
@@ -64,8 +63,7 @@ const
     'IdeConfig',
     'IdePackager',
     'IdeProject',
-    'IdeDebugger',
-    'LazMinimap'
+    'IdeDebugger'
     );
 
 implementation
