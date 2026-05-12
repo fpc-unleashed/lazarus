@@ -885,6 +885,7 @@ type
     function Func40: TtkTokenKind;
     function Func41: TtkTokenKind;
     function Func42: TtkTokenKind; // "alias", "final"
+    function Func43: TtkTokenKind; // "align" (composablerecords)
     function Func44: TtkTokenKind;
     function Func45: TtkTokenKind;
     function Func46: TtkTokenKind; // "sealed"
@@ -907,7 +908,8 @@ type
     function Func69: TtkTokenKind;
     function Func71: TtkTokenKind;
     function Func72: TtkTokenKind;
-    function Func73: TtkTokenKind;
+    function Func73: TtkTokenKind; // "except", "count", "union" (composablerecords)
+    function Func74: TtkTokenKind; // "bitalign" (composablerecords)
     function Func75: TtkTokenKind;
     function Func76: TtkTokenKind;
     function Func79: TtkTokenKind;
@@ -918,6 +920,7 @@ type
     function Func87: TtkTokenKind;
     function Func88: TtkTokenKind;
     function Func89: TtkTokenKind;
+    function Func90: TtkTokenKind; // "bitsize" (composablerecords)
     function Func91: TtkTokenKind;
     function Func92: TtkTokenKind;
     function Func94: TtkTokenKind;
@@ -1457,6 +1460,7 @@ begin
   fIdentFuncTable[40] := @Func40;
   fIdentFuncTable[41] := @Func41;
   fIdentFuncTable[42] := @Func42;
+  fIdentFuncTable[43] := @Func43; // "align" (composablerecords)
   fIdentFuncTable[44] := @Func44;
   fIdentFuncTable[45] := @Func45;
   fIdentFuncTable[46] := @Func46;
@@ -1480,6 +1484,7 @@ begin
   fIdentFuncTable[71] := @Func71;
   fIdentFuncTable[72] := @Func72;
   fIdentFuncTable[73] := @Func73;
+  fIdentFuncTable[74] := @Func74; // "bitalign" (composablerecords)
   fIdentFuncTable[75] := @Func75;
   fIdentFuncTable[76] := @Func76;
   fIdentFuncTable[79] := @Func79;
@@ -1490,6 +1495,7 @@ begin
   fIdentFuncTable[87] := @Func87;
   fIdentFuncTable[88] := @Func88;
   fIdentFuncTable[89] := @Func89;
+  fIdentFuncTable[90] := @Func90; // "bitsize" (composablerecords)
   fIdentFuncTable[91] := @Func91;
   fIdentFuncTable[92] := @Func92;
   fIdentFuncTable[94] := @Func94;
@@ -2564,6 +2570,30 @@ begin
     Result := tkIdentifier;
 end;
 
+function TSynPasSyn.Func43: TtkTokenKind;
+  function NextNonSpaceIsDigit: Boolean;
+  // post-suffix sizing modifiers expect an integer literal; reject other
+  // contexts (e.g. `align: integer;` keeps `align` as a field name)
+  var
+    i: Integer;
+  begin
+    Result := False;
+    i := Run + fStringLen;
+    while (i < fLineLen) and (LinePtr[i] in [' ', #9]) do
+      inc(i);
+    if i < fLineLen then
+      Result := LinePtr[i] in ['0'..'9', '$'];
+  end;
+begin
+  if KeyCompU('ALIGN') and
+     (TopPascalCodeFoldBlockType in [cfbtRecord, cfbtRecordCaseSection]) and
+     NextNonSpaceIsDigit then
+    // contextual post-suffix modifier: `field: typ align N` (composablerecords)
+    Result := tkKey
+  else
+    Result := tkIdentifier;
+end;
+
 function TSynPasSyn.Func44: TtkTokenKind;
 begin
   if KeyCompU('SET') then
@@ -2757,11 +2787,27 @@ begin
 end;
 
 function TSynPasSyn.Func59: TtkTokenKind;
+  function NextNonSpaceIsDigit: Boolean;
+  var
+    i: Integer;
+  begin
+    Result := False;
+    i := Run + fStringLen;
+    while (i < fLineLen) and (LinePtr[i] in [' ', #9]) do
+      inc(i);
+    if i < fLineLen then
+      Result := LinePtr[i] in ['0'..'9', '$'];
+  end;
 begin
   if IsCallingConventionModifier(TopPascalCodeFoldBlockType) and
      ( KeyCompU('SAFECALL') or KeyCompU('CPPDECL') )
   then
     Result := DoCallingConventionModifier
+  else if KeyCompU('SIZE') and
+          (TopPascalCodeFoldBlockType in [cfbtRecord, cfbtRecordCaseSection]) and
+          NextNonSpaceIsDigit then
+    // contextual post-suffix modifier: `field: typ size N` (composablerecords)
+    Result := tkKey
   else
     Result := tkIdentifier;
 end;
@@ -3107,6 +3153,28 @@ begin
    else Result := tkIdentifier;
 end;
 
+function TSynPasSyn.Func74: TtkTokenKind;
+  function NextNonSpaceIsDigit: Boolean;
+  var
+    i: Integer;
+  begin
+    Result := False;
+    i := Run + fStringLen;
+    while (i < fLineLen) and (LinePtr[i] in [' ', #9]) do
+      inc(i);
+    if i < fLineLen then
+      Result := LinePtr[i] in ['0'..'9', '$'];
+  end;
+begin
+  if KeyCompU('BITALIGN') and
+     (TopPascalCodeFoldBlockType in [cfbtRecord, cfbtRecordCaseSection]) and
+     NextNonSpaceIsDigit then
+    // contextual post-suffix modifier: `field: typ bitalign N` (composablerecords)
+    Result := tkKey
+  else
+    Result := tkIdentifier;
+end;
+
 function TSynPasSyn.Func75: TtkTokenKind;
 begin
   if IsPropertyDefinitionKey('WRITE') then
@@ -3345,6 +3413,28 @@ begin
     FNextTokenState := tsAtBeginOfStatement; // flag for private/proctected (must be next)
     Result := tkKey;
   end
+  else
+    Result := tkIdentifier;
+end;
+
+function TSynPasSyn.Func90: TtkTokenKind;
+  function NextNonSpaceIsDigit: Boolean;
+  var
+    i: Integer;
+  begin
+    Result := False;
+    i := Run + fStringLen;
+    while (i < fLineLen) and (LinePtr[i] in [' ', #9]) do
+      inc(i);
+    if i < fLineLen then
+      Result := LinePtr[i] in ['0'..'9', '$'];
+  end;
+begin
+  if KeyCompU('BITSIZE') and
+     (TopPascalCodeFoldBlockType in [cfbtRecord, cfbtRecordCaseSection]) and
+     NextNonSpaceIsDigit then
+    // contextual post-suffix modifier: `field: typ bitsize N` (composablerecords)
+    Result := tkKey
   else
     Result := tkIdentifier;
 end;
