@@ -4778,6 +4778,37 @@ var
     end;
   end;
 
+  function SearchInAnonymousEmbed: boolean;
+  // composablerecords: when ContextNode is an anon-embed carrier (a
+  // ctnVarDefinition tagged ctnsAnonymousEmbed), descend into the embedded
+  // type's record def and search there. The carrier itself is transparent
+  // for flat member lookup (`outer.x` -> embedded `x`).
+  var
+    EmbedContext: TFindContext;
+    OldFlags: TFindDeclarationFlags;
+    OldContextNode: TCodeTreeNode;
+    SubFound: boolean;
+  begin
+    Result:=false;
+    if (ContextNode.FirstChild=nil)
+    or (ContextNode.FirstChild.Desc<>ctnIdentifier) then exit;
+    EmbedContext:=FindBaseTypeOfNode(Params,ContextNode);
+    if (EmbedContext.Node=nil)
+    or (EmbedContext.Node.Desc<>ctnRecordType) then exit;
+    OldContextNode:=Params.ContextNode;
+    OldFlags:=Params.Flags;
+    Params.ContextNode:=EmbedContext.Node;
+    Params.Flags:=Params.Flags-[fdfIgnoreCurContextNode,fdfSearchInParentNodes];
+    try
+      SubFound:=EmbedContext.Tool.FindIdentifierInContext(Params,IdentifierFoundResult);
+    finally
+      Params.ContextNode:=OldContextNode;
+      Params.Flags:=OldFlags;
+    end;
+    if SubFound then
+      Result:=CheckResult(true,false);
+  end;
+
   function SearchInTypeVarConstGlobPropDefinition(GenParamCnt: integer = 0; SkipEnums: boolean = False): boolean;
   // returns: true if ok to exit
   //          false if search should continue
@@ -5572,11 +5603,27 @@ begin
           ctnTypeDefinition, ctnVarDefinition, ctnConstDefinition,
           ctnGlobalProperty:
             begin
-              // if looking for a generic, then don't accept other types
-              if (Params.IdentifierNode = nil)
-              or not(Params.IdentifierNode.Desc in [ctnSpecialize, ctnSpecializeType])
-              then
-                if SearchInTypeVarConstGlobPropDefinition then exit;
+              // anonymous embed (composablerecords): descend through the
+              // carrier into the embedded type's record so flat members
+              // (`outer.x` -> embedded `x`) resolve. The carrier's own name
+              // (`TName`) is hidden from completion to avoid listing the
+              // type-name slot as if it were a regular field, but stays
+              // matchable directly for the `outer.TName.field` path.
+              if (ContextNode.Desc=ctnVarDefinition)
+              and ((ContextNode.SubDesc and ctnsAnonymousEmbed)<>0) then begin
+                if SearchInAnonymousEmbed then exit;
+                if not (fdfCollect in Flags) then
+                  if (Params.IdentifierNode = nil)
+                  or not(Params.IdentifierNode.Desc in [ctnSpecialize, ctnSpecializeType])
+                  then
+                    if SearchInTypeVarConstGlobPropDefinition then exit;
+              end
+              else
+                // if looking for a generic, then don't accept other types
+                if (Params.IdentifierNode = nil)
+                or not(Params.IdentifierNode.Desc in [ctnSpecialize, ctnSpecializeType])
+                then
+                  if SearchInTypeVarConstGlobPropDefinition then exit;
             end;
 
           ctnGenericType:
