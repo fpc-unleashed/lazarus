@@ -233,6 +233,7 @@ type
     cmsTuples,             { allow anonymous tuple types and related syntax }
     cmsImplicitGenerics,   { Delphi-style generic syntax: 'generic'/'specialize' keywords optional, <T> allowed }
     cmsStripRtti,          { strip type-name strings from RTTI/VMT (unleashed) }
+    cmsComposableRecords,  { record composition: union, `embed`, inline anon record, per-field sizing }
 
     // not yet in FPC, supported by pas2js:
     cmsExternalClass,      { pas2js: allow  class external [pkgname] name [symbol] }
@@ -286,7 +287,7 @@ const
      cmsAdvancedRecords,cmsPrefixedAttributes,cmsMultiHelpers,
      cmsFunctionReferences,cmsAnonymousFunctions,
      cmsStatementExpressions,cmsArrayEquality,cmsInlineVars,cmsTuples,
-     cmsMultiLineStrings]
+     cmsComposableRecords,cmsMultiLineStrings]
     );
   cmAllModesWithGeneric = [cmDELPHI,cmDELPHIUNICODE,cmOBJFPC,cmUnleashed];
   Pas2jsFixedModeswitches = [cmsArray2dynarray,cmsArrayOperators,
@@ -343,6 +344,7 @@ const
     'TUPLES',
     'IMPLICITGENERICS',
     'STRIPRTTI',
+    'COMPOSABLERECORDS',
     // not yet in FPC, supported by pas2js:
     'EXTERNALCLASS',
     'IGNOREATTRIBUTES',
