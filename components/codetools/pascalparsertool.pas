@@ -4058,6 +4058,18 @@ begin
     ReadNextAtom;
   end;
 
+  // optional per-field sizing/alignment modifiers (composablerecords):
+  // `field: typ align N`, `field: typ bitsize 1`, combinations in any order.
+  // each takes one constant expression; position is between the type and any
+  // hint directive. permissive: gated on the modeswitch only - the compiler
+  // enforces that they only make sense inside a record body
+  if cmsComposableRecords in Scanner.CompilerModeSwitches then
+    while UpAtomIs('ALIGN') or UpAtomIs('BITALIGN')
+       or UpAtomIs('SIZE') or UpAtomIs('BITSIZE') do begin
+      ReadNextAtom;
+      ReadConstant(true,false,[]);
+    end;
+
   ParentNode:=CurNode.Parent;
 
   // optional: absolute
