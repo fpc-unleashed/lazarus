@@ -212,6 +212,7 @@ type
     function KeyWordFuncTypeRecordUnion: boolean;
     function KeyWordFuncTypeRecordInlineAnon: boolean;
     function KeyWordFuncTypeRecordEmbed: boolean;
+    function KeyWordFuncTypeRecordPad: boolean;
     function KeyWordFuncTypeDefault: boolean;
     // procedures/functions/methods
     function KeyWordFuncProc: boolean;
@@ -577,8 +578,11 @@ begin
   'P':
     case UpChars[p[1]] of
     'A':
-      if (ClassDesc=ctnRecordType) and (cmsComposableRecords in Scanner.CompilerModeSwitches) and
-         CompareSrcIdentifiers(p,'PACKED') then exit(KeyWordFuncTypeRecordInlineAnon);
+      if (ClassDesc=ctnRecordType) and (cmsComposableRecords in Scanner.CompilerModeSwitches) then
+        case UpChars[p[2]] of
+        'C': if CompareSrcIdentifiers(p,'PACKED') then exit(KeyWordFuncTypeRecordInlineAnon);
+        'D': if CompareSrcIdentifiers(p,'PAD') then exit(KeyWordFuncTypeRecordPad);
+        end;
     'R':
       case UpChars[p[2]] of
       'I': if CompareSrcIdentifiers(p,'PRIVATE') then exit(KeyWordFuncClassSection);
@@ -658,8 +662,11 @@ begin
     else if (cmsComposableRecords in Scanner.CompilerModeSwitches) and
             CompareSrcIdentifiers(p,'EMBED') then exit(KeyWordFuncTypeRecordEmbed);
   'P':
-    if (cmsComposableRecords in Scanner.CompilerModeSwitches) and
-       CompareSrcIdentifiers(p,'PACKED') then exit(KeyWordFuncTypeRecordInlineAnon);
+    if (cmsComposableRecords in Scanner.CompilerModeSwitches) then
+      case UpChars[p[2]] of
+      'C': if CompareSrcIdentifiers(p,'PACKED') then exit(KeyWordFuncTypeRecordInlineAnon);
+      'D': if CompareSrcIdentifiers(p,'PAD') then exit(KeyWordFuncTypeRecordPad);
+      end;
   'R':
     if (cmsComposableRecords in Scanner.CompilerModeSwitches) and
        CompareSrcIdentifiers(p,'RECORD') then exit(KeyWordFuncTypeRecordInlineAnon);
@@ -6436,6 +6443,32 @@ begin
     SaveRaiseCharExpectedButAtomFound(20260512000007,';');
   CurNode.EndPos:=CurPos.StartPos;
   EndChildNode;
+  Result:=true;
+end;
+
+function TPascalParserTool.KeyWordFuncTypeRecordPad: boolean;
+{ `pad N;` (composablerecords): reserves N anonymous padding bits inside a
+  bitpacked record body with an active default type. The compiler synthesises
+  a hidden `$pad$N` field with `strict private` visibility; the IDE doesn't
+  emit a node for it - the construct is invisible to identifier completion.
+
+  `pad` is contextual: followed by `:` or `,` it stays a regular field name
+  (`pad: byte;` / `pad, x: 2;`). }
+begin
+  if not UpAtomIs('PAD') then
+    SaveRaiseException(20260513000010,'[KeyWordFuncTypeRecordPad] internal');
+  ReadNextAtom;
+  if CurPos.Flag in [cafColon,cafComma] then begin
+    UndoReadNextAtom;
+    Result:=KeyWordFuncClassIdentifier;
+    exit;
+  end;
+  if not AtomIsNumber then
+    SaveRaiseStringExpectedButAtomFound(20260513000011,'integer literal');
+  ReadNextAtom;
+  if CurPos.Flag<>cafSemicolon then
+    SaveRaiseCharExpectedButAtomFound(20260513000012,';');
+  UndoReadNextAtom; // leave `;` for the outer record-body loop
   Result:=true;
 end;
 
