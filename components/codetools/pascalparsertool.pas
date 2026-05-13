@@ -4040,8 +4040,19 @@ var
 
 begin
   ReadNextAtom;
-  // type
-  ParseType(CurPos.StartPos);
+  // C-style bitfield (composablerecords): `name: N` where N is an integer
+  // literal in a record body means `name: <default-type> bitsize N`. consume
+  // the literal without building a type subtree - the compiler enforces that
+  // we're inside a bitpacked record with an active default type.
+  if (cmsComposableRecords in Scanner.CompilerModeSwitches)
+  and AtomIsNumber
+  and (CurNode.Parent<>nil)
+  and (CurNode.Parent.Desc in [ctnRecordType, ctnRecordCase, ctnRecordVariant]
+                              + AllClassSections) then
+    ReadNextAtom
+  else
+    // type
+    ParseType(CurPos.StartPos);
 
   // optional `count IDENT` clause for flexible array members:
   // record field of type array[] of T may be followed by `count <field>`
