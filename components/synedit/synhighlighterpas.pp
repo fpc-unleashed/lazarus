@@ -2039,6 +2039,17 @@ begin
 end;
 
 function TSynPasSyn.Func21: TtkTokenKind;
+  function NextNonSpaceIsDigit: Boolean;
+  var
+    i: Integer;
+  begin
+    Result := False;
+    i := Run + fStringLen;
+    while (i < fLineLen) and (LinePtr[i] in [' ', #9]) do
+      inc(i);
+    if i < fLineLen then
+      Result := LinePtr[i] in ['0'..'9', '$'];
+  end;
 var
   tfb: TPascalCodeFoldBlockType;
 begin
@@ -2075,6 +2086,13 @@ begin
     Exclude(fRange, rsInRaise);
     Result := tkKey;
   end
+  else if KeyCompU('PAD') and
+          (tfb in [cfbtRecord, cfbtRecordCaseSection]) and
+          NextNonSpaceIsDigit then
+    // contextual `pad N;` (composablerecords): reserves N anonymous bits in a
+    // bitpacked record with an active default type. `pad: T;` / `pad, x: T;`
+    // stay as regular field names because the lookahead requires a digit
+    Result := tkKey
   else
     Result := tkIdentifier;
 end;
@@ -2267,8 +2285,29 @@ begin
 end;
 
 function TSynPasSyn.Func29: TtkTokenKind;
+  function NextNonSpaceIsColonOrComma: Boolean;
+  // lookahead on the current line: is the next non-space char `:` or `,`?
+  // used to keep `embed: T;` / `embed, x, y: T;` as field declarations
+  var
+    i: Integer;
+  begin
+    Result := False;
+    i := Run + fStringLen;
+    while (i < fLineLen) and (LinePtr[i] in [' ', #9]) do
+      inc(i);
+    if i < fLineLen then
+      Result := LinePtr[i] in [':', ','];
+  end;
 begin
-  if KeyCompU('ON') then Result := tkKey else Result := tkIdentifier;
+  if KeyCompU('ON') then
+    Result := tkKey
+  else if KeyCompU('EMBED') and
+          (TopPascalCodeFoldBlockType in [cfbtRecord, cfbtRecordCaseSection]) and
+          not NextNonSpaceIsColonOrComma then
+    // contextual `embed TName;` (composablerecords): introduces anonymous embed
+    Result := tkKey
+  else
+    Result := tkIdentifier;
 end;
 
 function TSynPasSyn.Func32: TtkTokenKind;
@@ -3032,6 +3071,19 @@ begin
 end;
 
 function TSynPasSyn.Func73: TtkTokenKind;
+  function NextNonSpaceIsColonOrComma: Boolean;
+  // lookahead on the current line: is the next non-space char `:` or `,`?
+  // used to keep `union: T;` / `union, x, y: T;` as field declarations
+  var
+    i: Integer;
+  begin
+    Result := False;
+    i := Run + fStringLen;
+    while (i < fLineLen) and (LinePtr[i] in [' ', #9]) do
+      inc(i);
+    if i < fLineLen then
+      Result := LinePtr[i] in [':', ','];
+  end;
 begin
   if KeyCompU('EXCEPT') then begin
     Result := tkKey;
@@ -3044,6 +3096,14 @@ begin
    end
    else if KeyCompU('COUNT') and (FTokenState = tsAfterFamType) then
      Result := tkKey
+   else if KeyCompU('UNION') and
+           (TopPascalCodeFoldBlockType in [cfbtRecord, cfbtRecordCaseSection]) and
+           not NextNonSpaceIsColonOrComma then begin
+     // contextual `union` (composablerecords): push cfbtRecord so the union's
+     // `end;` closes only the union and leaves the surrounding record open
+     StartPascalCodeFoldBlock(cfbtRecord);
+     Result := tkKey;
+   end
    else Result := tkIdentifier;
 end;
 
