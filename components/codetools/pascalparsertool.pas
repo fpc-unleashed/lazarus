@@ -213,6 +213,7 @@ type
     function KeyWordFuncTypeRecordInlineAnon: boolean;
     function KeyWordFuncTypeRecordEmbed: boolean;
     function KeyWordFuncTypeRecordPad: boolean;
+    procedure ParseComposableRecordModifiers;
     function KeyWordFuncTypeDefault: boolean;
     // procedures/functions/methods
     function KeyWordFuncProc: boolean;
@@ -5365,6 +5366,14 @@ begin
         EndChildNode;
         ReadNextAtom;
       end;
+      // optional pre-body modifiers on a record body (composablerecords):
+      // `of TYPE`, `size N`, `bitsize N`, `align N`, `bitalign N` in any order,
+      // plus an optional `;` separator before the body. Compiler enforces
+      // context restrictions (e.g., `of T` only on bitpacked record); the
+      // parser is permissive.
+      if (ClassDesc=ctnRecordType)
+      and (cmsComposableRecords in Scanner.CompilerModeSwitches) then
+        ParseComposableRecordModifiers;
       if UpAtomIs('EXTERNAL') then begin
         if (ClassDesc in [ctnObjCClass,ctnObjCCategory])
         or (cmsExternalClass in Scanner.CompilerModeSwitches)
@@ -6356,17 +6365,62 @@ begin
   Result:=true;
 end;
 
+procedure TPascalParserTool.ParseComposableRecordModifiers;
+{ Consume the optional pre-body modifier list shared by `union` and `record`
+  under composablerecords. Modifiers may appear in any order:
+    `of TYPE`        - default field type for C-style `name: N` bitfields
+                       inside; on `union`, also defaults size/align to the
+                       type's sizeof/AlignOf
+    `size <const>`   - byte-size assertion on the container
+    `bitsize <const>` - bit-size assertion (rounded up to ceil(N/8) bytes)
+    `align <const>`  - byte-level alignment
+    `bitalign <const>` - bit-level alignment (collapses to ceil(N/8) bytes)
+  A trailing `;` between the last modifier and the body is also accepted.
+
+  Permissive parse: the compiler enforces context, ordering (`of T` first,
+  duplicates rejected) and `size`/`bitsize` mutex. The IDE only consumes
+  the tokens so the rest of the body parses cleanly. }
+var
+  HadModifier: boolean;
+begin
+  HadModifier:=false;
+  while UpAtomIs('SIZE') or UpAtomIs('BITSIZE')
+     or UpAtomIs('ALIGN') or UpAtomIs('BITALIGN') or UpAtomIs('OF') do begin
+    HadModifier:=true;
+    if UpAtomIs('OF') then begin
+      ReadNextAtom;
+      AtomIsIdentifierSaveE(20260513000020);
+      ReadNextAtom;
+      while CurPos.Flag=cafPoint do begin
+        ReadNextAtom;
+        AtomIsIdentifierSaveE(20260513000021);
+        ReadNextAtom;
+      end;
+    end
+    else begin
+      ReadNextAtom;
+      ReadConstant(true,false,[]);
+    end;
+  end;
+  // optional `;` between the last modifier and the body
+  if HadModifier and (CurPos.Flag=cafSemicolon) then
+    ReadNextAtom;
+end;
+
 function TPascalParserTool.KeyWordFuncTypeRecordUnion: boolean;
 { `union ... end;` (composablerecords): each line of the body is a single
   field-declaration variant - regular field, named subrecord, inline anonymous
   record, or anonymous embed. Mapped to ctnRecordCase so identifier lookup on
   the surrounding record walks the variants as children.
 
+  Optional pre-body modifiers (`of TYPE` / `size N` / `bitsize N` / `align N`
+  / `bitalign N`, any order) sit between the `union` keyword and the first
+  variant. See ParseComposableRecordModifiers.
+
   Example:
-    union
-      a: longword;
-      record b, c: byte; end;
-      embed TBar;
+    union of Byte bitsize 8
+      BitField: byte;
+      bitpacked record b1, b2: boolean; end;
     end;
 }
 var
@@ -6383,6 +6437,7 @@ begin
     Result:=KeyWordFuncClassIdentifier;
     exit;
   end;
+  ParseComposableRecordModifiers;
   CreateChildNode;
   CurNode.StartPos:=UnionStartPos;
   CurNode.Desc:=ctnRecordCase;
@@ -6494,7 +6549,12 @@ begin
   CreateChildNode;
   CurNode.StartPos:=StartingPos;
   CurNode.Desc:=ctnRecordType;
-  ReadNextAtom; // step into the body
+  ReadNextAtom;
+  // optional pre-body modifiers (composablerecords): `of TYPE`, `size N`,
+  // `bitsize N`, `align N`, `bitalign N` in any order, plus an optional `;`
+  // separator. Compiler enforces context (e.g., `of T` only on bitpacked,
+  // size/bitsize mutex); parser is permissive.
+  ParseComposableRecordModifiers;
   repeat
     if not ParseInnerBasicRecord(CurPos.StartPos) then begin
       if CurPos.Flag<>cafEnd then
