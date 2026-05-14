@@ -210,6 +210,7 @@ type
     function KeyWordFuncTypePointer: boolean;
     function KeyWordFuncTypeRecordCase: boolean;
     function KeyWordFuncTypeRecordUnion: boolean;
+    function KeyWordFuncTypeRecordInlineAnon: boolean;
     function KeyWordFuncTypeDefault: boolean;
     // procedures/functions/methods
     function KeyWordFuncProc: boolean;
@@ -572,6 +573,9 @@ begin
       exit(KeyWordFuncClassMethod);
   'P':
     case UpChars[p[1]] of
+    'A':
+      if (ClassDesc=ctnRecordType) and (cmsComposableRecords in Scanner.CompilerModeSwitches) and
+         CompareSrcIdentifiers(p,'PACKED') then exit(KeyWordFuncTypeRecordInlineAnon);
     'R':
       case UpChars[p[2]] of
       'I': if CompareSrcIdentifiers(p,'PRIVATE') then exit(KeyWordFuncClassSection);
@@ -590,10 +594,15 @@ begin
         'S': if CompareSrcIdentifiers(p,'PUBLISHED') then exit(KeyWordFuncClassSection);
         end;
     end;
+  'B':
+    if (ClassDesc=ctnRecordType) and (cmsComposableRecords in Scanner.CompilerModeSwitches) and
+       CompareSrcIdentifiers(p,'BITPACKED') then exit(KeyWordFuncTypeRecordInlineAnon);
   'R':
     if CompareSrcIdentifiers(p,'REQUIRED')
     and (CurNode.Parent.Desc=ctnObjCProtocol)
-    then exit(KeyWordFuncClassSection);
+    then exit(KeyWordFuncClassSection)
+    else if (ClassDesc=ctnRecordType) and (cmsComposableRecords in Scanner.CompilerModeSwitches) and
+            CompareSrcIdentifiers(p,'RECORD') then exit(KeyWordFuncTypeRecordInlineAnon);
   'S':
     if CompareSrcIdentifiers(p,'STATIC')
     and (CurNode.Parent.Desc=ctnObject) and (Scanner.Values.IsDefined('STATIC'))
@@ -638,8 +647,17 @@ begin
     case UpChars[p[1]] of
     'A': if CompareSrcIdentifiers(p,'CASE') then exit(KeyWordFuncTypeRecordCase);
     end;
+  'B':
+    if (cmsComposableRecords in Scanner.CompilerModeSwitches) and
+       CompareSrcIdentifiers(p,'BITPACKED') then exit(KeyWordFuncTypeRecordInlineAnon);
   'E':
     if CompareSrcIdentifiers(p,'END') then exit(false);
+  'P':
+    if (cmsComposableRecords in Scanner.CompilerModeSwitches) and
+       CompareSrcIdentifiers(p,'PACKED') then exit(KeyWordFuncTypeRecordInlineAnon);
+  'R':
+    if (cmsComposableRecords in Scanner.CompilerModeSwitches) and
+       CompareSrcIdentifiers(p,'RECORD') then exit(KeyWordFuncTypeRecordInlineAnon);
   'U':
     if (cmsComposableRecords in Scanner.CompilerModeSwitches) and
        CompareSrcIdentifiers(p,'UNION') then exit(KeyWordFuncTypeRecordUnion);
@@ -6368,6 +6386,46 @@ begin
   ReadNextAtom;
   if CurPos.Flag=cafSemicolon then
     UndoReadNextAtom; // leave `;` for the outer record-body loop
+  CurNode.EndPos:=CurPos.EndPos;
+  EndChildNode;
+  Result:=true;
+end;
+
+function TPascalParserTool.KeyWordFuncTypeRecordInlineAnon: boolean;
+{ inline anonymous record (`record`, `packed record`, or `bitpacked record`
+  followed by `fields end;`) appearing as a member of an outer record under
+  composablerecords. body parses as regular record fields; the carrier is a
+  nested ctnRecordType so lookup walks its children when resolving members on
+  the outer record. the optional `packed` / `bitpacked` prefix flips the
+  enclosing record to bit-packed layout (PEB-style boolean bitfields), but is
+  layout-only - the node shape and lookup are unchanged. }
+var
+  StartingPos: integer;
+begin
+  if not (UpAtomIs('RECORD') or UpAtomIs('PACKED') or UpAtomIs('BITPACKED')) then
+    SaveRaiseException(20260512000003,'[KeyWordFuncTypeRecordInlineAnon] internal');
+  StartingPos:=CurPos.StartPos;
+  if UpAtomIs('PACKED') or UpAtomIs('BITPACKED') then begin
+    ReadNextAtom;
+    if not UpAtomIs('RECORD') then
+      SaveRaiseStringExpectedButAtomFound(20260512000008,'"record"');
+  end;
+  CreateChildNode;
+  CurNode.StartPos:=StartingPos;
+  CurNode.Desc:=ctnRecordType;
+  ReadNextAtom; // step into the body
+  repeat
+    if not ParseInnerBasicRecord(CurPos.StartPos) then begin
+      if CurPos.Flag<>cafEnd then
+        SaveRaiseStringExpectedButAtomFound(20260512000004,'end');
+      break;
+    end;
+    ReadNextAtom;
+  until false;
+  // CurPos is on the inline record's END
+  ReadNextAtom;
+  if CurPos.Flag=cafSemicolon then
+    UndoReadNextAtom;
   CurNode.EndPos:=CurPos.EndPos;
   EndChildNode;
   Result:=true;
