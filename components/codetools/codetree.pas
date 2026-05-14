@@ -224,6 +224,7 @@ const
   ctnsForwardDeclaration  = 1 shl 3;
   ctnsHasDefaultValue     = 1 shl 4;
   ctnsHasStrictSpecifier  = 1 shl 5;
+  ctnsAnonymousEmbed      = 1 shl 6; // ctnVarDefinition carrier for `embed TName;` (composablerecords)
 
   ClassSectionNodeType: array[TPascalClassSection] of TCodeTreeNodeDesc = (
     ctnClassPrivate,

@@ -211,6 +211,7 @@ type
     function KeyWordFuncTypeRecordCase: boolean;
     function KeyWordFuncTypeRecordUnion: boolean;
     function KeyWordFuncTypeRecordInlineAnon: boolean;
+    function KeyWordFuncTypeRecordEmbed: boolean;
     function KeyWordFuncTypeDefault: boolean;
     // procedures/functions/methods
     function KeyWordFuncProc: boolean;
@@ -559,7 +560,9 @@ begin
   'D':
     if CompareSrcIdentifiers(p,'DESTRUCTOR') then exit(KeyWordFuncClassMethod);
   'E':
-    if CompareSrcIdentifiers(p,'END') then exit(false);
+    if CompareSrcIdentifiers(p,'END') then exit(false)
+    else if (ClassDesc=ctnRecordType) and (cmsComposableRecords in Scanner.CompilerModeSwitches) and
+            CompareSrcIdentifiers(p,'EMBED') then exit(KeyWordFuncTypeRecordEmbed);
   'F':
     case UpChars[p[1]] of
     'U': if CompareSrcIdentifiers(p,'FUNCTION') then exit(KeyWordFuncClassMethod);
@@ -651,7 +654,9 @@ begin
     if (cmsComposableRecords in Scanner.CompilerModeSwitches) and
        CompareSrcIdentifiers(p,'BITPACKED') then exit(KeyWordFuncTypeRecordInlineAnon);
   'E':
-    if CompareSrcIdentifiers(p,'END') then exit(false);
+    if CompareSrcIdentifiers(p,'END') then exit(false)
+    else if (cmsComposableRecords in Scanner.CompilerModeSwitches) and
+            CompareSrcIdentifiers(p,'EMBED') then exit(KeyWordFuncTypeRecordEmbed);
   'P':
     if (cmsComposableRecords in Scanner.CompilerModeSwitches) and
        CompareSrcIdentifiers(p,'PACKED') then exit(KeyWordFuncTypeRecordInlineAnon);
@@ -6387,6 +6392,49 @@ begin
   if CurPos.Flag=cafSemicolon then
     UndoReadNextAtom; // leave `;` for the outer record-body loop
   CurNode.EndPos:=CurPos.EndPos;
+  EndChildNode;
+  Result:=true;
+end;
+
+function TPascalParserTool.KeyWordFuncTypeRecordEmbed: boolean;
+{ `embed TName;` (composablerecords): anonymous embed of an existing record
+  type. carrier is a ctnVarDefinition starting at the type identifier so
+  identifier lookup reads its name as `TName` (qualified access via
+  `outer.TName.field` works). A mirroring ctnIdentifier subnode lets
+  FindBaseTypeOfNode chase the carrier to the embedded record def.
+  ctnsAnonymousEmbed tags the carrier for flatten-lookup follow-up - the flat
+  path (`outer.field` -> embedded type's field) needs additional integration
+  in FindIdentifierInContext and is intentionally not handled here.
+
+  `embed` is contextual: followed by `:` or `,` it stays a regular field name
+  (`embed: integer;` / `embed, x: T;`). }
+var
+  TypeStartPos, TypeEndPos: integer;
+begin
+  if not UpAtomIs('EMBED') then
+    SaveRaiseException(20260512000005,'[KeyWordFuncTypeRecordEmbed] internal');
+  ReadNextAtom;
+  if CurPos.Flag in [cafColon,cafComma] then begin
+    UndoReadNextAtom;
+    Result:=KeyWordFuncClassIdentifier;
+    exit;
+  end;
+  AtomIsIdentifierSaveE(20260512000006);
+  TypeStartPos:=CurPos.StartPos;
+  TypeEndPos:=CurPos.EndPos;
+  CreateChildNode;
+  CurNode.StartPos:=TypeStartPos;
+  CurNode.Desc:=ctnVarDefinition;
+  CurNode.SubDesc:=CurNode.SubDesc or ctnsAnonymousEmbed;
+  CreateChildNode;
+  CurNode.Desc:=ctnIdentifier;
+  CurNode.StartPos:=TypeStartPos;
+  CurNode.EndPos:=TypeEndPos;
+  EndChildNode;
+  ReadNextAtom;
+  if CurPos.Flag<>cafSemicolon then
+    SaveRaiseCharExpectedButAtomFound(20260512000007,';');
+  CurNode.EndPos:=CurPos.StartPos;
   EndChildNode;
   Result:=true;
 end;
