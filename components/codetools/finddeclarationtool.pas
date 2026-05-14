@@ -1462,6 +1462,10 @@ begin
     Result:=xtText
   else if CompareIdentifiers(Identifier,'SIZEOF')=0 then
     Result:=xtConstOrdInteger
+  else if CompareIdentifiers(Identifier,'OFFSETOF')=0 then
+    Result:=xtConstOrdInteger
+  else if CompareIdentifiers(Identifier,'BITOFFSETOF')=0 then
+    Result:=xtConstOrdInteger
   else if CompareIdentifiers(Identifier,'ORD')=0 then
     Result:=xtConstOrdInteger
   else if CompareIdentifiers(Identifier,'ASSIGNED')=0 then
