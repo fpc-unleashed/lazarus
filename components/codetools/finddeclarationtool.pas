@@ -5813,7 +5813,16 @@ begin
         exit;
       end;
     end;
-    if CurContextNode.FirstChild<>nil then begin
+    // composablerecords: anonymous enum constants stay scoped to the record
+    // that owns them. Skip descent into nested record bodies so the constants
+    // do not leak into the enclosing scope - matches the compiler behaviour
+    // where `tabstractrecordsymtable.insertdef` no longer redirects enum defs
+    // to the surrounding symtable. Qualified access (`TRec.kVal`) goes through
+    // the post-dot path which enters the record explicitly, bypassing this
+    if (CurContextNode.FirstChild<>nil)
+    and not ((CurContextNode.Desc=ctnRecordType)
+             and (cmsComposableRecords in Scanner.CompilerModeSwitches)) then
+    begin
       OldContextNode:=Params.ContextNode;
       Params.ContextNode:=CurContextNode;
       Result:=FindEnumInContext(Params);
