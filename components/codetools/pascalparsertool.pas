@@ -209,6 +209,7 @@ type
     function KeyWordFuncTypeFile: boolean;
     function KeyWordFuncTypePointer: boolean;
     function KeyWordFuncTypeRecordCase: boolean;
+    function KeyWordFuncTypeRecordUnion: boolean;
     function KeyWordFuncTypeDefault: boolean;
     // procedures/functions/methods
     function KeyWordFuncProc: boolean;
@@ -605,6 +606,9 @@ begin
     if CompareSrcIdentifiers(p,'OPTIONAL')
     and (CurNode.Parent.Desc=ctnObjCProtocol)
     then exit(KeyWordFuncClassSection);
+  'U':
+    if (ClassDesc=ctnRecordType) and (cmsComposableRecords in Scanner.CompilerModeSwitches) and
+       CompareSrcIdentifiers(p,'UNION') then exit(KeyWordFuncTypeRecordUnion);
   'V':
     if CompareSrcIdentifiers(p,'VAR') then exit(KeyWordFuncClassVarSection);
   end;
@@ -636,6 +640,9 @@ begin
     end;
   'E':
     if CompareSrcIdentifiers(p,'END') then exit(false);
+  'U':
+    if (cmsComposableRecords in Scanner.CompilerModeSwitches) and
+       CompareSrcIdentifiers(p,'UNION') then exit(KeyWordFuncTypeRecordUnion);
   end;
   Result:=KeyWordFuncClassIdentifier;
 end;
@@ -6316,6 +6323,53 @@ begin
   {$IFDEF VerboseRecordCase}
   debugln(['TPascalParserTool.KeyWordFuncTypeRecordCase END CurNode=',CurNode.DescAsString,' Atom="',GetAtom,'" at ',CleanPosToStr(CurPos.StartPos)]);
   {$ENDIF}
+  Result:=true;
+end;
+
+function TPascalParserTool.KeyWordFuncTypeRecordUnion: boolean;
+{ `union ... end;` (composablerecords): each line of the body is a single
+  field-declaration variant - regular field, named subrecord, inline anonymous
+  record, or anonymous embed. Mapped to ctnRecordCase so identifier lookup on
+  the surrounding record walks the variants as children.
+
+  Example:
+    union
+      a: longword;
+      record b, c: byte; end;
+      embed TBar;
+    end;
+}
+var
+  UnionStartPos: integer;
+begin
+  if not UpAtomIs('UNION') then
+    SaveRaiseException(20260512000001,'[KeyWordFuncTypeRecordUnion] internal');
+  // contextual disambiguation: keep `union: T;` and `union, x: T;` as regular
+  // field declarations whose name happens to be `union`
+  UnionStartPos:=CurPos.StartPos;
+  ReadNextAtom;
+  if CurPos.Flag in [cafColon,cafComma] then begin
+    UndoReadNextAtom;
+    Result:=KeyWordFuncClassIdentifier;
+    exit;
+  end;
+  CreateChildNode;
+  CurNode.StartPos:=UnionStartPos;
+  CurNode.Desc:=ctnRecordCase;
+  repeat
+    if not ParseInnerBasicRecord(CurPos.StartPos) then begin
+      if CurPos.Flag<>cafEnd then
+        SaveRaiseStringExpectedButAtomFound(20260512000002,'end');
+      break;
+    end;
+    ReadNextAtom;
+  until false;
+  // CurPos is on the union's END; step past it to land on the trailing `;`
+  ReadNextAtom;
+  if CurPos.Flag=cafSemicolon then
+    UndoReadNextAtom; // leave `;` for the outer record-body loop
+  CurNode.EndPos:=CurPos.EndPos;
+  EndChildNode;
   Result:=true;
 end;
 
