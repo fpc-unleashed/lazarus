@@ -7260,6 +7260,14 @@ var
           NeedCompletion:=CleanCursorPos;
         end;
       end;
+    end else if CurPos.Flag=cafEnd then begin
+      // nested record/class: the `end` the parser landed on may belong to
+      // an enclosing scope. If it sits at a smaller indent than this
+      // section's record/class keyword line, the inner block still needs
+      // its own `end;` inserted at the cursor.
+      Indent:=Beauty.GetLineIndent(Src,CurPos.StartPos);
+      if Indent<LastIndent then
+        NeedCompletion:=CleanCursorPos;
     end else
       exit(true);
     //debugln(['CompleteClassSection NeedCompletion=',NeedCompletion]);
