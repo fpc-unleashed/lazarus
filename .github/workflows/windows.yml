@@ -1,0 +1,117 @@
+name: Windows
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Download FPC Unleashed nightly
+      run: |
+        curl -L -o fpc-bundle.zip https://github.com/fpc-unleashed/freepascal/releases/download/nightly/windows-bundle.zip
+      shell: cmd
+
+    - name: Extract FPC Unleashed to C:\fpc
+      run: |
+        powershell -Command "Expand-Archive -Path fpc-bundle.zip -DestinationPath C:\ -Force"
+        dir C:\fpc\bin\x86_64-win64
+      shell: cmd
+
+    - name: Write fpc.cfg
+      run: |
+        $target = "x86_64-win64"
+        $cfg = "C:\fpc\bin\$target\fpc.cfg"
+        $lines = @("# FPC Unleashed minimal config")
+        foreach ($d in Get-ChildItem -Path "C:\fpc\units\$target" -Directory) {
+          $lines += "-Fu$($d.FullName)"
+        }
+        $lines | Set-Content -Encoding ASCII $cfg
+        Get-Content $cfg
+      shell: powershell
+
+    - name: Smoke-test FPC
+      run: |
+        "begin writeln('hello'); end." | Set-Content -Encoding ASCII C:\hello.pas
+        C:\fpc\bin\x86_64-win64\ppcx64.exe -viq C:\hello.pas
+        C:\hello.exe
+      shell: powershell
+
+    - name: Setup PATH (FPC + msys2 make)
+      run: |
+        echo "C:\fpc\bin\x86_64-win64" >> $env:GITHUB_PATH
+        echo "C:\msys64\usr\bin" >> $env:GITHUB_PATH
+      shell: powershell
+
+    - name: Checkout Lazarus
+      uses: actions/checkout@v4
+
+    - name: Build Lazarus
+      run: |
+        make clean
+        make all OS_TARGET=win64 CPU_TARGET=x86_64 PP=C:\fpc\bin\x86_64-win64\ppcx64.exe
+      shell: cmd
+
+    - name: Install to C:\fpcunleashed\lazarus
+      run: |
+        mkdir C:\fpcunleashed\lazarus
+        robocopy . C:\fpcunleashed\lazarus /E /XD .git .github *.app /XF fpc-bundle.zip /NFL /NDL /NJH /NJS /NP
+        if %ERRORLEVEL% GEQ 8 exit /b %ERRORLEVEL%
+        exit /b 0
+      shell: cmd
+
+    - name: Verify lazbuild
+      run: |
+        if (-not (Test-Path "C:\fpcunleashed\lazarus\lazbuild.exe")) {
+          Write-Error "lazbuild.exe missing after build"
+          exit 1
+        }
+      shell: powershell
+
+    - name: Package IDE bundle
+      run: |
+        cd /d C:\fpcunleashed\lazarus
+        "C:\Program Files\7-Zip\7z.exe" a -tzip -mx=3 -bd "%GITHUB_WORKSPACE%\windows-bundle.zip" * >nul
+      shell: cmd
+
+    - name: Upload windows-bundle.zip
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-bundle.zip
+        path: windows-bundle.zip
+
+    - name: Prepare release
+      run: |
+        $tz = [System.TimeZoneInfo]::FindSystemTimeZoneById("Central European Standard Time")
+        $ts = [System.TimeZoneInfo]::ConvertTimeFromUtc((Get-Date).ToUniversalTime(), $tz).ToString("yyyy-MM-dd HH:mm:ss 'CEST'")
+        echo "TAG=nightly" >> $env:GITHUB_ENV
+        echo "NAME=Lazarus Unleashed IDE nightly" >> $env:GITHUB_ENV
+        "Lazarus Unleashed IDE nightly build" | Out-File -FilePath release-body.txt -Encoding UTF8
+        "" | Out-File -Append release-body.txt -Encoding UTF8
+        "Generated from commit: $env:GITHUB_SHA" | Out-File -Append release-body.txt -Encoding UTF8
+        "Build time: $ts" | Out-File -Append release-body.txt -Encoding UTF8
+      shell: powershell
+
+    - name: Update tag
+      uses: richardsimko/update-tag@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: nightly
+
+    - name: Release
+      uses: ncipollo/release-action@v1
+      with:
+        artifacts: windows-bundle.zip
+        tag: ${{ env.TAG }}
+        name: ${{ env.NAME }}
+        bodyFile: release-body.txt
+        prerelease: true
+        allowUpdates: true

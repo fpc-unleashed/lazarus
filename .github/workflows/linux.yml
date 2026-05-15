@@ -1,0 +1,112 @@
+name: Linux
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Install build dependencies
+      run: |
+        sudo rm -rf /var/lib/apt/lists/*
+        sudo apt-get clean
+        sudo apt-get update -o Acquire::Retries=3
+        sudo apt-get install -y --no-install-recommends \
+          make zip rsync curl \
+          libgtk2.0-dev libcairo2-dev libpango1.0-dev \
+          libgdk-pixbuf2.0-dev libatk1.0-dev libgl1-mesa-dev
+
+    - name: Download FPC Unleashed nightly
+      run: |
+        curl -L -o fpc-bundle.zip https://github.com/fpc-unleashed/freepascal/releases/download/nightly/linux-bundle.zip
+        unzip -q fpc-bundle.zip -d "$HOME"
+        ls "$HOME/fpc/bin"
+
+    - name: Write fpc.cfg
+      run: |
+        target=x86_64-linux
+        {
+          echo "# FPC Unleashed minimal config"
+          for d in "$HOME/fpc/units/$target"/*/; do
+            [ -d "$d" ] || continue
+            echo "-Fu${d%/}"
+          done
+        } > "$HOME/.fpc.cfg"
+        cat "$HOME/.fpc.cfg"
+
+    - name: Setup PATH
+      run: echo "$HOME/fpc/bin" >> $GITHUB_PATH
+
+    - name: Checkout Lazarus
+      uses: actions/checkout@v4
+
+    - name: Smoke-test FPC
+      run: |
+        echo "begin writeln('hello'); end." > /tmp/hello.pas
+        "$HOME/fpc/bin/ppcx64" -viq /tmp/hello.pas
+        /tmp/hello
+
+    - name: Build Lazarus
+      run: |
+        make clean
+        make all CPU_TARGET=x86_64 PP="$HOME/fpc/bin/ppcx64"
+
+    - name: Install to ~/fpcunleashed/lazarus
+      run: |
+        mkdir -p "$HOME/fpcunleashed/lazarus"
+        rsync -a --exclude='.git' --exclude='.github' --exclude='fpc-bundle.zip' ./ "$HOME/fpcunleashed/lazarus/"
+
+    - name: Verify lazbuild
+      run: |
+        if [ ! -x "$HOME/fpcunleashed/lazarus/lazbuild" ]; then
+          echo "lazbuild missing or not executable" >&2
+          exit 1
+        fi
+
+    - name: Package IDE bundle
+      run: |
+        cd "$HOME/fpcunleashed/lazarus"
+        zip -rq "$GITHUB_WORKSPACE/linux-bundle.zip" .
+
+    - name: Upload linux-bundle.zip
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-bundle.zip
+        path: linux-bundle.zip
+
+    - name: Prepare release
+      run: |
+        ts=$(TZ=Europe/Berlin date +"%Y-%m-%d %H:%M:%S CEST")
+        echo "TAG=nightly" >> $GITHUB_ENV
+        echo "NAME=Lazarus Unleashed IDE nightly" >> $GITHUB_ENV
+        {
+          echo "Lazarus Unleashed IDE nightly build"
+          echo
+          echo "Generated from commit: $GITHUB_SHA"
+          echo "Build time: $ts"
+        } > release-body.txt
+
+    - name: Update tag
+      uses: richardsimko/update-tag@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: nightly
+
+    - name: Release
+      uses: ncipollo/release-action@v1
+      with:
+        artifacts: linux-bundle.zip
+        tag: ${{ env.TAG }}
+        name: ${{ env.NAME }}
+        bodyFile: release-body.txt
+        prerelease: true
+        allowUpdates: true
