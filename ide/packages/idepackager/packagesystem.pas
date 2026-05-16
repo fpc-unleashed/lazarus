@@ -48,6 +48,7 @@ uses
   // LazUtils
   FileUtil, LazFileCache, LazLoggerBase, LazUtilities, LazFileUtils, LazUTF8,
   Laz2_XMLCfg, Laz2_XMLRead, LazStringUtils, LazTracer, AvgLvlTree, FPCAdds, UTF8Process,
+  Masks,
   // codetools
   FileProcs, DefineTemplates, CodeToolManager, CodeCache, DirectoryCacher,
   BasicCodeTools, NonPascalCodeTools, SourceChanger,
@@ -342,6 +343,9 @@ type
     function FindPackageWithFilename(const TheFilename: string): TLazPackage;
     function FindPackageWithID(PkgID: TLazPackageID): TLazPackage;
     function FindPackageWithIDMask(PkgIDMask: TLazPackageID): TLazPackage;
+    // finds first installed package whose name matches the wildcard mask (`*`, `?`),
+    // case-insensitive. uses Masks.MatchesMask
+    function FindInstalledPackageMatching(const PkgNameMask: string): TLazPackage;
     function FindPackageProvidingName(FirstDependency: TPkgDependency;
                                       const Name: string): TLazPackage;
     function FindDependencyRecursively(FirstDependency: TPkgDependency;
@@ -1620,6 +1624,22 @@ begin
     Result:=TLazPackage(ANode.Data)
   else
     Result:=nil;
+end;
+
+function TLazPackageGraph.FindInstalledPackageMatching(
+  const PkgNameMask: string): TLazPackage;
+var
+  ANode: TAVLTreeNode;
+  Pkg: TLazPackage;
+begin
+  Result:=nil;
+  ANode:=FTree.FindLowest;
+  while ANode<>nil do begin
+    Pkg:=TLazPackage(ANode.Data);
+    if (Pkg.Installed<>pitNope) and MatchesMask(Pkg.Name,PkgNameMask) then
+      exit(Pkg);
+    ANode:=FTree.FindSuccessor(ANode);
+  end;
 end;
 
 function TLazPackageGraph.FindPackageProvidingName(

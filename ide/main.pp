@@ -1731,6 +1731,18 @@ begin
     Application.Terminate;
     exit;
   end;
+  // One-shot wiring of optional add-on packages into the editor toolbar.
+  // After SetupStartProject the first source window (and its toolbar) already
+  // exists, so we force uAllEditorToolbars.ReloadAll to rebuild it once the
+  // optional button is appended.
+  if (not EnvironmentOptions.InitialEditorToolbarAddonsDone) and (PackageGraph<>nil) then begin
+    with EnvironmentGuiOpts.Desktop.EditorToolBarOptions.ButtonNames do begin
+      if (IndexOf('CPU-View')<0) and (PackageGraph.FindInstalledPackageMatching('CPUView_*')<>nil) then Add('CPU-View');
+    end;
+    EnvironmentOptions.InitialEditorToolbarAddonsDone := true;
+    if Assigned(uAllEditorToolbars) then
+      uAllEditorToolbars.ReloadAll;
+  end;
   // After a fresh install the FPC source cache is empty/stale and code
   // completion fails until the user clicks Tools > Rescan FPC Source
   // Directory. Run that rescan once automatically and persist a flag so

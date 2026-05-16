@@ -316,6 +316,9 @@ type
     // Force one FPC source rescan after a fresh install so code completion
     // works without the user having to invoke Tools > Rescan FPC Source Dir.
     FInitialFPCSrcRescanDone: Boolean;
+    // One-shot pass on first start that wires optional add-on packages into
+    // the editor toolbar (e.g. CPU-View button if its package is installed).
+    FInitialEditorToolbarAddonsDone: Boolean;
     //other recent settings
     FLastEventMethodCCResult: TCodeCreationDlgResult;
     FLastVariableCCResult: TCodeCreationDlgResult;
@@ -499,6 +502,8 @@ type
                                                  write FAlreadyPopulatedRecentFiles;
     property InitialFPCSrcRescanDone: Boolean read FInitialFPCSrcRescanDone
                                               write FInitialFPCSrcRescanDone;
+    property InitialEditorToolbarAddonsDone: Boolean read FInitialEditorToolbarAddonsDone
+                                                     write FInitialEditorToolbarAddonsDone;
     // other recent settings
     property LastEventMethodCCResult: TCodeCreationDlgResult
       read FLastEventMethodCCResult write FLastEventMethodCCResult;
@@ -1086,6 +1091,7 @@ begin
     FMultipleInstances:=StrToIDEMultipleInstancesOption(FXMLCfg.GetValue(Path+'MultipleInstances/Value',''));
     FAlreadyPopulatedRecentFiles := FXMLCfg.GetValue(Path+'Recent/AlreadyPopulated', false);
     FInitialFPCSrcRescanDone := FXMLCfg.GetValue(Path+'InitialFPCSrcRescanDone/Value', false);
+    FInitialEditorToolbarAddonsDone := FXMLCfg.GetValue(Path+'InitialEditorToolbarAddonsDone/Value', false);
 
     // other recent settings
     LoadCCResult(FLastEventMethodCCResult, Path+'Recent/EventMethodCCResult', icsPublic);
@@ -1294,6 +1300,7 @@ begin
         IDEMultipleInstancesOptionNames[DefaultIDEMultipleInstancesOption]);
     FXMLCfg.SetDeleteValue(Path+'Recent/AlreadyPopulated', FAlreadyPopulatedRecentFiles, false);
     FXMLCfg.SetDeleteValue(Path+'InitialFPCSrcRescanDone/Value', FInitialFPCSrcRescanDone, false);
+    FXMLCfg.SetDeleteValue(Path+'InitialEditorToolbarAddonsDone/Value', FInitialEditorToolbarAddonsDone, false);
 
     // other recent settings
     SaveCCResult(FLastEventMethodCCResult, Path+'Recent/EventMethodCCResult', icsPublic);
