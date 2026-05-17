@@ -6440,6 +6440,7 @@ type
     btCaseOf,
     btCaseColon,
     btCaseElse,
+    btMatch,
     btRepeat,
     btIf,
     btIfElse,
@@ -6871,7 +6872,7 @@ var
               if not EndBlockIsOk then exit; // close btCaseOf,btCaseElse
               if not EndBlockIsOk then exit; // close btCase
             end;
-          btBegin,btFinally,btExcept,btCase:
+          btBegin,btFinally,btExcept,btCase,btMatch:
             if not EndBlockIsOk then exit;
           btCaseColon,btRepeat:
             begin
@@ -6998,10 +6999,12 @@ var
               Stack.Stack[Stack.Top].InnerIndent:=-1;
               Stack.Stack[Stack.Top].InnerStartPos:=-1;
             end;
-          end else if UpAtomIs('CASE') or UpAtomIs('MATCH') then begin
-            // match opens a case-like block (no 'of' keyword); branches like
-            // '_: begin..end;' close as ordinary statements inside btCase
+          end else if UpAtomIs('CASE') then begin
             BeginBlock(Stack,btCase,CurPos.StartPos)
+          end else if UpAtomIs('MATCH') then begin
+            // match has no 'of' keyword; branches like '_: begin..end;'
+            // close as ordinary statements inside btMatch
+            BeginBlock(Stack,btMatch,CurPos.StartPos)
           end else if UpAtomIs('OF') then begin
             CloseBrackets;
             if TopBlockType(Stack)=btCase then
@@ -7182,7 +7185,7 @@ var
           else
             NewCode:='end'+NewCode;
         end;
-      btFinally,btExcept,btCaseOf,btCaseElse:
+      btFinally,btExcept,btMatch,btCaseOf,btCaseElse:
         NewCode:='end'+NewCode;
       btRepeat:
         NewCode:='until '+NewCode;
