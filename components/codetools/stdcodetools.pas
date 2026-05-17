@@ -6998,7 +6998,9 @@ var
               Stack.Stack[Stack.Top].InnerIndent:=-1;
               Stack.Stack[Stack.Top].InnerStartPos:=-1;
             end;
-          end else if UpAtomIs('CASE') then begin
+          end else if UpAtomIs('CASE') or UpAtomIs('MATCH') then begin
+            // match opens a case-like block (no 'of' keyword); branches like
+            // '_: begin..end;' close as ordinary statements inside btCase
             BeginBlock(Stack,btCase,CurPos.StartPos)
           end else if UpAtomIs('OF') then begin
             CloseBrackets;
