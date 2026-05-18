@@ -1926,6 +1926,11 @@ begin
          and (CurPos.Flag=cafRoundBracketOpen) then
         // tuple return type: parse as inline type via KeyWordFuncTypeDefault
         KeyWordFuncTypeDefault
+      else if (Scanner.CompilerMode=cmUnleashed)
+        and (UpAtomIs('ARRAY') or UpAtomIs('PACKED') or UpAtomIs('BITPACKED')) then
+        // unleashed: inline `array of X` (also `packed`/`bitpacked array of X`)
+        // as a function result type; classic modes still require a named type
+        ParseType(CurPos.StartPos)
       else
         ReadTypeReference(pphCreateNodes in ParseAttr);
     end
@@ -5609,7 +5614,13 @@ begin
     if (CurPos.Flag=cafColon) then begin
       ReadNextAtom;
       NodeEnd := CurPos.EndPos;
-      if ReadTypeReference(true) then
+      if (Scanner.CompilerMode=cmUnleashed)
+        and (UpAtomIs('ARRAY') or UpAtomIs('PACKED') or UpAtomIs('BITPACKED')) then begin
+        // unleashed: inline `array of X` as procedural-type result
+        if ParseType(CurPos.StartPos) then
+          NodeEnd := CurNode.LastChild.EndPos;
+      end
+      else if ReadTypeReference(true) then
         NodeEnd := CurNode.LastChild.EndPos;
     end else begin
       SaveRaiseCharExpectedButAtomFound(20170421195810,':');
