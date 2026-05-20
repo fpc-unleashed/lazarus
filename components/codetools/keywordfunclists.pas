@@ -1380,7 +1380,10 @@ begin
   IsWordBuiltInFunc:=TKeyWordFunctionList.Create('IsWordBuiltInFunc');
   KeyWordLists.Add(IsWordBuiltInFunc);
   with IsWordBuiltInFunc do begin
+    Add('ALIGNOF'     ,{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('ASSIGNED'    ,{$ifdef FPC}@{$endif}AllwaysTrue);
+    Add('BITALIGNOF'  ,{$ifdef FPC}@{$endif}AllwaysTrue);
+    Add('BITOFFSETOF' ,{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('BREAK'       ,{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('CONCAT'      ,{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('CONTINUE'    ,{$ifdef FPC}@{$endif}AllwaysTrue);
@@ -1404,6 +1407,7 @@ begin
     Add('LOW'         ,{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('NEW'         ,{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('OBJCSELECTOR',{$ifdef FPC}@{$endif}AllwaysTrue);
+    Add('OFFSETOF'    ,{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('ORD'         ,{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('PRED'        ,{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('READ'        ,{$ifdef FPC}@{$endif}AllwaysTrue);

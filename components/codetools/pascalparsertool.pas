@@ -209,6 +209,11 @@ type
     function KeyWordFuncTypeFile: boolean;
     function KeyWordFuncTypePointer: boolean;
     function KeyWordFuncTypeRecordCase: boolean;
+    function KeyWordFuncTypeRecordUnion: boolean;
+    function KeyWordFuncTypeRecordInlineAnon: boolean;
+    function KeyWordFuncTypeRecordEmbed: boolean;
+    function KeyWordFuncTypeRecordPad: boolean;
+    procedure ParseComposableRecordModifiers;
     function KeyWordFuncTypeDefault: boolean;
     // procedures/functions/methods
     function KeyWordFuncProc: boolean;
@@ -557,7 +562,9 @@ begin
   'D':
     if CompareSrcIdentifiers(p,'DESTRUCTOR') then exit(KeyWordFuncClassMethod);
   'E':
-    if CompareSrcIdentifiers(p,'END') then exit(false);
+    if CompareSrcIdentifiers(p,'END') then exit(false)
+    else if (ClassDesc=ctnRecordType) and (cmsComposableRecords in Scanner.CompilerModeSwitches) and
+            CompareSrcIdentifiers(p,'EMBED') then exit(KeyWordFuncTypeRecordEmbed);
   'F':
     case UpChars[p[1]] of
     'U': if CompareSrcIdentifiers(p,'FUNCTION') then exit(KeyWordFuncClassMethod);
@@ -571,6 +578,12 @@ begin
       exit(KeyWordFuncClassMethod);
   'P':
     case UpChars[p[1]] of
+    'A':
+      if (ClassDesc=ctnRecordType) and (cmsComposableRecords in Scanner.CompilerModeSwitches) then
+        case UpChars[p[2]] of
+        'C': if CompareSrcIdentifiers(p,'PACKED') then exit(KeyWordFuncTypeRecordInlineAnon);
+        'D': if CompareSrcIdentifiers(p,'PAD') then exit(KeyWordFuncTypeRecordPad);
+        end;
     'R':
       case UpChars[p[2]] of
       'I': if CompareSrcIdentifiers(p,'PRIVATE') then exit(KeyWordFuncClassSection);
@@ -589,10 +602,15 @@ begin
         'S': if CompareSrcIdentifiers(p,'PUBLISHED') then exit(KeyWordFuncClassSection);
         end;
     end;
+  'B':
+    if (ClassDesc=ctnRecordType) and (cmsComposableRecords in Scanner.CompilerModeSwitches) and
+       CompareSrcIdentifiers(p,'BITPACKED') then exit(KeyWordFuncTypeRecordInlineAnon);
   'R':
     if CompareSrcIdentifiers(p,'REQUIRED')
     and (CurNode.Parent.Desc=ctnObjCProtocol)
-    then exit(KeyWordFuncClassSection);
+    then exit(KeyWordFuncClassSection)
+    else if (ClassDesc=ctnRecordType) and (cmsComposableRecords in Scanner.CompilerModeSwitches) and
+            CompareSrcIdentifiers(p,'RECORD') then exit(KeyWordFuncTypeRecordInlineAnon);
   'S':
     if CompareSrcIdentifiers(p,'STATIC')
     and (CurNode.Parent.Desc=ctnObject) and (Scanner.Values.IsDefined('STATIC'))
@@ -605,6 +623,9 @@ begin
     if CompareSrcIdentifiers(p,'OPTIONAL')
     and (CurNode.Parent.Desc=ctnObjCProtocol)
     then exit(KeyWordFuncClassSection);
+  'U':
+    if (ClassDesc=ctnRecordType) and (cmsComposableRecords in Scanner.CompilerModeSwitches) and
+       CompareSrcIdentifiers(p,'UNION') then exit(KeyWordFuncTypeRecordUnion);
   'V':
     if CompareSrcIdentifiers(p,'VAR') then exit(KeyWordFuncClassVarSection);
   end;
@@ -634,8 +655,25 @@ begin
     case UpChars[p[1]] of
     'A': if CompareSrcIdentifiers(p,'CASE') then exit(KeyWordFuncTypeRecordCase);
     end;
+  'B':
+    if (cmsComposableRecords in Scanner.CompilerModeSwitches) and
+       CompareSrcIdentifiers(p,'BITPACKED') then exit(KeyWordFuncTypeRecordInlineAnon);
   'E':
-    if CompareSrcIdentifiers(p,'END') then exit(false);
+    if CompareSrcIdentifiers(p,'END') then exit(false)
+    else if (cmsComposableRecords in Scanner.CompilerModeSwitches) and
+            CompareSrcIdentifiers(p,'EMBED') then exit(KeyWordFuncTypeRecordEmbed);
+  'P':
+    if (cmsComposableRecords in Scanner.CompilerModeSwitches) then
+      case UpChars[p[2]] of
+      'C': if CompareSrcIdentifiers(p,'PACKED') then exit(KeyWordFuncTypeRecordInlineAnon);
+      'D': if CompareSrcIdentifiers(p,'PAD') then exit(KeyWordFuncTypeRecordPad);
+      end;
+  'R':
+    if (cmsComposableRecords in Scanner.CompilerModeSwitches) and
+       CompareSrcIdentifiers(p,'RECORD') then exit(KeyWordFuncTypeRecordInlineAnon);
+  'U':
+    if (cmsComposableRecords in Scanner.CompilerModeSwitches) and
+       CompareSrcIdentifiers(p,'UNION') then exit(KeyWordFuncTypeRecordUnion);
   end;
   Result:=KeyWordFuncClassIdentifier;
 end;
@@ -4007,8 +4045,19 @@ var
 
 begin
   ReadNextAtom;
-  // type
-  ParseType(CurPos.StartPos);
+  // C-style bitfield (composablerecords): `name: N` where N is an integer
+  // literal in a record body means `name: <default-type> bitsize N`. consume
+  // the literal without building a type subtree - the compiler enforces that
+  // we're inside a bitpacked record with an active default type.
+  if (cmsComposableRecords in Scanner.CompilerModeSwitches)
+  and AtomIsNumber
+  and (CurNode.Parent<>nil)
+  and (CurNode.Parent.Desc in [ctnRecordType, ctnRecordCase, ctnRecordVariant]
+                              + AllClassSections) then
+    ReadNextAtom
+  else
+    // type
+    ParseType(CurPos.StartPos);
 
   // optional `count IDENT` clause for flexible array members:
   // record field of type array[] of T may be followed by `count <field>`
@@ -4024,6 +4073,18 @@ begin
     EndChildNode;
     ReadNextAtom;
   end;
+
+  // optional per-field sizing/alignment modifiers (composablerecords):
+  // `field: typ align N`, `field: typ bitsize 1`, combinations in any order.
+  // each takes one constant expression; position is between the type and any
+  // hint directive. permissive: gated on the modeswitch only - the compiler
+  // enforces that they only make sense inside a record body
+  if cmsComposableRecords in Scanner.CompilerModeSwitches then
+    while UpAtomIs('ALIGN') or UpAtomIs('BITALIGN')
+       or UpAtomIs('SIZE') or UpAtomIs('BITSIZE') do begin
+      ReadNextAtom;
+      ReadConstant(true,false,[]);
+    end;
 
   ParentNode:=CurNode.Parent;
 
@@ -5333,6 +5394,14 @@ begin
         EndChildNode;
         ReadNextAtom;
       end;
+      // optional pre-body modifiers on a record body (composablerecords):
+      // `of TYPE`, `size N`, `bitsize N`, `align N`, `bitalign N` in any order,
+      // plus an optional `;` separator before the body. Compiler enforces
+      // context restrictions (e.g., `of T` only on bitpacked record); the
+      // parser is permissive.
+      if (ClassDesc=ctnRecordType)
+      and (cmsComposableRecords in Scanner.CompilerModeSwitches) then
+        ParseComposableRecordModifiers;
       if UpAtomIs('EXTERNAL') then begin
         if (ClassDesc in [ctnObjCClass,ctnObjCCategory])
         or (cmsExternalClass in Scanner.CompilerModeSwitches)
@@ -6327,6 +6396,213 @@ begin
   {$IFDEF VerboseRecordCase}
   debugln(['TPascalParserTool.KeyWordFuncTypeRecordCase END CurNode=',CurNode.DescAsString,' Atom="',GetAtom,'" at ',CleanPosToStr(CurPos.StartPos)]);
   {$ENDIF}
+  Result:=true;
+end;
+
+procedure TPascalParserTool.ParseComposableRecordModifiers;
+{ Consume the optional pre-body modifier list shared by `union` and `record`
+  under composablerecords. Modifiers may appear in any order:
+    `of TYPE`        - default field type for C-style `name: N` bitfields
+                       inside; on `union`, also defaults size/align to the
+                       type's sizeof/AlignOf
+    `size <const>`   - byte-size assertion on the container
+    `bitsize <const>` - bit-size assertion (rounded up to ceil(N/8) bytes)
+    `align <const>`  - byte-level alignment
+    `bitalign <const>` - bit-level alignment (collapses to ceil(N/8) bytes)
+  A trailing `;` between the last modifier and the body is also accepted.
+
+  Permissive parse: the compiler enforces context, ordering (`of T` first,
+  duplicates rejected) and `size`/`bitsize` mutex. The IDE only consumes
+  the tokens so the rest of the body parses cleanly. }
+var
+  HadModifier: boolean;
+begin
+  HadModifier:=false;
+  while UpAtomIs('SIZE') or UpAtomIs('BITSIZE')
+     or UpAtomIs('ALIGN') or UpAtomIs('BITALIGN') or UpAtomIs('OF') do begin
+    HadModifier:=true;
+    if UpAtomIs('OF') then begin
+      ReadNextAtom;
+      AtomIsIdentifierSaveE(20260513000020);
+      ReadNextAtom;
+      while CurPos.Flag=cafPoint do begin
+        ReadNextAtom;
+        AtomIsIdentifierSaveE(20260513000021);
+        ReadNextAtom;
+      end;
+    end
+    else begin
+      ReadNextAtom;
+      ReadConstant(true,false,[]);
+    end;
+  end;
+  // optional `;` between the last modifier and the body
+  if HadModifier and (CurPos.Flag=cafSemicolon) then
+    ReadNextAtom;
+end;
+
+function TPascalParserTool.KeyWordFuncTypeRecordUnion: boolean;
+{ `union ... end;` (composablerecords): each line of the body is a single
+  field-declaration variant - regular field, named subrecord, inline anonymous
+  record, or anonymous embed. Mapped to ctnRecordCase so identifier lookup on
+  the surrounding record walks the variants as children.
+
+  Optional pre-body modifiers (`of TYPE` / `size N` / `bitsize N` / `align N`
+  / `bitalign N`, any order) sit between the `union` keyword and the first
+  variant. See ParseComposableRecordModifiers.
+
+  Example:
+    union of Byte bitsize 8
+      BitField: byte;
+      bitpacked record b1, b2: boolean; end;
+    end;
+}
+var
+  UnionStartPos: integer;
+begin
+  if not UpAtomIs('UNION') then
+    SaveRaiseException(20260512000001,'[KeyWordFuncTypeRecordUnion] internal');
+  // contextual disambiguation: keep `union: T;` and `union, x: T;` as regular
+  // field declarations whose name happens to be `union`
+  UnionStartPos:=CurPos.StartPos;
+  ReadNextAtom;
+  if CurPos.Flag in [cafColon,cafComma] then begin
+    UndoReadNextAtom;
+    Result:=KeyWordFuncClassIdentifier;
+    exit;
+  end;
+  ParseComposableRecordModifiers;
+  CreateChildNode;
+  CurNode.StartPos:=UnionStartPos;
+  CurNode.Desc:=ctnRecordCase;
+  repeat
+    if not ParseInnerBasicRecord(CurPos.StartPos) then begin
+      if CurPos.Flag<>cafEnd then
+        SaveRaiseStringExpectedButAtomFound(20260512000002,'end');
+      break;
+    end;
+    ReadNextAtom;
+  until false;
+  // CurPos is on the union's END; step past it to land on the trailing `;`
+  ReadNextAtom;
+  if CurPos.Flag=cafSemicolon then
+    UndoReadNextAtom; // leave `;` for the outer record-body loop
+  CurNode.EndPos:=CurPos.EndPos;
+  EndChildNode;
+  Result:=true;
+end;
+
+function TPascalParserTool.KeyWordFuncTypeRecordEmbed: boolean;
+{ `embed TName;` (composablerecords): anonymous embed of an existing record
+  type. carrier is a ctnVarDefinition starting at the type identifier so
+  identifier lookup reads its name as `TName` (qualified access via
+  `outer.TName.field` works). A mirroring ctnIdentifier subnode lets
+  FindBaseTypeOfNode chase the carrier to the embedded record def.
+  ctnsAnonymousEmbed tags the carrier for flatten-lookup follow-up - the flat
+  path (`outer.field` -> embedded type's field) needs additional integration
+  in FindIdentifierInContext and is intentionally not handled here.
+
+  `embed` is contextual: followed by `:` or `,` it stays a regular field name
+  (`embed: integer;` / `embed, x: T;`). }
+var
+  TypeStartPos, TypeEndPos: integer;
+begin
+  if not UpAtomIs('EMBED') then
+    SaveRaiseException(20260512000005,'[KeyWordFuncTypeRecordEmbed] internal');
+  ReadNextAtom;
+  if CurPos.Flag in [cafColon,cafComma] then begin
+    UndoReadNextAtom;
+    Result:=KeyWordFuncClassIdentifier;
+    exit;
+  end;
+  AtomIsIdentifierSaveE(20260512000006);
+  TypeStartPos:=CurPos.StartPos;
+  TypeEndPos:=CurPos.EndPos;
+  CreateChildNode;
+  CurNode.StartPos:=TypeStartPos;
+  CurNode.Desc:=ctnVarDefinition;
+  CurNode.SubDesc:=CurNode.SubDesc or ctnsAnonymousEmbed;
+  CreateChildNode;
+  CurNode.Desc:=ctnIdentifier;
+  CurNode.StartPos:=TypeStartPos;
+  CurNode.EndPos:=TypeEndPos;
+  EndChildNode;
+  ReadNextAtom;
+  if CurPos.Flag<>cafSemicolon then
+    SaveRaiseCharExpectedButAtomFound(20260512000007,';');
+  CurNode.EndPos:=CurPos.StartPos;
+  EndChildNode;
+  Result:=true;
+end;
+
+function TPascalParserTool.KeyWordFuncTypeRecordPad: boolean;
+{ `pad N;` (composablerecords): reserves N anonymous padding bits inside a
+  bitpacked record body with an active default type. The compiler synthesises
+  a hidden `$pad$N` field with `strict private` visibility; the IDE doesn't
+  emit a node for it - the construct is invisible to identifier completion.
+
+  `pad` is contextual: followed by `:` or `,` it stays a regular field name
+  (`pad: byte;` / `pad, x: 2;`). }
+begin
+  if not UpAtomIs('PAD') then
+    SaveRaiseException(20260513000010,'[KeyWordFuncTypeRecordPad] internal');
+  ReadNextAtom;
+  if CurPos.Flag in [cafColon,cafComma] then begin
+    UndoReadNextAtom;
+    Result:=KeyWordFuncClassIdentifier;
+    exit;
+  end;
+  if not AtomIsNumber then
+    SaveRaiseStringExpectedButAtomFound(20260513000011,'integer literal');
+  ReadNextAtom;
+  if CurPos.Flag<>cafSemicolon then
+    SaveRaiseCharExpectedButAtomFound(20260513000012,';');
+  UndoReadNextAtom; // leave `;` for the outer record-body loop
+  Result:=true;
+end;
+
+function TPascalParserTool.KeyWordFuncTypeRecordInlineAnon: boolean;
+{ inline anonymous record (`record`, `packed record`, or `bitpacked record`
+  followed by `fields end;`) appearing as a member of an outer record under
+  composablerecords. body parses as regular record fields; the carrier is a
+  nested ctnRecordType so lookup walks its children when resolving members on
+  the outer record. the optional `packed` / `bitpacked` prefix flips the
+  enclosing record to bit-packed layout (PEB-style boolean bitfields), but is
+  layout-only - the node shape and lookup are unchanged. }
+var
+  StartingPos: integer;
+begin
+  if not (UpAtomIs('RECORD') or UpAtomIs('PACKED') or UpAtomIs('BITPACKED')) then
+    SaveRaiseException(20260512000003,'[KeyWordFuncTypeRecordInlineAnon] internal');
+  StartingPos:=CurPos.StartPos;
+  if UpAtomIs('PACKED') or UpAtomIs('BITPACKED') then begin
+    ReadNextAtom;
+    if not UpAtomIs('RECORD') then
+      SaveRaiseStringExpectedButAtomFound(20260512000008,'"record"');
+  end;
+  CreateChildNode;
+  CurNode.StartPos:=StartingPos;
+  CurNode.Desc:=ctnRecordType;
+  ReadNextAtom;
+  // optional pre-body modifiers (composablerecords): `of TYPE`, `size N`,
+  // `bitsize N`, `align N`, `bitalign N` in any order, plus an optional `;`
+  // separator. Compiler enforces context (e.g., `of T` only on bitpacked,
+  // size/bitsize mutex); parser is permissive.
+  ParseComposableRecordModifiers;
+  repeat
+    if not ParseInnerBasicRecord(CurPos.StartPos) then begin
+      if CurPos.Flag<>cafEnd then
+        SaveRaiseStringExpectedButAtomFound(20260512000004,'end');
+      break;
+    end;
+    ReadNextAtom;
+  until false;
+  // CurPos is on the inline record's END
+  ReadNextAtom;
+  if CurPos.Flag=cafSemicolon then
+    UndoReadNextAtom;
+  CurNode.EndPos:=CurPos.EndPos;
+  EndChildNode;
   Result:=true;
 end;
 

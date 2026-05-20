@@ -1801,9 +1801,12 @@ begin
     // see fpc/compiler/psystem.pp
     FPCFulVersion:=StrToIntDef(Scanner.Values['FPC_FULLVERSION'],0);
     AddCompilerProcedure('Assert','Condition:Boolean;const Message:String');
+    AddCompilerFunction('AlignOf','T or T.Field','SizeInt');
     AddCompilerFunction('Assigned','P:Pointer','Boolean');
     AddCompilerFunction('Addr','var X','Pointer');
+    AddCompilerFunction('BitAlignOf','T or T.Field','SizeInt');
     AddCompilerFunction('BitSizeOf','Identifier','Integer');
+    AddCompilerFunction('BitOffsetOf','T.Field','SizeInt');
     AddCompilerProcedure('Break','');
     AddCompilerFunction('Concat','S1:String;S2:String[...;Sn:String]', 'String');
     if FPCFulVersion>=30100 then
@@ -1842,6 +1845,7 @@ begin
     AddCompilerFunction('Low','Arg:TypeOrVariable','Ordinal');
     AddCompilerProcedure('New','var X:Pointer');
     AddCompilerFunction('ObjCSelector','String','SEL');
+    AddCompilerFunction('OffsetOf','T.Field','SizeInt');
     AddCompilerFunction('Ofs','var X','LongInt');
     AddCompilerFunction('Ord','X:Ordinal', 'Integer');
     AddCompilerProcedure('Pack','A:Array;N:Integer;var A:Array');

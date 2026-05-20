@@ -7260,6 +7260,14 @@ var
           NeedCompletion:=CleanCursorPos;
         end;
       end;
+    end else if CurPos.Flag=cafEnd then begin
+      // nested record/class: the `end` the parser landed on may belong to
+      // an enclosing scope. If it sits at a smaller indent than this
+      // section's record/class keyword line, the inner block still needs
+      // its own `end;` inserted at the cursor.
+      Indent:=Beauty.GetLineIndent(Src,CurPos.StartPos);
+      if Indent<LastIndent then
+        NeedCompletion:=CleanCursorPos;
     end else
       exit(true);
     //debugln(['CompleteClassSection NeedCompletion=',NeedCompletion]);
@@ -7308,6 +7316,10 @@ var
   {  type
        TMyClass = record
          |
+
+     Also handles nested records inside another record body, where the next
+     `end` the parser sees belongs to the enclosing record - detected by
+     indent.
   }
   var
     LastIndent: LongInt;
@@ -7318,10 +7330,74 @@ var
     if CleanCursorPos<StartNode.StartPos then exit;
     LastIndent:=Beauty.GetLineIndent(Src,StartNode.StartPos);
     MoveCursorToNodeStart(StartNode);
-    ReadNextAtom; // record
+    ReadNextAtom; // optional `packed`/`bitpacked` prefix
+    if UpAtomIs('PACKED') or UpAtomIs('BITPACKED') then
+      ReadNextAtom; // record
     if CleanCursorPos<CurPos.EndPos then exit(true);
     ReadNextAtom;
-    if CurPos.Flag=cafEnd then exit(true);
+    if CurPos.Flag=cafEnd then begin
+      // for nested records: the `end` the parser landed on may belong to an
+      // enclosing record (the inner record is still missing its own `end;`).
+      // detect by indent - if it sits at a smaller indent than the inner
+      // `record` keyword, it is not the inner's `end` and we need to insert
+      // one at the cursor.
+      if (CleanCursorPos<=CurPos.StartPos)
+      and (Beauty.GetLineIndent(Src,CurPos.StartPos)<LastIndent) then begin
+        InsertPos:=CleanCursorPos;
+        if not Replace('end;',InsertPos,InsertPos,LastIndent,
+          gtNewLine,gtEmptyLine,
+          [bcfIndentExistingLineBreaks])
+        then
+          exit;
+      end;
+      exit(true);
+    end;
+    if CleanCursorPos<=CurPos.StartPos then begin
+      Indent:=Beauty.GetLineIndent(Src,CurPos.StartPos);
+      InsertPos:=CleanCursorPos;
+      if Indent<=LastIndent then begin
+        if not Replace('end;',InsertPos,InsertPos,LastIndent,
+          gtNewLine,gtEmptyLine,
+          [bcfIndentExistingLineBreaks])
+        then
+          exit;
+      end;
+    end;
+    Result:=true;
+  end;
+
+  function CompleteUnion: Boolean;
+  {  composablerecords - close a `union` block sitting inside a record:
+       n = record
+         union
+           |
+       end;
+     Mirrors CompleteRecord but anchored on `union` (ctnRecordCase). }
+  var
+    LastIndent: LongInt;
+    Indent: LongInt;
+    InsertPos: LongInt;
+  begin
+    Result:=false;
+    if CleanCursorPos<StartNode.StartPos then exit;
+    LastIndent:=Beauty.GetLineIndent(Src,StartNode.StartPos);
+    MoveCursorToNodeStart(StartNode);
+    ReadNextAtom; // union (or legacy `case`)
+    if CleanCursorPos<CurPos.EndPos then exit(true);
+    ReadNextAtom;
+    if CurPos.Flag=cafEnd then begin
+      // same nested-end detection as CompleteRecord
+      if (CleanCursorPos<=CurPos.StartPos)
+      and (Beauty.GetLineIndent(Src,CurPos.StartPos)<LastIndent) then begin
+        InsertPos:=CleanCursorPos;
+        if not Replace('end;',InsertPos,InsertPos,LastIndent,
+          gtNewLine,gtEmptyLine,
+          [bcfIndentExistingLineBreaks])
+        then
+          exit;
+      end;
+      exit(true);
+    end;
     if CleanCursorPos<=CurPos.StartPos then begin
       Indent:=Beauty.GetLineIndent(Src,CurPos.StartPos);
       InsertPos:=CleanCursorPos;
@@ -7379,6 +7455,9 @@ begin
     end
     else if StartNode.Desc=ctnRecordType then begin
       if not CompleteRecord then exit;
+    end
+    else if StartNode.Desc=ctnRecordCase then begin
+      if not CompleteUnion then exit;
     end;
   finally
     FreeStack(Stack);
