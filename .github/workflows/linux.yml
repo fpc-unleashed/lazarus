@@ -10,8 +10,6 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
     - name: Install build dependencies
@@ -81,32 +79,4 @@ jobs:
       with:
         name: linux-bundle.zip
         path: linux-bundle.zip
-
-    - name: Prepare release
-      run: |
-        ts=$(TZ=Europe/Berlin date +"%Y-%m-%d %H:%M:%S CEST")
-        echo "TAG=nightly" >> $GITHUB_ENV
-        echo "NAME=Lazarus Unleashed IDE nightly" >> $GITHUB_ENV
-        {
-          echo "Lazarus Unleashed IDE nightly build"
-          echo
-          echo "Generated from commit: $GITHUB_SHA"
-          echo "Build time: $ts"
-        } > release-body.txt
-
-    - name: Update tag
-      uses: richardsimko/update-tag@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: nightly
-
-    - name: Release
-      uses: ncipollo/release-action@v1
-      with:
-        artifacts: linux-bundle.zip
-        tag: ${{ env.TAG }}
-        name: ${{ env.NAME }}
-        bodyFile: release-body.txt
-        prerelease: true
-        allowUpdates: true
+        retention-days: 7

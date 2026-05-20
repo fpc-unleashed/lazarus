@@ -10,8 +10,6 @@ env:
 jobs:
   build:
     runs-on: windows-latest
-    permissions:
-      contents: write
 
     steps:
     - name: Download FPC Unleashed nightly
@@ -21,7 +19,7 @@ jobs:
 
     - name: Extract FPC Unleashed to C:\fpc
       run: |
-        powershell -Command "Expand-Archive -Path fpc-bundle.zip -DestinationPath C:\ -Force"
+        "C:\Program Files\7-Zip\7z.exe" x -bd -y fpc-bundle.zip -oC:\ >nul
         dir C:\fpc\bin\x86_64-win64
       shell: cmd
 
@@ -86,32 +84,4 @@ jobs:
       with:
         name: windows-bundle.zip
         path: windows-bundle.zip
-
-    - name: Prepare release
-      run: |
-        $tz = [System.TimeZoneInfo]::FindSystemTimeZoneById("Central European Standard Time")
-        $ts = [System.TimeZoneInfo]::ConvertTimeFromUtc((Get-Date).ToUniversalTime(), $tz).ToString("yyyy-MM-dd HH:mm:ss 'CEST'")
-        echo "TAG=nightly" >> $env:GITHUB_ENV
-        echo "NAME=Lazarus Unleashed IDE nightly" >> $env:GITHUB_ENV
-        "Lazarus Unleashed IDE nightly build" | Out-File -FilePath release-body.txt -Encoding UTF8
-        "" | Out-File -Append release-body.txt -Encoding UTF8
-        "Generated from commit: $env:GITHUB_SHA" | Out-File -Append release-body.txt -Encoding UTF8
-        "Build time: $ts" | Out-File -Append release-body.txt -Encoding UTF8
-      shell: powershell
-
-    - name: Update tag
-      uses: richardsimko/update-tag@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: nightly
-
-    - name: Release
-      uses: ncipollo/release-action@v1
-      with:
-        artifacts: windows-bundle.zip
-        tag: ${{ env.TAG }}
-        name: ${{ env.NAME }}
-        bodyFile: release-body.txt
-        prerelease: true
-        allowUpdates: true
+        retention-days: 7

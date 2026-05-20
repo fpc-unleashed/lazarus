@@ -54,12 +54,57 @@ jobs:
     needs: check-for-changes
     if: needs.check-for-changes.outputs.should_build == 'true'
     uses: ./.github/workflows/windows.yml
-    permissions:
-      contents: write
 
   linux:
     needs: check-for-changes
     if: needs.check-for-changes.outputs.should_build == 'true'
     uses: ./.github/workflows/linux.yml
+
+  release:
+    needs: [windows, linux]
+    if: needs.windows.result == 'success' && needs.linux.result == 'success'
+    runs-on: ubuntu-latest
     permissions:
       contents: write
+    steps:
+      - name: Checkout HEAD only
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Download windows-bundle.zip
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-bundle.zip
+
+      - name: Download linux-bundle.zip
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-bundle.zip
+
+      - name: Prepare release notes
+        run: |
+          ts=$(TZ=Europe/Berlin date +"%Y-%m-%d %H:%M:%S CEST")
+          {
+            echo "Lazarus Unleashed IDE nightly build"
+            echo
+            echo "Generated from commit: $GITHUB_SHA"
+            echo "Build time: $ts"
+          } > release-body.txt
+
+      - name: Update tag
+        uses: richardsimko/update-tag@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: nightly
+
+      - name: Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: windows-bundle.zip,linux-bundle.zip
+          tag: nightly
+          name: Lazarus Unleashed IDE nightly
+          bodyFile: release-body.txt
+          prerelease: true
+          allowUpdates: true
