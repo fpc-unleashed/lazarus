@@ -1209,8 +1209,9 @@ function TExpressionEvaluator.EvalPChar(Expression: PChar; ExprLen: PtrInt; out
   constants: false, true
   unary operators: not, defined, undefined
   binary operators: + - * / < <= = <> => > div mod and or xor shl shr
-  functions: defined(), undefined(), declared(), sizeof()=1, option(),
-    high(), low()
+  functions: defined(), undefined(), declared(), sizeof(), alignof(),
+    bitsizeof(), bitalignof(), offsetof(), bitoffsetof(), option(),
+    high(), low(), ord()
 }
 type
   TOperandAndOperator = record
@@ -1498,13 +1499,12 @@ var
     Result:=true;
   end;
 
-  function ParseSizeOfParams(var Operand: TEvalOperand): boolean;
-  // p is behind option keyword
-  var
-    Identifier: String;
-    Value: int64;
+  function ReadDottedIdentInBracket(out Identifier: String): boolean;
+  // expects p at start of `(`. consumes `(ident[.ident]*)` and leaves
+  // p at the closing `)`. returns false on parse error.
   begin
     Result:=false;
+    Identifier:='';
     ReadNextAtom;
     if AtomStart>=ExprEnd then begin
       CharMissing(ExprEnd,'(');
@@ -1539,22 +1539,39 @@ var
       StrExpectedAtPos(AtomStart,')');
       exit;
     end;
+    Result:=true;
+  end;
 
+  function PointerSize: int64;
+  begin
+    if IsDefined('CPU16') then
+      Result:=2
+    else if IsDefined('CPU32') then
+      Result:=4
+    else
+      Result:=8;
+  end;
+
+  function SizeOfBuiltin(const Identifier: string): int64;
+  // returns size in bytes for known built-in types; for unknown types
+  // (records, classes, user types) returns the default pointer size so
+  // {$IF SizeOf(...)} expressions still produce a usable integer
+  begin
     case lowercase(Identifier) of
     'boolean',
     'bytebool',
     'byte',
-    'shortint': Value:=1;
+    'shortint': Result:=1;
     'wordbool',
     'word',
-    'smallint': Value:=2;
+    'smallint': Result:=2;
     'cardinal',
     'longword',
-    'longbool': Value:=4;
+    'longbool': Result:=4;
     'int64',
     'qword',
     'qwordbool',
-    'comp': Value:=8;
+    'comp': Result:=8;
     'pointer',
     'ptrint',
     'ptruint',
@@ -1563,37 +1580,134 @@ var
     'unicodestring',
     'rawbytestring',
     'widestring':
-       if IsDefined('CPU16') then
-         Value:=2
-       else if IsDefined('CPU32') then
-         Value:=4
-       else
-         Value:=8;
-    'ansichar': Value:=1;
-    'widechar','unicodechar': Value:=2;
+       Result:=PointerSize;
+    'ansichar': Result:=1;
+    'widechar','unicodechar': Result:=2;
     'char':
       if IsDefined('FPC_UNICODESTRINGS') then
-        Value:=2
+        Result:=2
       else
-        Value:=1;
-    'single': Value:=4;
-    'double': Value:=8;
+        Result:=1;
+    'single': Result:=4;
+    'double': Result:=8;
     'extended':
       if IsDefined('CPU32') then
-        Value:=10
+        Result:=10
       else
-        Value:=8;
+        Result:=8;
     else
-      // default: return default pointer size
-      if IsDefined('CPU16') then
-        Value:=2
-      else if IsDefined('CPU32') then
-        Value:=4
-      else
-        Value:=8;
+      // unknown type (user record, class, ...) - fall back to pointer size
+      Result:=PointerSize;
     end;
-    SetOperandValueInt64(Operand,Value);
+  end;
 
+  function AlignOfBuiltin(const Identifier: string): int64;
+  // returns natural alignment in bytes for built-in types. For unknown
+  // types (records, etc.) the IDE has no access to the layout, so we
+  // return pointer alignment as a conservative best guess.
+  begin
+    case lowercase(Identifier) of
+    'boolean',
+    'bytebool',
+    'byte',
+    'shortint',
+    'ansichar': Result:=1;
+    'wordbool',
+    'word',
+    'smallint',
+    'widechar',
+    'unicodechar': Result:=2;
+    'cardinal',
+    'longword',
+    'longbool',
+    'single': Result:=4;
+    'int64',
+    'qword',
+    'qwordbool',
+    'comp',
+    'double': Result:=8;
+    'extended':
+      // Intel x87 has 2-byte alignment for extended; on other targets
+      // it falls back to pointer alignment
+      if IsDefined('CPU386') or IsDefined('CPUX86_64') then
+        Result:=2
+      else
+        Result:=PointerSize;
+    'pointer',
+    'ptrint',
+    'ptruint',
+    'string',
+    'ansistring',
+    'unicodestring',
+    'rawbytestring',
+    'widestring':
+       Result:=PointerSize;
+    'char':
+      if IsDefined('FPC_UNICODESTRINGS') then
+        Result:=2
+      else
+        Result:=1;
+    else
+      Result:=PointerSize;
+    end;
+  end;
+
+  function ParseSizeOfParams(var Operand: TEvalOperand): boolean;
+  var
+    Identifier: String;
+  begin
+    Result:=false;
+    if not ReadDottedIdentInBracket(Identifier) then exit;
+    SetOperandValueInt64(Operand,SizeOfBuiltin(Identifier));
+    Result:=true;
+  end;
+
+  function ParseAlignOfParams(var Operand: TEvalOperand): boolean;
+  var
+    Identifier: String;
+  begin
+    Result:=false;
+    if not ReadDottedIdentInBracket(Identifier) then exit;
+    SetOperandValueInt64(Operand,AlignOfBuiltin(Identifier));
+    Result:=true;
+  end;
+
+  function ParseBitSizeOfParams(var Operand: TEvalOperand): boolean;
+  var
+    Identifier: String;
+  begin
+    Result:=false;
+    if not ReadDottedIdentInBracket(Identifier) then exit;
+    SetOperandValueInt64(Operand,SizeOfBuiltin(Identifier)*8);
+    Result:=true;
+  end;
+
+  function ParseBitAlignOfParams(var Operand: TEvalOperand): boolean;
+  var
+    Identifier: String;
+  begin
+    Result:=false;
+    if not ReadDottedIdentInBracket(Identifier) then exit;
+    SetOperandValueInt64(Operand,AlignOfBuiltin(Identifier)*8);
+    Result:=true;
+  end;
+
+  function ParseOffsetOfLikeParams(var Operand: TEvalOperand): boolean;
+  // OffsetOf(Record, field) / OffsetOf(Record.field) / BitOffsetOf(...)
+  // the IDE has no access to record layout, so consume args and return 0
+  begin
+    Result:=false;
+    ReadNextAtom;
+    if AtomStart>=ExprEnd then begin
+      CharMissing(ExprEnd,'(');
+      exit;
+    end;
+    if AtomStart^<>'(' then begin
+      StrExpectedAtPos(AtomStart,'(');
+      exit;
+    end;
+    if not ReadTilEndBracket then exit;
+    SetOperandValueInt64(Operand,0);
     Result:=true;
   end;
 
@@ -1620,6 +1734,25 @@ var
     DebugLn(['ReadOperand ',GetAtom]);
     {$ENDIF}
     case UpChars[AtomStart^] of
+    'A':
+      if CompareIdentifiers(AtomStart,'ALIGNOF')=0 then begin
+        if not ParseAlignOfParams(Operand) then exit;
+        exit(true);
+      end;
+    'B':
+      if CompareIdentifiers(AtomStart,'BITSIZEOF')=0 then begin
+        if not ParseBitSizeOfParams(Operand) then exit;
+        exit(true);
+      end
+      else if CompareIdentifiers(AtomStart,'BITALIGNOF')=0 then begin
+        if not ParseBitAlignOfParams(Operand) then exit;
+        exit(true);
+      end
+      else if CompareIdentifiers(AtomStart,'BITOFFSETOF')=0 then begin
+        // record layout unknown to the IDE, see ParseOffsetOfLikeParams
+        if not ParseOffsetOfLikeParams(Operand) then exit;
+        exit(true);
+      end;
     'N':
       if CompareIdentifiers(AtomStart,'NOT')=0 then begin
         // not
@@ -1673,6 +1806,11 @@ var
         if AtomStart^<>'(' then StrExpectedAtPos(AtomStart,'(');
         if not ReadTilEndBracket then exit;
         SetOperandValueChar(Operand,'0');
+        exit(true);
+      end else
+      if CompareIdentifiers(AtomStart,'OFFSETOF')=0 then begin
+        // record layout unknown to the IDE, see ParseOffsetOfLikeParams
+        if not ParseOffsetOfLikeParams(Operand) then exit;
         exit(true);
       end;
     'S':
