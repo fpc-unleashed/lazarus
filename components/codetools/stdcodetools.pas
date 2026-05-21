@@ -6951,7 +6951,10 @@ var
         while TopBlockType(Stack) in [btIf,btIfElse] do
           if not EndBlockIsOk then exit;
       cafColon:
-        if TopBlockType(Stack)=btCaseOf then
+        // match branches are 'pat: stmt;' like case-of branches; reuse
+        // btCaseColon so a ';' inside the branch closes it properly and
+        // inline-var declarations are allowed in the branch body
+        if TopBlockType(Stack) in [btCaseOf,btMatch] then
           BeginBlock(Stack,btCaseColon,CurPos.StartPos);
       cafSemicolon:
         while TopBlockType(Stack)
