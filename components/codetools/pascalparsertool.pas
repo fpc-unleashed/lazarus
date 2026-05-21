@@ -285,6 +285,7 @@ type
     function WordIsStatemendEnd: boolean;
     function IsTryExpression(TryStartPos: integer): boolean;
     function IsCaseExpression(CaseStartPos: integer): boolean;
+    function IsMatchKeyword: boolean;
     function WordIsModifier: boolean;
     function WordIsGenericProcStart: boolean;
     function AllowAttributes: boolean; inline;
@@ -2930,13 +2931,11 @@ begin
       ScannedRange:=lsrFinalizationStart;
       if ord(ScanTill)<=ord(ScannedRange) then exit;
     end else if BlockStatementStartKeyWordFuncList.DoIdentifier(@Src[CurPos.StartPos])
-    and not (UpAtomIs('MATCH') and (LastAtoms.GetPriorAtom.Flag in
-      [cafPoint,cafComma,cafRoundBracketOpen,cafEdgedBracketOpen,
-       cafAssignment,cafEqual,cafColon,cafOtherOperator]))
+    and (not UpAtomIs('MATCH') or IsMatchKeyword)
     then begin
-      // 'match' is a context-sensitive keyword; only treat as block start when
-      // at statement position. Preceding ., (, [, ',', :=, =, :, or operator
-      // means it is an identifier (e.g. obj.Match, arr[Match], func(a,Match))
+      // 'match' is a context-sensitive keyword; IsMatchKeyword decides
+      // identifier (e.g. obj.Match, result := match;) vs block-keyword
+      // (statement match X of ...; end or match-as-expression)
       if not ReadTilBlockEnd(false,true) then
         SaveRaiseEndOfSourceExpected(20170421195551);
     end else if UpAtomIs('WITH') then begin
@@ -3210,13 +3209,11 @@ begin
     end else if CurPos.Flag<>cafWord then begin
       continue;
     end else if BlockStatementStartKeyWordFuncList.DoIdentifier(@Src[CurPos.StartPos])
-    and not (UpAtomIs('MATCH') and (LastAtoms.GetPriorAtom.Flag in
-      [cafPoint,cafComma,cafRoundBracketOpen,cafEdgedBracketOpen,
-       cafAssignment,cafEqual,cafColon,cafOtherOperator]))
+    and (not UpAtomIs('MATCH') or IsMatchKeyword)
     then begin
-      // 'match' is a context-sensitive keyword; only treat as block start when
-      // at statement position. Preceding ., (, [, ',', :=, =, :, or operator
-      // means it is an identifier (e.g. obj.Match, arr[Match], func(a,Match))
+      // 'match' is a context-sensitive keyword; IsMatchKeyword decides
+      // identifier (e.g. obj.Match, result := match;) vs block-keyword
+      // (statement match X of ...; end or match-as-expression)
       if (BlockType<>ebtRecord) then begin
         ReadTilBlockEnd(false,CreateNodes);
         if (BlockType=ebtIf) and (CurPos.Flag in [cafSemicolon]) then
@@ -3567,6 +3564,71 @@ begin
   end;
 end;
 
+function TPascalParserTool.IsMatchKeyword: boolean;
+{ Returns true if the 'match' at CurPos starts a match-expression / match
+  statement (block keyword that needs to be matched with 'end'), false if
+  it is just an identifier (e.g. obj.match, result := match;, match := X,
+  case match of, if match then). Cursor is on the 'match' atom; on exit
+  it is restored to that atom. Heuristic: the prior atom rules out member
+  access and selector/condition keywords; the next 1-2 atoms either
+  confirm match-expression (a following `of`/`all` or an identifier/
+  literal followed by `of`/`:`/`,`) or rule it out (structural atoms like
+  `;`, `:=`, `.`, etc.). }
+var
+  SavedPos: integer;
+  PriorAtom: TAtomPosition;
+begin
+  Result:=false;
+  PriorAtom:=LastAtoms.GetPriorAtom;
+  // member access: obj.match -> identifier
+  if PriorAtom.Flag=cafPoint then exit;
+  // selector/condition contexts where match is the operand identifier
+  // (case match of, if match then, while match do, until match, for match
+  // := ...). Pattern: previous atom is the enclosing keyword.
+  if (PriorAtom.Flag=cafWord) and (PriorAtom.StartPos>=1)
+  and (PriorAtom.EndPos>PriorAtom.StartPos)
+  and (PriorAtom.EndPos-1<=SrcLen) then begin
+    case UpChars[Src[PriorAtom.StartPos]] of
+    'C': if CompareIdentifiers(@Src[PriorAtom.StartPos],'CASE')=0 then exit;
+    'I': if CompareIdentifiers(@Src[PriorAtom.StartPos],'IF')=0 then exit;
+    'F': if CompareIdentifiers(@Src[PriorAtom.StartPos],'FOR')=0 then exit;
+    'W': if CompareIdentifiers(@Src[PriorAtom.StartPos],'WHILE')=0 then exit;
+    'U': if CompareIdentifiers(@Src[PriorAtom.StartPos],'UNTIL')=0 then exit;
+    end;
+  end;
+  SavedPos:=CurPos.StartPos;
+  ReadNextAtom;
+  try
+    if CurPos.StartPos>SrcLen then exit;
+    // explicit match-expression keywords next
+    if (CurPos.Flag=cafWord)
+    and (UpAtomIs('OF') or UpAtomIs('ALL')) then
+      exit(true);
+    // structural atoms = identifier
+    if CurPos.Flag in [cafSemicolon,cafAssignment,cafEqual,cafPoint,
+       cafComma,cafRoundBracketOpen,cafRoundBracketClose,
+       cafEdgedBracketOpen,cafEdgedBracketClose,cafOtherOperator,
+       cafEnd,cafColon] then
+      exit;
+    // word that is itself a terminator keyword = identifier
+    if CurPos.Flag=cafWord then begin
+      if UpAtomIs('DO') or UpAtomIs('THEN') or UpAtomIs('ELSE')
+      or UpAtomIs('UNTIL') or UpAtomIs('FINALLY') or UpAtomIs('EXCEPT')
+      or UpAtomIs('OTHERWISE') or UpAtomIs('TO') or UpAtomIs('DOWNTO') then
+        exit;
+    end;
+    // identifier subject or literal subject - peek one more atom for `of`/`:`/`,`
+    ReadNextAtom;
+    if CurPos.StartPos>SrcLen then exit;
+    Result:=((CurPos.Flag=cafWord) and UpAtomIs('OF'))
+         or (CurPos.Flag=cafColon)
+         or (CurPos.Flag=cafComma);
+  finally
+    MoveCursorToCleanPos(SavedPos);
+    ReadNextAtom;
+  end;
+end;
+
 function TPascalParserTool.WordIsModifier: boolean;
 var
   p: PChar;
@@ -3619,13 +3681,11 @@ begin
   Result:=true;
   while CurPos.StartPos<=SrcLen do begin
     if BlockStatementStartKeyWordFuncList.DoIdentifier(@Src[CurPos.StartPos])
-    and not (UpAtomIs('MATCH') and (LastAtoms.GetPriorAtom.Flag in
-      [cafPoint,cafComma,cafRoundBracketOpen,cafEdgedBracketOpen,
-       cafAssignment,cafEqual,cafColon,cafOtherOperator]))
+    and (not UpAtomIs('MATCH') or IsMatchKeyword)
     then begin
-      // 'match' is a context-sensitive keyword; only treat as block start when
-      // at statement position. Preceding ., (, [, ',', :=, =, :, or operator
-      // means it is an identifier (e.g. obj.Match, arr[Match], func(a,Match))
+      // 'match' is a context-sensitive keyword; IsMatchKeyword decides
+      // identifier (e.g. obj.Match, result := match;) vs block-keyword
+      // (statement match X of ...; end or match-as-expression).
       // Statement expression try (e.g. s := try X except Y) has no 'end'
       if UpAtomIs('TRY') and IsTryExpression(CurPos.StartPos) then begin
         // Note: except/finally/else are PART of the expression, not enders
