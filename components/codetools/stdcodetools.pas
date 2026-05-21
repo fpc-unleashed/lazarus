@@ -6649,12 +6649,17 @@ var
     // inline-var skip state: tracks nested case/match-expression and
     // statement-expression begin..end depth inside `var d := match X of
     // ...; end;` so an inner ';' or 'end' doesn't terminate the var
-    // statement early; ExprStack records 'C'/'M'/'B' per level
+    // statement early; ExprStack records 'C'/'M'/'B' per level, ExprPos
+    // remembers the keyword position so the outer Stack can adopt the
+    // open expression blocks when the cursor sits inside an unfinished
+    // initializer (e.g. 'var r := case s of |' with no body yet)
     VarCaseExprDepth: Integer;
     VarMatchExprDepth: Integer;
     VarBeginDepth: Integer;
     VarInCaseElse: Boolean;
     VarExprStack: string;
+    VarExprPos: array of Integer;
+    VarTransferIdx: Integer;
 
     function EndBlockIsOk: boolean;
     begin
@@ -7076,9 +7081,31 @@ var
             VarBeginDepth:=0;
             VarInCaseElse:=false;
             VarExprStack:='';
+            SetLength(VarExprPos,0);
             repeat
               ReadNextAtom;
               if CurPos.StartPos>SrcLen then break;
+              // about to consume an 'end' past the cursor while we have
+              // open case/match/begin blocks - hand those blocks over to
+              // the main Stack so the cursor block becomes the (still
+              // open) case/match/begin and completion emits 'end' at the
+              // right indent. For well-formed initializers the 'end' is
+              // at the case/match keyword indent so EndBlockIsOk clears
+              // NeedCompletion and nothing is inserted; for unfinished
+              // initializers (e.g. 'var r := case s of |' with no body)
+              // the 'end' is at the enclosing block's indent, NeedCompletion
+              // stays set and a proper 'end;' lands at the case/match indent
+              if (VarExprStack<>'') and (CurPos.Flag=cafEnd)
+              and (CurPos.StartPos>=CleanCursorPos) then begin
+                for VarTransferIdx:=1 to Length(VarExprStack) do
+                  case VarExprStack[VarTransferIdx] of
+                  'C': BeginBlock(Stack,btCase,VarExprPos[VarTransferIdx-1]);
+                  'M': BeginBlock(Stack,btMatch,VarExprPos[VarTransferIdx-1]);
+                  'B': BeginBlock(Stack,btBegin,VarExprPos[VarTransferIdx-1]);
+                  end;
+                UndoReadNextAtom;
+                break;
+              end;
               if CurPos.Flag=cafSemicolon then begin
                 // case-with-else and match-with-else as expression have no
                 // trailing 'end'; the ';' after the else value terminates
@@ -7095,18 +7122,21 @@ var
                     begin
                       dec(VarBeginDepth);
                       SetLength(VarExprStack,Length(VarExprStack)-1);
+                      SetLength(VarExprPos,Length(VarExprPos)-1);
                       continue;
                     end;
                   'M':
                     begin
                       dec(VarMatchExprDepth);
                       SetLength(VarExprStack,Length(VarExprStack)-1);
+                      SetLength(VarExprPos,Length(VarExprPos)-1);
                       continue;
                     end;
                   'C':
                     if (VarCaseExprDepth>0) and (not VarInCaseElse) then begin
                       dec(VarCaseExprDepth);
                       SetLength(VarExprStack,Length(VarExprStack)-1);
+                      SetLength(VarExprPos,Length(VarExprPos)-1);
                       continue;
                     end;
                   end;
@@ -7125,6 +7155,8 @@ var
                   or (VarCaseExprDepth>0) or (VarMatchExprDepth>0)) then begin
                   inc(VarCaseExprDepth);
                   VarExprStack:=VarExprStack+'C';
+                  SetLength(VarExprPos,Length(VarExprPos)+1);
+                  VarExprPos[High(VarExprPos)]:=CurPos.StartPos;
                   VarInCaseElse:=false;
                   continue;
                 end;
@@ -7135,6 +7167,8 @@ var
                   or (VarCaseExprDepth>0) or (VarMatchExprDepth>0)) then begin
                   inc(VarMatchExprDepth);
                   VarExprStack:=VarExprStack+'M';
+                  SetLength(VarExprPos,Length(VarExprPos)+1);
+                  VarExprPos[High(VarExprPos)]:=CurPos.StartPos;
                   continue;
                 end;
                 // 'else'/'otherwise' inside case/match expression: switch
@@ -7155,6 +7189,8 @@ var
                   or (VarBeginDepth>0)) then begin
                   inc(VarBeginDepth);
                   VarExprStack:=VarExprStack+'B';
+                  SetLength(VarExprPos,Length(VarExprPos)+1);
+                  VarExprPos[High(VarExprPos)]:=CurPos.StartPos;
                   continue;
                 end;
                 // inside match-expression or nested begin these keywords
