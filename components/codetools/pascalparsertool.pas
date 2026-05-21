@@ -3871,7 +3871,12 @@ var
   BracketDepth: integer;
   TryExprDepth: integer;
   CaseExprDepth: integer;
+  MatchExprDepth: integer;
   InCaseElse: boolean;
+  // stack of 'C' (case) / 'M' (match) entries, newest at the right, so we
+  // know which depth counter to pop when an 'end' is read inside a nested
+  // case/match expression
+  ExprStack: string;
 begin
   if CreateNodes then begin
     CreateChildNode;
@@ -3918,7 +3923,9 @@ begin
     BracketDepth := 0;
     TryExprDepth := 0;
     CaseExprDepth := 0;
+    MatchExprDepth := 0;
     InCaseElse := false;
+    ExprStack := '';
     repeat
       ReadNextAtom;
       if CurPos.StartPos > SrcLen then break;
@@ -3928,11 +3935,21 @@ begin
         cafRoundBracketClose, cafEdgedBracketClose:
           dec(BracketDepth);
         cafEnd:
-          // 'end' inside an open case-expression (no else, full coverage)
-          // closes the case-expression. Otherwise it terminates the var stmt.
+          // 'end' inside an open case- or match-expression closes the
+          // innermost one tracked on ExprStack. Otherwise it terminates
+          // the var statement.
           if BracketDepth = 0 then begin
-            if (CaseExprDepth > 0) and (not InCaseElse) then
-              dec(CaseExprDepth)
+            if (ExprStack<>'')
+            and (ExprStack[Length(ExprStack)]='M') then begin
+              dec(MatchExprDepth);
+              SetLength(ExprStack,Length(ExprStack)-1);
+            end
+            else if (CaseExprDepth > 0) and (not InCaseElse) then begin
+              dec(CaseExprDepth);
+              if (ExprStack<>'')
+              and (ExprStack[Length(ExprStack)]='C') then
+                SetLength(ExprStack,Length(ExprStack)-1);
+            end
             else begin
               UndoReadNextAtom;
               break;
@@ -3940,9 +3957,11 @@ begin
           end;
         cafSemicolon:
           // ';' between case-expression branches (CaseExprDepth>0 and not yet
-          // in else) is part of the case, not the var statement terminator
+          // in else) is part of the case, not the var statement terminator.
+          // 'match' branches are always terminated by ';' until its own 'end'
           if (BracketDepth = 0)
-          and ((CaseExprDepth = 0) or InCaseElse) then break;
+          and ((CaseExprDepth = 0) or InCaseElse)
+          and (MatchExprDepth = 0) then break;
       end;
       if (BracketDepth = 0) and (CurPos.Flag = cafWord) then begin
         // Track statement expression try depth
@@ -3965,20 +3984,36 @@ begin
           if (LastAtoms.GetPriorAtom.Flag in
               [cafAssignment,cafRoundBracketOpen,cafEdgedBracketOpen,
                cafComma,cafEqual])
-          or (CaseExprDepth > 0) then begin
+          or (CaseExprDepth > 0) or (MatchExprDepth > 0) then begin
             inc(CaseExprDepth);
+            ExprStack := ExprStack + 'C';
             InCaseElse := false;
+          end;
+        end
+        // match-expression always closes with 'end' regardless of else/_;
+        // track separately so 'else' inside match doesn't terminate the var
+        else if UpAtomIs('MATCH') then begin
+          if (LastAtoms.GetPriorAtom.Flag in
+              [cafAssignment,cafRoundBracketOpen,cafEdgedBracketOpen,
+               cafComma,cafEqual])
+          or (CaseExprDepth > 0) or (MatchExprDepth > 0) then begin
+            inc(MatchExprDepth);
+            ExprStack := ExprStack + 'M';
           end;
         end
         else if (CaseExprDepth > 0) and (not InCaseElse)
         and (UpAtomIs('ELSE') or UpAtomIs('OTHERWISE')) then begin
           InCaseElse := true;
         end
-        else if UpAtomIs('END') or UpAtomIs('BEGIN') or UpAtomIs('VAR')
-        or UpAtomIs('UNTIL') or UpAtomIs('FINALLY') or UpAtomIs('EXCEPT')
-        or UpAtomIs('ELSE') or UpAtomIs('THEN')
-        or UpAtomIs('TO') or UpAtomIs('DOWNTO') or UpAtomIs('DO')
-        or UpAtomIs('OF') then begin
+        // inside a match-expression these keywords belong to the body
+        // (e.g. 'of', 'else', 'then', nested 'begin'/'end'); only the
+        // outermost 'end' closes the match
+        else if (MatchExprDepth = 0)
+        and (UpAtomIs('END') or UpAtomIs('BEGIN') or UpAtomIs('VAR')
+          or UpAtomIs('UNTIL') or UpAtomIs('FINALLY') or UpAtomIs('EXCEPT')
+          or UpAtomIs('ELSE') or UpAtomIs('THEN')
+          or UpAtomIs('TO') or UpAtomIs('DOWNTO') or UpAtomIs('DO')
+          or UpAtomIs('OF')) then begin
           UndoReadNextAtom;
           break;
         end;
