@@ -3971,13 +3971,15 @@ begin
             break;
           end;
         cafSemicolon:
-          // ';' between case-expression branches (CaseExprDepth>0 and not yet
-          // in else) is part of the case, not the var statement terminator.
-          // 'match' branches are always terminated by ';' until its own 'end'.
+          // ';' between case-/match-expression branches (depths>0 and not
+          // yet in else) is part of the construct, not the var statement
+          // terminator. case-with-else and match-with-else as expression
+          // have no trailing 'end' - the ';' after the else value ends
+          // both the construct and (if outermost) the var statement.
           // statement-expression 'begin..end' branches likewise keep going
           if (BracketDepth = 0)
-          and ((CaseExprDepth = 0) or InCaseElse)
-          and (MatchExprDepth = 0)
+          and (((CaseExprDepth = 0) and (MatchExprDepth = 0))
+               or InCaseElse)
           and (BeginDepth = 0) then break;
       end;
       if (BracketDepth = 0) and (CurPos.Flag = cafWord) then begin
@@ -4018,7 +4020,12 @@ begin
             ExprStack := ExprStack + 'M';
           end;
         end
-        else if (CaseExprDepth > 0) and (not InCaseElse)
+        // 'else'/'otherwise' inside case- or match-expression switches to
+        // the catch-all branch. case-with-else and match-with-else have no
+        // trailing 'end' in expression context (FPC pstatmnt.pas) - the
+        // statement-expression terminates at the ';' after the else value
+        else if ((CaseExprDepth > 0) or (MatchExprDepth > 0))
+        and (not InCaseElse)
         and (UpAtomIs('ELSE') or UpAtomIs('OTHERWISE')) then begin
           InCaseElse := true;
         end

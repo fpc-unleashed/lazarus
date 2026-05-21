@@ -7080,8 +7080,11 @@ var
               ReadNextAtom;
               if CurPos.StartPos>SrcLen then break;
               if CurPos.Flag=cafSemicolon then begin
-                if ((VarCaseExprDepth=0) or VarInCaseElse)
-                and (VarMatchExprDepth=0)
+                // case-with-else and match-with-else as expression have no
+                // trailing 'end'; the ';' after the else value terminates
+                // both the construct and the var statement
+                if (((VarCaseExprDepth=0) and (VarMatchExprDepth=0))
+                    or VarInCaseElse)
                 and (VarBeginDepth=0) then break;
                 continue;
               end;
@@ -7134,7 +7137,10 @@ var
                   VarExprStack:=VarExprStack+'M';
                   continue;
                 end;
-                if (VarCaseExprDepth>0) and (not VarInCaseElse)
+                // 'else'/'otherwise' inside case/match expression: switch
+                // to catch-all mode so the following ';' terminates the var
+                if ((VarCaseExprDepth>0) or (VarMatchExprDepth>0))
+                and (not VarInCaseElse)
                 and (UpAtomIs('ELSE') or UpAtomIs('OTHERWISE')) then begin
                   VarInCaseElse:=true;
                   continue;
