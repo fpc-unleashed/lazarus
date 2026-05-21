@@ -3604,11 +3604,18 @@ begin
     if (CurPos.Flag=cafWord)
     and (UpAtomIs('OF') or UpAtomIs('ALL')) then
       exit(true);
+    // bare 'match end' as statement is a no-op in FPC (pstatmnt.pas).
+    // recurse so the inner 'end' belongs to match; the cost is that
+    // 'result := match end' (nonsensical) is also recursed, but the
+    // parser tree stays consistent with the user-visible source instead
+    // of swallowing an enclosing 'end' as the match block terminator
+    if CurPos.Flag=cafEnd then
+      exit(true);
     // structural atoms = identifier
     if CurPos.Flag in [cafSemicolon,cafAssignment,cafEqual,cafPoint,
        cafComma,cafRoundBracketOpen,cafRoundBracketClose,
        cafEdgedBracketOpen,cafEdgedBracketClose,cafOtherOperator,
-       cafEnd,cafColon] then
+       cafColon] then
       exit;
     // word that is itself a terminator keyword = identifier
     if CurPos.Flag=cafWord then begin
