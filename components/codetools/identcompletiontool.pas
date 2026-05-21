@@ -3523,8 +3523,8 @@ begin
                   CurrentIdentifierList.ContextFlags+[ilcfStartOfStatement];
               end;
               // check if expression
-              if UpAtomIs('IF') or UpAtomIs('CASE') or UpAtomIs('WHILE')
-              or UpAtomIs('UNTIL')
+              if UpAtomIs('IF') or UpAtomIs('CASE') or UpAtomIs('MATCH')
+              or UpAtomIs('WHILE') or UpAtomIs('UNTIL')
               then begin
                 // todo: check at start of expression, not only in front of variable
                 CurrentIdentifierList.ContextFlags:=

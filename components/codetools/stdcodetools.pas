@@ -6156,8 +6156,9 @@ begin
     ReadNextAtom;
     if CurPos.EndPos=CurPos.StartPos then exit;
     // read till block keyword counterpart
-    if UpAtomIs('BEGIN') or UpAtomIs('CASE') or UpAtomIs('ASM')
-    or UpAtomIs('RECORD') or UpAtomIs('TRY') or UpAtomIs('REPEAT') then begin
+    if UpAtomIs('BEGIN') or UpAtomIs('CASE') or UpAtomIs('MATCH')
+    or UpAtomIs('ASM') or UpAtomIs('RECORD') or UpAtomIs('TRY')
+    or UpAtomIs('REPEAT') then begin
       // read forward till END, FINALLY, EXCEPT
       ReadTilBlockEnd(true,false);
     end else if UpAtomIs('END') or UpAtomIs('FINALLY') or UpAtomIs('EXCEPT')
@@ -6373,8 +6374,9 @@ begin
     ReadNextAtom;
     if CurPos.EndPos=CurPos.StartPos then exit;
     // read till block keyword counterpart
-    if UpAtomIs('BEGIN') or UpAtomIs('CASE') or UpAtomIs('ASM')
-    or UpAtomIs('RECORD') or UpAtomIs('TRY') or UpAtomIs('REPEAT') then begin
+    if UpAtomIs('BEGIN') or UpAtomIs('CASE') or UpAtomIs('MATCH')
+    or UpAtomIs('ASM') or UpAtomIs('RECORD') or UpAtomIs('TRY')
+    or UpAtomIs('REPEAT') then begin
       // read forward till END, FINALLY, EXCEPT
       ReadTilBlockEnd(true,false);
     end else
