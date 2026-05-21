@@ -6644,6 +6644,15 @@ var
     FromPos: LongInt;
     ToPos: LongInt;
     WasInCursorBlock: Boolean;
+    // inline-var skip state: tracks nested case/match-expression and
+    // statement-expression begin..end depth inside `var d := match X of
+    // ...; end;` so an inner ';' or 'end' doesn't terminate the var
+    // statement early; ExprStack records 'C'/'M'/'B' per level
+    VarCaseExprDepth: Integer;
+    VarMatchExprDepth: Integer;
+    VarBeginDepth: Integer;
+    VarInCaseElse: Boolean;
+    VarExprStack: string;
 
     function EndBlockIsOk: boolean;
     begin
@@ -7051,15 +7060,100 @@ var
             // also stop on header terminators 'do'/'then' so inline var inside
             // 'with var X: T do begin ...' or 'for var i := A to B do ...'
             // returns control to the main loop before the body keyword.
+            // track case/match expression depth so 'end' of an inline
+            // 'var d := match x of ... end;' / 'var d := case x of ...
+            // 2:'b'; end;' initializer closes the case/match instead of
+            // breaking the skip at the first inner ';'. ExprStack records
+            // 'C'/'M' per level so a nested case-inside-match (or vice
+            // versa) pops the right counter on 'end'.
+            VarCaseExprDepth:=0;
+            VarMatchExprDepth:=0;
+            VarBeginDepth:=0;
+            VarInCaseElse:=false;
+            VarExprStack:='';
             repeat
               ReadNextAtom;
               if CurPos.StartPos>SrcLen then break;
-              if CurPos.Flag=cafSemicolon then break;
-              if (CurPos.Flag=cafEND)
-              or ((CurPos.Flag=cafWord) and (WordIsStatemendEnd
-                  or UpAtomIs('DO') or UpAtomIs('THEN'))) then begin
+              if CurPos.Flag=cafSemicolon then begin
+                if ((VarCaseExprDepth=0) or VarInCaseElse)
+                and (VarMatchExprDepth=0)
+                and (VarBeginDepth=0) then break;
+                continue;
+              end;
+              if CurPos.Flag=cafEnd then begin
+                if VarExprStack<>'' then
+                  case VarExprStack[Length(VarExprStack)] of
+                  'B':
+                    begin
+                      dec(VarBeginDepth);
+                      SetLength(VarExprStack,Length(VarExprStack)-1);
+                      continue;
+                    end;
+                  'M':
+                    begin
+                      dec(VarMatchExprDepth);
+                      SetLength(VarExprStack,Length(VarExprStack)-1);
+                      continue;
+                    end;
+                  'C':
+                    if (VarCaseExprDepth>0) and (not VarInCaseElse) then begin
+                      dec(VarCaseExprDepth);
+                      SetLength(VarExprStack,Length(VarExprStack)-1);
+                      continue;
+                    end;
+                  end;
+                if (VarCaseExprDepth>0) and (not VarInCaseElse) then begin
+                  dec(VarCaseExprDepth);
+                  continue;
+                end;
                 UndoReadNextAtom;
                 break;
+              end;
+              if (CurPos.Flag=cafWord) then begin
+                if UpAtomIs('CASE')
+                and ((LastAtoms.GetPriorAtom.Flag in
+                       [cafAssignment,cafRoundBracketOpen,cafEdgedBracketOpen,
+                        cafComma,cafEqual])
+                  or (VarCaseExprDepth>0) or (VarMatchExprDepth>0)) then begin
+                  inc(VarCaseExprDepth);
+                  VarExprStack:=VarExprStack+'C';
+                  VarInCaseElse:=false;
+                  continue;
+                end;
+                if UpAtomIs('MATCH')
+                and ((LastAtoms.GetPriorAtom.Flag in
+                       [cafAssignment,cafRoundBracketOpen,cafEdgedBracketOpen,
+                        cafComma,cafEqual])
+                  or (VarCaseExprDepth>0) or (VarMatchExprDepth>0)) then begin
+                  inc(VarMatchExprDepth);
+                  VarExprStack:=VarExprStack+'M';
+                  continue;
+                end;
+                if (VarCaseExprDepth>0) and (not VarInCaseElse)
+                and (UpAtomIs('ELSE') or UpAtomIs('OTHERWISE')) then begin
+                  VarInCaseElse:=true;
+                  continue;
+                end;
+                // statement-expression 'begin..end' as initializer or
+                // branch value - push 'B' so its 'end' pops here
+                if UpAtomIs('BEGIN')
+                and ((LastAtoms.GetPriorAtom.Flag in
+                       [cafAssignment,cafRoundBracketOpen,cafEdgedBracketOpen,
+                        cafComma,cafEqual,cafColon])
+                  or (VarCaseExprDepth>0) or (VarMatchExprDepth>0)
+                  or (VarBeginDepth>0)) then begin
+                  inc(VarBeginDepth);
+                  VarExprStack:=VarExprStack+'B';
+                  continue;
+                end;
+                // inside match-expression or nested begin these keywords
+                // belong to the body; only the outer 'end' closes
+                if (VarMatchExprDepth=0) and (VarBeginDepth=0)
+                and (WordIsStatemendEnd
+                     or UpAtomIs('DO') or UpAtomIs('THEN')) then begin
+                  UndoReadNextAtom;
+                  break;
+                end;
               end;
               if (CurPos.Flag in [cafRoundBracketOpen,cafEdgedBracketOpen]) then
                 ReadTilBracketClose(true);
@@ -7185,7 +7279,7 @@ var
           else
             NewCode:='end'+NewCode;
         end;
-      btFinally,btExcept,btMatch,btCaseOf,btCaseElse:
+      btFinally,btExcept,btCase,btMatch,btCaseOf,btCaseElse:
         NewCode:='end'+NewCode;
       btRepeat:
         NewCode:='until '+NewCode;

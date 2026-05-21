@@ -3872,10 +3872,11 @@ var
   TryExprDepth: integer;
   CaseExprDepth: integer;
   MatchExprDepth: integer;
+  BeginDepth: integer;
   InCaseElse: boolean;
-  // stack of 'C' (case) / 'M' (match) entries, newest at the right, so we
-  // know which depth counter to pop when an 'end' is read inside a nested
-  // case/match expression
+  // stack of entries: 'C' (case), 'M' (match), 'B' (begin) - newest at the
+  // right - so an 'end' read inside a nested case/match/begin block pops
+  // the right counter
   ExprStack: string;
 begin
   if CreateNodes then begin
@@ -3924,6 +3925,7 @@ begin
     TryExprDepth := 0;
     CaseExprDepth := 0;
     MatchExprDepth := 0;
+    BeginDepth := 0;
     InCaseElse := false;
     ExprStack := '';
     repeat
@@ -3935,33 +3937,48 @@ begin
         cafRoundBracketClose, cafEdgedBracketClose:
           dec(BracketDepth);
         cafEnd:
-          // 'end' inside an open case- or match-expression closes the
-          // innermost one tracked on ExprStack. Otherwise it terminates
-          // the var statement.
+          // 'end' inside an open case-/match-expression or nested begin
+          // block closes the innermost one tracked on ExprStack. Otherwise
+          // it terminates the var statement.
           if BracketDepth = 0 then begin
-            if (ExprStack<>'')
-            and (ExprStack[Length(ExprStack)]='M') then begin
-              dec(MatchExprDepth);
-              SetLength(ExprStack,Length(ExprStack)-1);
-            end
-            else if (CaseExprDepth > 0) and (not InCaseElse) then begin
-              dec(CaseExprDepth);
-              if (ExprStack<>'')
-              and (ExprStack[Length(ExprStack)]='C') then
-                SetLength(ExprStack,Length(ExprStack)-1);
-            end
-            else begin
-              UndoReadNextAtom;
-              break;
+            if (ExprStack<>'') then begin
+              case ExprStack[Length(ExprStack)] of
+              'B':
+                begin
+                  dec(BeginDepth);
+                  SetLength(ExprStack,Length(ExprStack)-1);
+                  continue;
+                end;
+              'M':
+                begin
+                  dec(MatchExprDepth);
+                  SetLength(ExprStack,Length(ExprStack)-1);
+                  continue;
+                end;
+              'C':
+                if (CaseExprDepth > 0) and (not InCaseElse) then begin
+                  dec(CaseExprDepth);
+                  SetLength(ExprStack,Length(ExprStack)-1);
+                  continue;
+                end;
+              end;
             end;
+            if (CaseExprDepth > 0) and (not InCaseElse) then begin
+              dec(CaseExprDepth);
+              continue;
+            end;
+            UndoReadNextAtom;
+            break;
           end;
         cafSemicolon:
           // ';' between case-expression branches (CaseExprDepth>0 and not yet
           // in else) is part of the case, not the var statement terminator.
-          // 'match' branches are always terminated by ';' until its own 'end'
+          // 'match' branches are always terminated by ';' until its own 'end'.
+          // statement-expression 'begin..end' branches likewise keep going
           if (BracketDepth = 0)
           and ((CaseExprDepth = 0) or InCaseElse)
-          and (MatchExprDepth = 0) then break;
+          and (MatchExprDepth = 0)
+          and (BeginDepth = 0) then break;
       end;
       if (BracketDepth = 0) and (CurPos.Flag = cafWord) then begin
         // Track statement expression try depth
@@ -4005,10 +4022,21 @@ begin
         and (UpAtomIs('ELSE') or UpAtomIs('OTHERWISE')) then begin
           InCaseElse := true;
         end
-        // inside a match-expression these keywords belong to the body
-        // (e.g. 'of', 'else', 'then', nested 'begin'/'end'); only the
-        // outermost 'end' closes the match
-        else if (MatchExprDepth = 0)
+        // statement-expression 'begin..end' as the var initializer or
+        // as the value of a case/match branch: push 'B' so 'end' pops
+        // this block instead of mistakenly closing the outer match/case
+        else if UpAtomIs('BEGIN')
+        and ((LastAtoms.GetPriorAtom.Flag in
+               [cafAssignment,cafRoundBracketOpen,cafEdgedBracketOpen,
+                cafComma,cafEqual,cafColon])
+          or (CaseExprDepth > 0) or (MatchExprDepth > 0)
+          or (BeginDepth > 0)) then begin
+          inc(BeginDepth);
+          ExprStack := ExprStack + 'B';
+        end
+        // inside a match-expression or nested begin-expression these
+        // keywords belong to the body; only the outermost 'end' closes
+        else if (MatchExprDepth = 0) and (BeginDepth = 0)
         and (UpAtomIs('END') or UpAtomIs('BEGIN') or UpAtomIs('VAR')
           or UpAtomIs('UNTIL') or UpAtomIs('FINALLY') or UpAtomIs('EXCEPT')
           or UpAtomIs('ELSE') or UpAtomIs('THEN')
