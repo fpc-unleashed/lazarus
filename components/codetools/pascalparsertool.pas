@@ -6420,8 +6420,8 @@ begin
   HadModifier:=false;
   while UpAtomIs('SIZE') or UpAtomIs('BITSIZE')
      or UpAtomIs('ALIGN') or UpAtomIs('BITALIGN') or UpAtomIs('OF') do begin
-    HadModifier:=true;
     if UpAtomIs('OF') then begin
+      HadModifier:=true;
       ReadNextAtom;
       AtomIsIdentifierSaveE(20260513000020);
       ReadNextAtom;
@@ -6432,7 +6432,16 @@ begin
       end;
     end
     else begin
+      // peek past the modifier-looking identifier: if the next atom is `:`,
+      // `,` or `;` then it is actually the first field name (e.g. record
+      // `Size, Usage: DWORD;`), not a modifier. Undo and exit the loop so
+      // the body parser handles it as a field
       ReadNextAtom;
+      if CurPos.Flag in [cafColon,cafComma,cafSemicolon] then begin
+        UndoReadNextAtom;
+        break;
+      end;
+      HadModifier:=true;
       ReadConstant(true,false,[]);
     end;
   end;
