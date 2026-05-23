@@ -6050,6 +6050,24 @@ var
     end;
   end;
 
+  procedure ParseAnonEnumStorageType;
+  // composablerecords: optional `(...) of T` storage type clause after an
+  // anonymous enum body. Mirrors the `union of T` / `bitpacked record of T`
+  // syntax. Permissive: the IDE only consumes the tokens, the compiler
+  // validates that T is ordinal and every enumerator fits in T's range.
+  begin
+    if not (cmsComposableRecords in Scanner.CompilerModeSwitches) then exit;
+    if not UpAtomIs('OF') then exit;
+    ReadNextAtom;
+    AtomIsIdentifierSaveE(20260523100000);
+    ReadNextAtom;
+    while CurPos.Flag=cafPoint do begin
+      ReadNextAtom;
+      AtomIsIdentifierSaveE(20260523100001);
+      ReadNextAtom;
+    end;
+  end;
+
 // TPascalParserTool.KeyWordFuncTypeDefault: boolean
 var
   SavePos: TAtomPosition;
@@ -6269,6 +6287,7 @@ begin
             CurNode.EndPos:=CurPos.EndPos;
             EndChildNode;
             ReadNextAtom;
+            ParseAnonEnumStorageType;
           end;
         end else begin
           // no TUPLES modeswitch: standard enum parsing
@@ -6294,6 +6313,7 @@ begin
           CurNode.EndPos:=CurPos.EndPos;
           EndChildNode;
           ReadNextAtom;
+          ParseAnonEnumStorageType;
         end;
       end else
         SaveRaiseException(20170421195144,ctsInvalidType);
