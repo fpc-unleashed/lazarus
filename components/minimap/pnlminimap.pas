@@ -20,7 +20,7 @@ uses
 
 Const
   DefaultViewFontSize        = 3;
-  DefaultViewWindowColor     = TColor($AAAAAA);
+  DefaultViewWindowColor     = clBackground;
   DefaultViewWindowTextColor = clNone;
   DefaultKeepFontColor       = True;
   DefaultMapWidth            = 220;
