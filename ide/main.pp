@@ -1701,6 +1701,8 @@ begin
 end;
 
 procedure TMainIDE.StartIDE;
+var
+  ColorSchemeIdx: Integer;
 begin
   {$IFDEF IDE_MEM_CHECK}CheckHeapWrtMemCnt('TMainIDE.StartIDE START');{$ENDIF}
   // set Application handlers
@@ -1742,6 +1744,33 @@ begin
     EnvironmentOptions.InitialEditorToolbarAddonsDone := true;
     if Assigned(uAllEditorToolbars) then
       uAllEditorToolbars.ReloadAll;
+  end;
+  // One-shot pairing of a dark IDE chrome (MetaDarkStyle and any future
+  // sibling) with the dark editor color scheme so the editor matches the
+  // form/menu palette out of the box. Runs once per profile; if the user
+  // later picks another scheme the flag stays set and we leave it alone.
+  // DefaultColorSchemeName alone is per-session (re-initialised to 'Default'
+  // by InitColorScheme on every start), so we also persist the scheme per
+  // highlighter via WriteColorScheme - that is what the Options dialog does
+  // and it survives across IDE restarts.
+  if (not EnvironmentOptions.InitialColorSchemeForDarkPkgDone)
+  and (PackageGraph<>nil) and (EditorOpts<>nil) then begin
+    if PackageGraph.FindInstalledPackageMatching('MetaDarkStyle*')<>nil then begin
+      DefaultColorSchemeName := 'UnleahedDark';
+      // index 0 of HighlighterList is the "None" pseudo-entry; the real
+      // highlighters start at IdeHighlighterStartId. Pass the RAW language
+      // name (HighlighterList[i].SynInstance.LanguageName) - WriteColorScheme
+      // does its own StrToValidXMLName, while HighlighterList.Names already
+      // encoded the name, which would land the value under a key that
+      // ReadColorScheme cannot find on the next start.
+      for ColorSchemeIdx := IdeHighlighterStartId to HighlighterList.Count - 1 do
+        if HighlighterList[ColorSchemeIdx].SynInstance <> nil then
+          EditorOpts.WriteColorScheme(HighlighterList[ColorSchemeIdx].SynInstance.LanguageName, 'UnleahedDark');
+      EditorOpts.Save;
+      if Assigned(SourceEditorManager) then
+        SourceEditorManager.ReloadEditorOptions;
+    end;
+    EnvironmentOptions.InitialColorSchemeForDarkPkgDone := true;
   end;
   // After a fresh install the FPC source cache is empty/stale and code
   // completion fails until the user clicks Tools > Rescan FPC Source

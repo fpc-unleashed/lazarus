@@ -319,6 +319,9 @@ type
     // One-shot pass on first start that wires optional add-on packages into
     // the editor toolbar (e.g. CPU-View button if its package is installed).
     FInitialEditorToolbarAddonsDone: Boolean;
+    // One-shot pass on first start that swaps the editor color scheme to
+    // the matching dark variant when a `MetaDarkStyle*` package is present.
+    FInitialColorSchemeForDarkPkgDone: Boolean;
     //other recent settings
     FLastEventMethodCCResult: TCodeCreationDlgResult;
     FLastVariableCCResult: TCodeCreationDlgResult;
@@ -504,6 +507,8 @@ type
                                               write FInitialFPCSrcRescanDone;
     property InitialEditorToolbarAddonsDone: Boolean read FInitialEditorToolbarAddonsDone
                                                      write FInitialEditorToolbarAddonsDone;
+    property InitialColorSchemeForDarkPkgDone: Boolean read FInitialColorSchemeForDarkPkgDone
+                                                       write FInitialColorSchemeForDarkPkgDone;
     // other recent settings
     property LastEventMethodCCResult: TCodeCreationDlgResult
       read FLastEventMethodCCResult write FLastEventMethodCCResult;
@@ -1092,6 +1097,7 @@ begin
     FAlreadyPopulatedRecentFiles := FXMLCfg.GetValue(Path+'Recent/AlreadyPopulated', false);
     FInitialFPCSrcRescanDone := FXMLCfg.GetValue(Path+'InitialFPCSrcRescanDone/Value', false);
     FInitialEditorToolbarAddonsDone := FXMLCfg.GetValue(Path+'InitialEditorToolbarAddonsDone/Value', false);
+    FInitialColorSchemeForDarkPkgDone := FXMLCfg.GetValue(Path+'InitialColorSchemeForDarkPkgDone/Value', false);
 
     // other recent settings
     LoadCCResult(FLastEventMethodCCResult, Path+'Recent/EventMethodCCResult', icsPublic);
@@ -1301,6 +1307,7 @@ begin
     FXMLCfg.SetDeleteValue(Path+'Recent/AlreadyPopulated', FAlreadyPopulatedRecentFiles, false);
     FXMLCfg.SetDeleteValue(Path+'InitialFPCSrcRescanDone/Value', FInitialFPCSrcRescanDone, false);
     FXMLCfg.SetDeleteValue(Path+'InitialEditorToolbarAddonsDone/Value', FInitialEditorToolbarAddonsDone, false);
+    FXMLCfg.SetDeleteValue(Path+'InitialColorSchemeForDarkPkgDone/Value', FInitialColorSchemeForDarkPkgDone, false);
 
     // other recent settings
     SaveCCResult(FLastEventMethodCCResult, Path+'Recent/EventMethodCCResult', icsPublic);

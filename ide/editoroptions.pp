@@ -2167,6 +2167,10 @@ type
 
 var
   EditorOpts: TEditorOptions;
+  // exposed so other units (e.g. main.pp's one-shot dark-pkg pairing)
+  // can override the fallback scheme name used by ReadColorScheme when
+  // no per-language override is set yet
+  DefaultColorSchemeName: String;
 
 procedure RepairEditorFontSize(var FontSize: integer);
 function BuildBorlandDCIFile(ACustomSynAutoComplete: TCustomSynAutoComplete): Boolean;
@@ -2184,7 +2188,6 @@ const
   ValidAttribChars = ['a'..'z', 'A'..'Z', '_', '0'..'9'];
 
 var
-  DefaultColorSchemeName: String;
   EdOptsChangedHandlers: TMethodList;
   RegisteredAttribGroupNames: array of PString;
 
@@ -3016,6 +3019,7 @@ begin
     TheColorSchemeFactorSingleton.RegisterScheme(TColorSchemeFromResource.CreateFrom('ColorSchemePascalClassic', 'Pascal Classic', TColorSchemeFactory.XML_COL_PATH));
     TheColorSchemeFactorSingleton.RegisterScheme(TColorSchemeFromResource.CreateFrom('ColorSchemeOcean',         'Ocean',    TColorSchemeFactory.XML_COL_PATH));
     TheColorSchemeFactorSingleton.RegisterScheme(TColorSchemeFromResource.CreateFrom('ColorSchemeDelphi',        'Delphi',   TColorSchemeFactory.XML_COL_PATH));
+    TheColorSchemeFactorSingleton.RegisterScheme(TColorSchemeFromResource.CreateFrom('ColorSchemeUnleahedDark',  'UnleahedDark', TColorSchemeFactory.XML_COL_PATH));
     DefaultColorSchemeName := 'Default';
 
     if DirectoryExistsUTF8(UserSchemeDirectory(False)) then begin
