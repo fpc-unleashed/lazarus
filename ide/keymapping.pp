@@ -1191,7 +1191,7 @@ begin
   ecSelectionEnclose:    SetSingle(VK_N,[ssShift,XCtrl]);
   ecSelectionComment:    SetSingle(VK_V,[ssShift,XCtrl]);
   ecSelectionUncomment:  SetSingle(VK_U,[ssShift,XCtrl]);
-  ecToggleComment:       SetSingle(VK_OEM_2,[XCtrl]);
+  ecToggleComment:       SetSingle(VK_OEM_2,[XCtrl],VK_Q,[XCtrl]);
   ecSelectionEncloseIFDEF:SetSingle(VK_D,[ssShift,XCtrl]);
   ecSelectionSort:       SetSingle(VK_UNKNOWN,[]);
   ecSelectionBreakLines: SetSingle(VK_UNKNOWN,[]);
@@ -1208,8 +1208,10 @@ begin
   ecBlockMove:           SetCombo(VK_K,[XCtrl],VK_V,[]);
   ecBlockCopy:           SetCombo(VK_K,[XCtrl],VK_C,[]);
   ecBlockDelete:         SetCombo(VK_K,[XCtrl],VK_Y,[]);
-  ecBlockGotoBegin:      SetCombo(VK_Q,[XCtrl],VK_B,[]);
-  ecBlockGotoEnd:        SetCombo(VK_Q,[XCtrl],VK_K,[]);
+  // Ctrl+Q is the standalone shortcut for ecToggleComment; the chord
+  // forms (Ctrl+Q,B / Ctrl+Q,K) are intentionally unbound here
+  ecBlockGotoBegin:      SetCombo(VK_UNKNOWN,[],VK_UNKNOWN,[]);
+  ecBlockGotoEnd:        SetCombo(VK_UNKNOWN,[],VK_UNKNOWN,[]);
 
   // column mode selection
   ecColSelUp:            SetSingle(VK_UP,[ssAlt,ssShift]);
@@ -1691,7 +1693,7 @@ begin
   ecSelectionEnclose:    SetSingle(VK_UNKNOWN,[]);
   ecSelectionComment:    SetSingle(VK_UNKNOWN,[]);
   ecSelectionUncomment:  SetSingle(VK_UNKNOWN,[]);
-  ecToggleComment:       SetSingle(VK_OEM_2,[ssCtrl]);
+  ecToggleComment:       SetSingle(VK_OEM_2,[ssCtrl],VK_Q,[ssCtrl]);
   ecSelectionEncloseIFDEF:SetSingle(VK_D,[ssShift,ssCtrl]);
   ecSelectionSort:       SetSingle(VK_UNKNOWN,[]);
   ecSelectionBreakLines: SetSingle(VK_UNKNOWN,[]);
@@ -1704,8 +1706,10 @@ begin
   ecBlockMove:           SetCombo(VK_K,[ssCtrl],VK_V,[]);
   ecBlockCopy:           SetCombo(VK_K,[ssCtrl],VK_C,[]);
   ecBlockDelete:         SetCombo(VK_K,[ssCtrl],VK_Y,[]);
-  ecBlockGotoBegin:      SetCombo(VK_Q,[ssCtrl],VK_B,[]);
-  ecBlockGotoEnd:        SetCombo(VK_Q,[ssCtrl],VK_K,[]);
+  // Ctrl+Q is the standalone shortcut for ecToggleComment; the chord
+  // forms (Ctrl+Q,B / Ctrl+Q,K) are intentionally unbound here
+  ecBlockGotoBegin:      SetCombo(VK_UNKNOWN,[],VK_UNKNOWN,[]);
+  ecBlockGotoEnd:        SetCombo(VK_UNKNOWN,[],VK_UNKNOWN,[]);
 
   // column mode selection
   ecColSelUp:            SetSingle(VK_UP,   [ssAlt,ssShift]);
@@ -2331,7 +2335,7 @@ begin
   ecSelectionEnclose:    SetSingle(VK_UNKNOWN,[]);
   ecSelectionComment:    SetSingle(VK_UNKNOWN,[]);
   ecSelectionUncomment:  SetSingle(VK_UNKNOWN,[]);
-  ecToggleComment:       SetSingle(VK_OEM_2,[ssCtrl]);
+  ecToggleComment:       SetSingle(VK_OEM_2,[ssCtrl],VK_Q,[ssCtrl]);
   ecSelectionEncloseIFDEF:SetSingle(VK_D,[ssShift,ssCtrl]);
   ecSelectionSort:       SetSingle(VK_UNKNOWN,[]);
   ecSelectionBreakLines: SetSingle(VK_UNKNOWN,[]);
@@ -2348,8 +2352,10 @@ begin
   ecBlockMove:           SetCombo(VK_K,[ssCtrl],VK_V,[]);
   ecBlockCopy:           SetCombo(VK_K,[ssCtrl],VK_C,[]);
   ecBlockDelete:         SetCombo(VK_K,[ssCtrl],VK_Y,[]);
-  ecBlockGotoBegin:      SetCombo(VK_Q,[ssCtrl],VK_B,[]);
-  ecBlockGotoEnd:        SetCombo(VK_Q,[ssCtrl],VK_K,[]);
+  // Ctrl+Q is the standalone shortcut for ecToggleComment; the chord
+  // forms (Ctrl+Q,B / Ctrl+Q,K) are intentionally unbound here
+  ecBlockGotoBegin:      SetCombo(VK_UNKNOWN,[],VK_UNKNOWN,[]);
+  ecBlockGotoEnd:        SetCombo(VK_UNKNOWN,[],VK_UNKNOWN,[]);
 
 // column mode selection
   ecColSelUp:            SetSingle(VK_UP,[ssAlt,ssShift]);
