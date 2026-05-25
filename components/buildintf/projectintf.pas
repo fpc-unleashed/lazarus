@@ -1279,6 +1279,9 @@ begin
   if CompOpts=nil then exit;
   SyntaxMode:=CompOpts.SyntaxMode;
   if SyntaxMode<>'' then begin
+    // canonicalize unleashed to lowercase regardless of stored casing
+    if CompareText(SyntaxMode,'unleashed')=0 then
+      SyntaxMode:='unleashed';
     Result:='{$mode '+SyntaxMode+'}';
     if CompOpts.UseAnsiStrings and (CompareText(SyntaxMode,'Delphi')<>0)
     and (CompareText(SyntaxMode,'unleashed')<>0) then
