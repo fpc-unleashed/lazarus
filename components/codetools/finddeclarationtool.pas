@@ -9546,10 +9546,24 @@ begin
   // move cursor to end of with-variable
   Params.Save(OldInput);
   Params.ContextNode:=WithVarNode;
+  // fdfCollect: with-var may be a partial prefix the user is still
+  // typing; bail gracefully so Ctrl+Space gathers parent-scope matches
   Params.Flags:=Params.Flags*fdfGlobals
-                +[fdfExceptionOnNotFound,fdfFunctionResult,fdfFindChildren];
+                +[fdfFunctionResult,fdfFindChildren];
+  if not (fdfCollect in OldInput.Flags) then
+    Include(Params.Flags,fdfExceptionOnNotFound);
   OldExtractedOperand:=Params.ExtractedOperand;
-  WithVarExpr:=FindExpressionTypeOfTerm(WithVarNode.StartPos,-1,Params,true);
+  try
+    WithVarExpr:=FindExpressionTypeOfTerm(WithVarNode.StartPos,-1,Params,true);
+  except
+    on E: ECodeToolError do begin
+      if fdfCollect in OldInput.Flags then begin
+        Params.Load(OldInput,true);
+        exit(false);
+      end;
+      raise;
+    end;
+  end;
   if fdfExtractOperand in Params.Flags then
     NewExtractedOperand:=Params.ExtractedOperand+'.'
   else
@@ -9559,6 +9573,10 @@ begin
   or (WithVarExpr.Context.Node=OldInput.ContextNode)
   or (not (WithVarExpr.Context.Node.Desc in (AllClasses+[ctnEnumerationType])))
   then begin
+    if fdfCollect in OldInput.Flags then begin
+      Params.Load(OldInput,true);
+      exit(false);
+    end;
     MoveCursorToCleanPos(WithVarNode.StartPos);
     RaiseException(20170421200254,ctsExprTypeMustBeClassOrRecord);
   end;

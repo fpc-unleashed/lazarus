@@ -3565,15 +3565,12 @@ begin
 end;
 
 function TPascalParserTool.IsMatchKeyword: boolean;
-{ Returns true if the 'match' at CurPos starts a match-expression / match
-  statement (block keyword that needs to be matched with 'end'), false if
-  it is just an identifier (e.g. obj.match, result := match;, match := X,
-  case match of, if match then). Cursor is on the 'match' atom; on exit
-  it is restored to that atom. Heuristic: the prior atom rules out member
-  access and selector/condition keywords; the next 1-2 atoms either
-  confirm match-expression (a following `of`/`all` or an identifier/
-  literal followed by `of`/`:`/`,`) or rule it out (structural atoms like
-  `;`, `:=`, `.`, etc.). }
+{ Returns true if 'match' at CurPos starts a match block (needs 'end'),
+  false if it is an identifier. Rules out member access (obj.match) and
+  selector keywords (case/if/for/while/until); expression-context priors
+  use peek-ahead; statement-context defaults to block keyword since
+  condition-form `match expr: stmt; end` can put any expression before
+  the first ':'. Cursor is restored to the 'match' atom on exit. }
 var
   SavedPos: integer;
   PriorAtom: TAtomPosition;
@@ -3596,6 +3593,12 @@ begin
     'U': if CompareIdentifiers(@Src[PriorAtom.StartPos],'UNTIL')=0 then exit;
     end;
   end;
+  // statement-context: default to block keyword - only expression-context
+  // priors fall through to the peek-ahead below
+  if not (PriorAtom.Flag in
+    [cafAssignment,cafEqual,cafComma,cafColon,cafOtherOperator,
+     cafRoundBracketOpen,cafEdgedBracketOpen]) then
+    exit(true);
   SavedPos:=CurPos.StartPos;
   ReadNextAtom;
   try
@@ -3826,10 +3829,12 @@ begin
   until false;
   // read DO
   if not UpAtomIs('DO') then begin
+    // close ctnWithVariable in both branches; otherwise an incomplete
+    // `with X<cursor>` leaves EndPos=-1 and tree walkers AV
+    CloseNodes;
     if ExceptionOnError then
       SaveRaiseStringExpectedButAtomFound(20170421195614,'"do"')
     else begin
-      CloseNodes;
       Result:=false;
       exit;
     end;
