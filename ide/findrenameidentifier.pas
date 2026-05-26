@@ -1075,6 +1075,10 @@ begin
       // search identifier in every file
       for i:=0 to Files.Count-1 do begin
         //debugln(['GatherIdentifierReferences ',Files[i]]);
+        // UsesSectionToFilenames falls back to "unitname in 'file'" when it
+        // can't locate the source; that pseudo-path crashes LoadCodeBuffer
+        // below in TCTDirectoryCache.Create ("directory not absolute")
+        if not FilenameIsAbsolute(Files[i]) then continue;
         LoadResult:=
             LoadCodeBuffer(Code,Files[i],[lbfCheckIfText,lbfUpdateFromDisk,lbfIgnoreMissing],true);
         if LoadResult=mrAbort then begin
