@@ -6410,7 +6410,7 @@ function TStandardCodeTool.CompleteBlock(const CursorPos: TCodeXYPosition;
   Statements:
     begin: end;
     asm: end;
-    try: finally end;
+    try: except end;
     finally: end;
     except: end;
     repeat: until ;
@@ -7331,7 +7331,9 @@ var
       btRepeat:
         NewCode:='until '+NewCode;
       btTry:
-        NewCode:='finally'+SourceChangeCache.BeautifyCodeOptions.LineEnd
+        // except is the far more common branch; users who want finally
+        // type it explicitly
+        NewCode:='except'+SourceChangeCache.BeautifyCodeOptions.LineEnd
                 +'end'+NewCode;
       btCaseColon:
         begin
