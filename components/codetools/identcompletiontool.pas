@@ -3678,6 +3678,26 @@ begin
                 end;
                 TupleChild:=TupleChild.NextBrother;
               end;
+            end else if (cmsTuples in Scanner.CompilerModeSwitches) and
+                        (GatherContext.Node<>nil) and
+                        (GatherContext.Node.Desc=ctnRecordType) and
+                        (GatherContext.Node.StartPos<=GatherContext.Tool.SrcLen) and
+                        (GatherContext.Tool.Src[GatherContext.Node.StartPos]='(') then begin
+              // named tuple `(ip: string; took: dword)`: inject the field
+              // names directly. The general FindIdentifierInContext path is
+              // unreliable on these anonymous record return types.
+              TupleChild:=GatherContext.Node.FirstChild;
+              while TupleChild<>nil do begin
+                if TupleChild.Desc=ctnVarDefinition then begin
+                  TupleItem:=TIdentifierListItem.Create(
+                    icompExact,false,0,
+                    @GatherContext.Tool.Src[TupleChild.StartPos],
+                    0,TupleChild,GatherContext.Tool,
+                    ctnVarDefinition);
+                  CurrentIdentifierList.Add(TupleItem);
+                end;
+                TupleChild:=TupleChild.NextBrother;
+              end;
             end else begin
               if GatherContext.Node.Desc=ctnIdentifier then
                 Params.Flags:=Params.Flags+[fdfIgnoreCurContextNode];
@@ -3898,6 +3918,72 @@ begin
                       TupleItem.ResultType:=TupleLitTypes[TupleLitI];
                     CurrentIdentifierList.Add(TupleItem);
                   end;
+              end;
+            end;
+          end;
+
+          // tuple result fallback: function f: (a:int; b:int); result.|
+          // When normal resolution failed (GatherContext.Node=nil), look up
+          // the enclosing function's return type directly.
+          if (cmsTuples in Scanner.CompilerModeSwitches) and
+             (GatherContext.Node=nil) and
+             (ContextExprStartPos>0) and
+             (ContextExprStartPos<IdentStartPos) then begin
+            // extract identifier before the dot
+            TupleScanPos:=IdentStartPos-1;
+            while (TupleScanPos>0) and (Src[TupleScanPos] in ['.',' ',#9,#10,#13]) do
+              dec(TupleScanPos);
+            InlineVarExprEndPos:=TupleScanPos+1;
+            while (TupleScanPos>0) and (Src[TupleScanPos] in ['a'..'z','A'..'Z','0'..'9','_']) do
+              dec(TupleScanPos);
+            InlineVarExprStartPos:=TupleScanPos+1;
+            if (InlineVarExprEndPos-InlineVarExprStartPos=6) and
+               (CompareIdentifiers(@Src[InlineVarExprStartPos],PChar('Result'))=0) then begin
+              // walk up to enclosing ctnProcedure
+              TupleChild:=CursorNode;
+              while (TupleChild<>nil) and (TupleChild.Desc<>ctnProcedure) do
+                TupleChild:=TupleChild.Parent;
+              if TupleChild<>nil then begin
+                // get function result type: ctnProcedureHead's first child,
+                // skipping ctnParameterList if present
+                TupleChild:=TupleChild.FirstChild;
+                if (TupleChild<>nil) and (TupleChild.Desc=ctnProcedureHead) then
+                  TupleChild:=TupleChild.FirstChild;
+                if (TupleChild<>nil) and (TupleChild.Desc=ctnParameterList) then
+                  TupleChild:=TupleChild.NextBrother;
+                if (TupleChild<>nil) and (TupleChild.Desc=ctnRecordType) and
+                   (TupleChild.StartPos<=SrcLen) and
+                   (Src[TupleChild.StartPos]='(') then begin
+                  // detect positional vs named by looking for ':' before ')'
+                  IsPositionalTuple:=true;
+                  TupleScanPos:=TupleChild.StartPos+1;
+                  while (TupleScanPos<=SrcLen) and (Src[TupleScanPos]<>')') do begin
+                    if Src[TupleScanPos]=':' then begin
+                      IsPositionalTuple:=false;
+                      break;
+                    end;
+                    inc(TupleScanPos);
+                  end;
+                  TupleFieldIdx:=0;
+                  TupleChild:=TupleChild.FirstChild;
+                  while TupleChild<>nil do begin
+                    if TupleChild.Desc=ctnVarDefinition then begin
+                      inc(TupleFieldIdx);
+                      if IsPositionalTuple then
+                        TupleItem:=TIdentifierListItem.Create(
+                          icompExact,false,0,
+                          PChar('_'+IntToStr(TupleFieldIdx)),
+                          0,TupleChild,Self,ctnVarDefinition)
+                      else
+                        TupleItem:=TIdentifierListItem.Create(
+                          icompExact,false,0,
+                          @Src[TupleChild.StartPos],
+                          0,TupleChild,Self,ctnVarDefinition);
+                      CurrentIdentifierList.Add(TupleItem);
+                    end;
+                    TupleChild:=TupleChild.NextBrother;
+                  end;
+                end;
               end;
             end;
           end;
