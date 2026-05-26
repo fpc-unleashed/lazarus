@@ -285,7 +285,7 @@ const
      cmsRepeat_forward,cmsCvar_support,cmsInitfinal,cmsOut,cmsDefault_para,
      cmsHintdirective,cmsProperty,cmsDefault_inline,cmsExcept,
      cmsAdvancedRecords,cmsPrefixedAttributes,cmsMultiHelpers,
-     cmsFunctionReferences,cmsAnonymousFunctions,
+     cmsFunctionReferences,cmsAnonymousFunctions,cmsImplicitGenerics,
      cmsStatementExpressions,cmsArrayEquality,cmsInlineVars,cmsTuples,
      cmsComposableRecords,cmsMultiLineStrings]
     );
