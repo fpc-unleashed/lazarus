@@ -3627,9 +3627,24 @@ begin
       or UpAtomIs('OTHERWISE') or UpAtomIs('TO') or UpAtomIs('DOWNTO') then
         exit;
     end;
-    // identifier subject or literal subject - peek one more atom for `of`/`:`/`,`
+    // identifier subject or literal subject - peek for `of`/`:`/`,`,
+    // skipping past call-args `(...)`, subscripts `[...]` and dotted
+    // member access so subjects like `match obj.foo(x).bar of` resolve
     ReadNextAtom;
     if CurPos.StartPos>SrcLen then exit;
+    while true do begin
+      if CurPos.Flag in [cafRoundBracketOpen,cafEdgedBracketOpen] then begin
+        if not ReadTilBracketClose(false) then exit;
+        ReadNextAtom;
+        if CurPos.StartPos>SrcLen then exit;
+      end else if CurPos.Flag=cafPoint then begin
+        ReadNextAtom;
+        if (CurPos.StartPos>SrcLen) or (CurPos.Flag<>cafWord) then exit;
+        ReadNextAtom;
+        if CurPos.StartPos>SrcLen then exit;
+      end else
+        break;
+    end;
     Result:=((CurPos.Flag=cafWord) and UpAtomIs('OF'))
          or (CurPos.Flag=cafColon)
          or (CurPos.Flag=cafComma);
