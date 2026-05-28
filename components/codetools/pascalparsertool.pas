@@ -6122,16 +6122,15 @@ begin
             IsTupleType:=true
           else if AtomIsIdentifier then begin
             ReadNextAtom;
-            if CurPos.Flag=cafColon then
-              IsTupleType:=true
-            else if CurPos.Flag=cafComma then begin
+            // multi-name group (a, b, c, ... : type) needs unbounded lookahead
+            // to find the eventual ':'; short peek missed groups with 3+ names
+            while CurPos.Flag=cafComma do begin
               ReadNextAtom;
-              if AtomIsIdentifier then begin
-                ReadNextAtom;
-                if CurPos.Flag=cafColon then
-                  IsTupleType:=true;
-              end;
+              if not AtomIsIdentifier then break;
+              ReadNextAtom;
             end;
+            if CurPos.Flag=cafColon then
+              IsTupleType:=true;
           end;
           // restore to '('
           MoveCursorToCleanPos(SavedPos);
