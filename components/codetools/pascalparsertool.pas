@@ -3955,7 +3955,27 @@ begin
     CreateChildNode;
     CurNode.Desc := ctnVarSection;
   end;
-  ReadNextAtom; // read identifier name
+  ReadNextAtom; // read identifier name or '(' for destructure
+  if (cmsTuples in Scanner.CompilerModeSwitches)
+  and (CurPos.Flag=cafRoundBracketOpen) then begin
+    // destructure: var (a, b, c) := expr; - each name becomes its own
+    // ctnVarDefinition sibling under the ctnVarSection
+    ReadNextAtom;
+    while AtomIsIdentifier do begin
+      if CreateNodes then begin
+        CreateChildNode;
+        CurNode.Desc := ctnVarDefinition;
+        CurNode.EndPos := CurPos.EndPos;
+        EndChildNode;
+      end;
+      ReadNextAtom;
+      if CurPos.Flag<>cafComma then break;
+      ReadNextAtom;
+    end;
+    if CurPos.Flag=cafRoundBracketClose then
+      ReadNextAtom;
+    UndoReadNextAtom; // leave the atom after ')' for the skip-til-';' loop
+  end else
   if AtomIsIdentifier then begin
     if CreateNodes then begin
       CreateChildNode;
