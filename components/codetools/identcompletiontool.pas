@@ -3420,6 +3420,11 @@ begin
       if not ParseSourceTillCollectionStart(IdentStartXY,CleanCursorPos,CursorNode,
                                             IdentStartPos,IdentEndPos) then
         Exit;
+      // ParseSourceTillCollectionStart can return CursorNode=nil when the
+      // cursor sits in a parser gap (e.g. after a stray `end.` left by a
+      // partial parse). FindDeepestNodeAtPos's gap-case exits without
+      // raising even when ExceptionOnNotFound is set; guard the deref.
+      if CursorNode=nil then exit;
       Params:=TFindDeclarationParams.Create(Self,CursorNode);
       try
         if CleanCursorPos=0 then ;
