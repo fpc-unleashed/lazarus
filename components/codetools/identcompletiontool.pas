@@ -1881,6 +1881,7 @@ begin
     AddCompilerProcedure('Write','Args:Arguments');
     AddCompilerProcedure('WriteLn','Args:Arguments');
     AddCompilerProcedure('WriteStr','var S:String;Args:Arguments');
+    AddCompilerProcedure('SwapValues','var A,B:T');
     if Scanner.PascalCompiler=pcPas2js then begin
       AddCompilerFunction('Str','const X[:Width[:Decimals]]','string');
       AddCompilerFunction('AWait','const Expr: T','T');
