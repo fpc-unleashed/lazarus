@@ -1077,8 +1077,11 @@ begin
         //debugln(['GatherIdentifierReferences ',Files[i]]);
         // UsesSectionToFilenames falls back to "unitname in 'file'" when it
         // can't locate the source; that pseudo-path crashes LoadCodeBuffer
-        // below in TCTDirectoryCache.Create ("directory not absolute")
-        if not FilenameIsAbsolute(Files[i]) then continue;
+        // below in TCTDirectoryCache.Create ("directory not absolute"). Skip
+        // only those - virtual files of unsaved units are also non-absolute
+        // but must still be searched
+        if (not FilenameIsAbsolute(Files[i]))
+        and (System.Pos(' in ',Files[i])>0) then continue;
         LoadResult:=
             LoadCodeBuffer(Code,Files[i],[lbfCheckIfText,lbfUpdateFromDisk,lbfIgnoreMissing],true);
         if LoadResult=mrAbort then begin
