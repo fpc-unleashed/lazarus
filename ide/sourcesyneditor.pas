@@ -2364,7 +2364,10 @@ end;
 constructor TIDESynFreePasSyn.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  CompilerMode:=pcmObjFPC;
+  // default to unleashed so files without an explicit `{$mode X}` get the
+  // superset keywords (reference, match, generic/specialize, etc).
+  // explicit `{$mode objfpc}`/`{$mode delphi}`/... still override at parse.
+  CompilerMode:=pcmUnleashed;
 end;
 
 { TIDESynGutterLOvProviderPascal }
