@@ -526,7 +526,8 @@ type
     pcmGPC,
     pcmMacPas,
     pcmIso,
-    pcmExtPas
+    pcmExtPas,
+    pcmUnleashed
     );
 
   TPascalCompilerModeSwitch = (
@@ -1659,6 +1660,7 @@ begin
     pcmMacPas:        Result := [pcsObjectiveC1, pcsObjectiveC2];
     pcmIso:           Result := [];
     pcmExtPas:        Result := [];
+    pcmUnleashed:     Result := [pcsNestedComments, pcsTypeHelpers, pcsFunctionReferences];
   end;
 end;
 
@@ -2850,7 +2852,7 @@ begin
   end
   else
   if KeyCompU('GENERIC') and
-    (FRangeCompilerMode in [pcmObjFPC, pcmUnknown]) and
+    (FRangeCompilerMode in [pcmObjFPC, pcmUnleashed, pcmUnknown]) and
     (not(TopPascalCodeFoldBlockType in PascalStatementBlocks+[cfbtUses])) and
     (FTokenState in tsAnyAtBeginOfStatement + [tsAfterClass])
   then begin
@@ -3733,7 +3735,7 @@ begin
     FOldRange := FOldRange - [rsInProcName];
     Result := tkKey;
   end
-  else if KeyCompU('SPECIALIZE') and (FRangeCompilerMode in [pcmObjFPC, pcmUnknown])
+  else if KeyCompU('SPECIALIZE') and (FRangeCompilerMode in [pcmObjFPC, pcmUnleashed, pcmUnknown])
   then begin
     Result := tkKey;
     if rsProperty in fRange then begin
@@ -4861,6 +4863,10 @@ begin
     end
     else if TextComp('delphi') then begin
       FRangeCompilerMode:=pcmDelphi;
+      FRangeModeSwitches := SwitchesForMode(FRangeCompilerMode);
+    end
+    else if TextComp('unleashed') then begin
+      FRangeCompilerMode:=pcmUnleashed;
       FRangeModeSwitches := SwitchesForMode(FRangeCompilerMode);
     end
     else if TextComp('fpc') or TextComp('default') then begin
@@ -8673,7 +8679,7 @@ begin
   if not Result then exit;
   m := TPascalCompilerMode(PtrUInt(KeywordsList.Objects[i]));
   case FCompilerMode of
-    pcmFPC, pcmObjFPC: ;
+    pcmFPC, pcmObjFPC, pcmUnleashed: ;
     pcmDelphi: Result := m in [pcmTP, pcmDelphi];
     else Result := m = pcmTP;
   end;
