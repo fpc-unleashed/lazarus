@@ -4038,6 +4038,19 @@ begin
     repeat
       ReadNextAtom;
       if CurPos.StartPos > SrcLen then break;
+      // an anonymous function in the initializer (var f := function...; or as
+      // a call argument Timeout(..., function...)) must be parsed into a
+      // ctnProcedure subtree, not skipped textually - otherwise later
+      // ReadTilBracketClose finds no node for it and Find/Rename fails with
+      // "bracket ) not found"
+      if CreateNodes and (CurPos.Flag=cafWord)
+      and (UpAtomIs('FUNCTION') or UpAtomIs('PROCEDURE'))
+      and AllowAnonymousFunctions
+      and (LastAtoms.GetPriorAtom.Flag in
+           [cafAssignment,cafComma,cafRoundBracketOpen,cafEdgedBracketOpen]) then begin
+        ReadAnonymousFunction(true);
+        continue;
+      end;
       case CurPos.Flag of
         cafRoundBracketOpen, cafEdgedBracketOpen:
           inc(BracketDepth);
