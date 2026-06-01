@@ -111,7 +111,7 @@ const
   VirtualTempDir='TEMPORARYDIRECTORY';
   
   // FPC operating systems and processor types
-  FPCOperatingSystemNames: array[1..44] of shortstring =(
+  FPCOperatingSystemNames: array[1..45] of shortstring =(
      'linux',
      'win32','win64','wince',
      'darwin','macos',
@@ -133,6 +133,7 @@ const
      'java',
      'msdos',
      'morphos',
+     'nativent',
      'nds',
      'netware',
      'netwlibc',
@@ -151,7 +152,7 @@ const
      'wasix',
      'zxspectrum'
     );
-  FPCOperatingSystemCaptions: array[1..44] of shortstring =(
+  FPCOperatingSystemCaptions: array[1..45] of shortstring =(
      'AIX',
      'Amiga',
      'Android',
@@ -174,6 +175,7 @@ const
      'MacOS',
      'MorphOS',
      'MSDOS',
+     'NativeNT',
      'NDS',
      'NetBSD',
      'NetWare',
@@ -247,7 +249,7 @@ const
     'ECMAScript6'
     );
 
-  Lazarus_CPU_OS_Widget_Combinations: array[1..109] of shortstring = (
+  Lazarus_CPU_OS_Widget_Combinations: array[1..111] of shortstring = (
     'i386-linux-gtk',
     'i386-linux-gtk2',
     'i386-linux-qt',
@@ -290,6 +292,7 @@ const
     'i386-haiku-nogui',
     'i386-aros-mui',
     'i386-aros-nogui',
+    'i386-nativent-nogui',
     'powerpc-darwin-gtk',
     'powerpc-darwin-gtk2',
     'powerpc-darwin-carbon',
@@ -355,6 +358,7 @@ const
     'x86_64-win64-win32',
     'x86_64-win64-fpgui',
     'x86_64-win64-nogui',
+    'x86_64-nativent-nogui',
     'm68k-amiga-mui',
     'm68k-amiga-nogui'
     );
