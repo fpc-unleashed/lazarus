@@ -2074,8 +2074,15 @@ begin
       AtomIsIdentifierSaveE(20180411194054);
       ReadNextAtom;
     end else if CurPos.Flag=cafEdgedBracketOpen then begin
-      if [cmsPrefixedAttributes,cmsIgnoreAttributes]*Scanner.CompilerModeSwitches<>[]
-      then begin
+      // disambiguate a proc modifier block ([public,alias:..]) from a prefixed
+      // attribute on the following declaration: a modifier block starts with a
+      // known bracket-specifier keyword, an attribute starts with a class name
+      ReadNextAtom;
+      IsSpecifier:=(CurPos.Flag in AllCommonAtomWords)
+        and IsKeyWordProcedureBracketSpecifier.DoIdentifier(@Src[CurPos.StartPos]);
+      UndoReadNextAtom;
+      if ([cmsPrefixedAttributes,cmsIgnoreAttributes]*Scanner.CompilerModeSwitches<>[])
+      and not IsSpecifier then begin
         // Delphi attribute
         UndoReadNextAtom;
         break;
