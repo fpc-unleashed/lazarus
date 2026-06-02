@@ -2127,7 +2127,9 @@ begin
         until false;
         if CurPos.Flag=cafColon then begin
           ReadNextAtom;
-          if (not AtomIsStringConstant) and (not AtomIsIdentifier) then
+          // internproc: <intrinsic number> uses a numeric id, not a string
+          if (not AtomIsStringConstant) and (not AtomIsIdentifier)
+          and (not AtomIsNumber) then
             SaveRaiseStringExpectedButAtomFound(20170421195508,ctsStringConstant);
           ReadConstant(true,false,[]);
         end;
