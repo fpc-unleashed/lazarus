@@ -256,6 +256,10 @@ type
     FFileAge: int64;
     FFileVersion: integer;
     FFileHasChangedOnDisk: boolean;
+    // command-line override (--fpcsrcdir=): active value + original, so the
+    // override drives the running IDE but never leaks into the saved config
+    FCmdLineFPCSrcDir: string;
+    FCmdLineFPCSrcDirOrig: string;
     FMaxExtToolsInParallel: integer;
     FOldLazarusVersion: string;
     FStarDirectoryExcludes: string;
@@ -391,6 +395,7 @@ type
     destructor Destroy; override;
     procedure Load(OnlyDesktop: boolean);
     procedure Save(OnlyDesktop: boolean);
+    procedure ApplyCmdLineFPCSrcDir(const ADir: string);
     property IsGlobalMode: TStrToBoolEvent read FIsGlobalMode write FIsGlobalMode;
     property Filename: string read FFilename write SetFilename;
     function GetDefaultConfigFilename: string;
@@ -1341,7 +1346,17 @@ begin
     FXMLCfg.SetDeleteValue(Path+'New/FormTemplate/Value',FNewFormTemplate,FileDescNameLCLForm);
 
     if not OnlyDesktop then
-      SaveNonDesktop(Path);
+    begin
+      // keep the cmd-line FPCSrcDir override out of the persisted config
+      if FCmdLineFPCSrcDir<>'' then
+        SetParseValue(eopFPCSourceDirectory,FCmdLineFPCSrcDirOrig);
+      try
+        SaveNonDesktop(Path);
+      finally
+        if FCmdLineFPCSrcDir<>'' then
+          SetParseValue(eopFPCSourceDirectory,FCmdLineFPCSrcDir);
+      end;
+    end;
 
     for i := 0 to SubConfigCount - 1 do begin
       SubCfg:=SubConfig[i];
@@ -1677,6 +1692,13 @@ end;
 procedure TEnvironmentOptions.SetFPCSourceDirectory(const AValue: string);
 begin
   SetParseValue(eopFPCSourceDirectory,AValue);
+end;
+
+procedure TEnvironmentOptions.ApplyCmdLineFPCSrcDir(const ADir: string);
+begin
+  FCmdLineFPCSrcDirOrig:=FPCSourceDirectory;
+  FCmdLineFPCSrcDir:=ADir;
+  SetParseValue(eopFPCSourceDirectory,ADir);
 end;
 
 procedure TEnvironmentOptions.SetCompilerFilename(const AValue: string);

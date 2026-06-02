@@ -1284,6 +1284,11 @@ begin
     debugln('Hint: (lazarus) [TMainIDE.LoadGlobalOptions] overriding Lazarusdir with command line: ',s);
     EnvironmentOptions.Lazarusdirectory:= s;
   end;
+  if GetParamOptionPlusValue('--fpcsrcdir=',s) then
+  begin
+    debugln('Hint: (lazarus) [TMainIDE.LoadGlobalOptions] overriding FPCSrcDir with command line: ',s);
+    EnvironmentOptions.ApplyCmdLineFPCSrcDir(s);
+  end;
 
   // translate IDE resourcestrings
   Application.BidiMode := Application.Direction(EnvironmentOptions.LanguageID);
