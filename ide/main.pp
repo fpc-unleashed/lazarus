@@ -150,7 +150,7 @@ uses
   // project option frames
   project_application_options, project_forms_options, project_lazdoc_options,
   project_save_options, project_versioninfo_options, project_i18n_options,
-  project_misc_options, project_resources_options, project_debug_options,
+  project_misc_options, project_paths_options, project_resources_options, project_debug_options,
   project_displayFormat_options, project_valconv_options, Project_ValFormatter_Options,
   // project compiler option frames
   compiler_path_options, compiler_config_target, compiler_parsing_options,
@@ -401,6 +401,7 @@ type
     procedure mnuEnvCodeTemplatesClicked(Sender: TObject);
     procedure mnuEnvCodeToolsDefinesEditorClicked(Sender: TObject);
     procedure mnuEnvRescanFPCSrcDirClicked(Sender: TObject);
+    procedure UpdateProjectFPCSrcDir;
 
     // windows menu
     procedure mnuWindowManagerClicked(Sender: TObject);
@@ -686,6 +687,7 @@ type
     FWaitForClose: Boolean;
     FFixingGlobalComponentLock: integer;
     OldCompilerFilename, OldLanguage: String;
+    FFPCSrcDirFromCmdLine: Boolean; // --fpcsrcdir= given; the CLI wins over the per-project setting
     OIChangedTimer: TIdleTimer;
     FEnvOptsCfgExisted: boolean; // tracks if a local or user specific environment options configuration file existed
     FHintWatchData: record
@@ -1287,7 +1289,8 @@ begin
   if GetParamOptionPlusValue('--fpcsrcdir=',s) then
   begin
     debugln('Hint: (lazarus) [TMainIDE.LoadGlobalOptions] overriding FPCSrcDir with command line: ',s);
-    EnvironmentOptions.ApplyCmdLineFPCSrcDir(s);
+    EnvironmentOptions.SetFPCSrcDirOverride(s);
+    FFPCSrcDirFromCmdLine:=true;
   end;
 
   // translate IDE resourcestrings
@@ -5314,6 +5317,7 @@ begin
   if Restore then
     Project1.RestoreSession
   else begin
+    UpdateProjectFPCSrcDir; // apply per-project FPC source directory
     if Project1.MainUnitID >= 0 then
     begin
       if TProjectIDEOptions(Sender).LclApp then
@@ -5403,6 +5407,31 @@ begin
   if ToolStatus<>itNone then exit;
   IncreaseBuildMacroChangeStamp;
   MainBuildBoss.RescanCompilerDefines(false,true,false,false);
+end;
+
+procedure TMainIDE.UpdateProjectFPCSrcDir;
+// Apply the active project's per-project FPC source directory (stored in the
+// .lpi CustomData) to the effective FPCSrcDir used by CodeTools. Behaves like
+// the --fpcsrcdir= command line option; the command line wins if it was given.
+var
+  NewDir, OldParsed: string;
+begin
+  if FFPCSrcDirFromCmdLine then exit;
+  if Project1<>nil then
+    NewDir:=Project1.CustomData.Values['FPCSrcDir']
+  else
+    NewDir:='';
+  OldParsed:=EnvironmentOptions.GetParsedFPCSourceDirectory;
+  EnvironmentOptions.SetFPCSrcDirOverride(NewDir); // '' restores the configured value
+  if EnvironmentOptions.GetParsedFPCSourceDirectory=OldParsed then exit;
+  // propagate to CodeTools, like Tools -> Rescan FPC Source Directory
+  CodeToolBoss.GlobalValues.Variables[ExternalMacroStart+'FPCSrcDir']:=
+    EnvironmentOptions.GetParsedFPCSourceDirectory;
+  if (MainBuildBoss<>nil) and (ToolStatus=itNone) then
+  begin
+    IncreaseBuildMacroChangeStamp;
+    MainBuildBoss.RescanCompilerDefines(false,true,false,false);
+  end;
 end;
 
 procedure TMainIDE.mnuWindowManagerClicked(Sender: TObject);
@@ -6699,6 +6728,9 @@ begin
   finally
     SourceEditorManager.DecUpdateLock;
   end;
+
+  if Result=mrOk then
+    UpdateProjectFPCSrcDir; // apply per-project FPC source directory
 
   {$push}{$overflowchecks off}
   Inc(BookmarksStamp);

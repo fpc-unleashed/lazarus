@@ -1,0 +1,47 @@
+object ProjectPathsOptionsFrame: TProjectPathsOptionsFrame
+  Left = 0
+  Height = 460
+  Top = 0
+  Width = 536
+  ClientHeight = 460
+  ClientWidth = 536
+  TabOrder = 0
+  DesignLeft = 306
+  DesignTop = 188
+  object FPCSrcDirLabel: TLabel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = Owner
+    Left = 0
+    Height = 17
+    Top = 0
+    Width = 200
+    Caption = 'FPCSrcDirLabel'
+    ParentColor = False
+  end
+  object FPCSrcDirEdit: TEdit
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = FPCSrcDirLabel
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    Left = 0
+    Height = 33
+    Top = 23
+    Width = 536
+    Anchors = [akTop, akLeft, akRight]
+    BorderSpacing.Top = 6
+    TabOrder = 0
+  end
+  object RescanInfoLabel: TLabel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = FPCSrcDirEdit
+    AnchorSideTop.Side = asrBottom
+    Left = 0
+    Height = 17
+    Top = 68
+    Width = 200
+    BorderSpacing.Top = 12
+    Caption = 'RescanInfoLabel'
+    ParentColor = False
+  end
+end

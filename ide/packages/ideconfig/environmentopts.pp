@@ -256,10 +256,12 @@ type
     FFileAge: int64;
     FFileVersion: integer;
     FFileHasChangedOnDisk: boolean;
-    // command-line override (--fpcsrcdir=): active value + original, so the
-    // override drives the running IDE but never leaks into the saved config
-    FCmdLineFPCSrcDir: string;
-    FCmdLineFPCSrcDirOrig: string;
+    // FPCSrcDir override (--fpcsrcdir= or per-project setting): active value,
+    // captured original and a flag. The override drives the running IDE but is
+    // never written back to the config, so the genuine value stays preserved.
+    FFPCSrcDirOverride: string;
+    FFPCSrcDirOrig: string;
+    FFPCSrcDirOrigSet: boolean;
     FMaxExtToolsInParallel: integer;
     FOldLazarusVersion: string;
     FStarDirectoryExcludes: string;
@@ -395,7 +397,7 @@ type
     destructor Destroy; override;
     procedure Load(OnlyDesktop: boolean);
     procedure Save(OnlyDesktop: boolean);
-    procedure ApplyCmdLineFPCSrcDir(const ADir: string);
+    procedure SetFPCSrcDirOverride(const ADir: string);
     property IsGlobalMode: TStrToBoolEvent read FIsGlobalMode write FIsGlobalMode;
     property Filename: string read FFilename write SetFilename;
     function GetDefaultConfigFilename: string;
@@ -1347,14 +1349,14 @@ begin
 
     if not OnlyDesktop then
     begin
-      // keep the cmd-line FPCSrcDir override out of the persisted config
-      if FCmdLineFPCSrcDir<>'' then
-        SetParseValue(eopFPCSourceDirectory,FCmdLineFPCSrcDirOrig);
+      // keep the FPCSrcDir override out of the persisted config
+      if FFPCSrcDirOverride<>'' then
+        SetParseValue(eopFPCSourceDirectory,FFPCSrcDirOrig);
       try
         SaveNonDesktop(Path);
       finally
-        if FCmdLineFPCSrcDir<>'' then
-          SetParseValue(eopFPCSourceDirectory,FCmdLineFPCSrcDir);
+        if FFPCSrcDirOverride<>'' then
+          SetParseValue(eopFPCSourceDirectory,FFPCSrcDirOverride);
       end;
     end;
 
@@ -1694,11 +1696,19 @@ begin
   SetParseValue(eopFPCSourceDirectory,AValue);
 end;
 
-procedure TEnvironmentOptions.ApplyCmdLineFPCSrcDir(const ADir: string);
+procedure TEnvironmentOptions.SetFPCSrcDirOverride(const ADir: string);
 begin
-  FCmdLineFPCSrcDirOrig:=FPCSourceDirectory;
-  FCmdLineFPCSrcDir:=ADir;
-  SetParseValue(eopFPCSourceDirectory,ADir);
+  // capture the genuine configured value once, before the first override
+  if (ADir<>'') and (not FFPCSrcDirOrigSet) then
+  begin
+    FFPCSrcDirOrig:=GetFPCSourceDirectory;
+    FFPCSrcDirOrigSet:=true;
+  end;
+  FFPCSrcDirOverride:=ADir;
+  if ADir<>'' then
+    SetParseValue(eopFPCSourceDirectory,ADir)
+  else if FFPCSrcDirOrigSet then
+    SetParseValue(eopFPCSourceDirectory,FFPCSrcDirOrig);
 end;
 
 procedure TEnvironmentOptions.SetCompilerFilename(const AValue: string);

@@ -309,6 +309,7 @@ begin
     P.Sources.AddSrc('frames/project_i18n_options.pas');
     P.Sources.AddSrc('frames/project_lazdoc_options.pas');
     P.Sources.AddSrc('frames/project_misc_options.pas');
+    P.Sources.AddSrc('frames/project_paths_options.pas');
     P.Sources.AddSrc('frames/project_save_options.pas');
     P.Sources.AddSrc('frames/project_versioninfo_options.pas');
     P.Sources.AddSrc('frames/window_options.pas');
