@@ -25,6 +25,8 @@ type
   TCompilerPathOptionsFrame = class(TAbstractIDEOptionsEditor)
     DebugPathEdit: TEdit;
     DebugPathLabel: TLabel;
+    RTLPathEdit: TEdit;
+    RTLPathLabel: TLabel;
     IncludeFilesEdit: TEdit;
     IncludeFilesLabel: TLabel;
     LibrariesEdit: TEdit;
@@ -48,6 +50,7 @@ type
     OtherSourcesPathEditBtn: TPathEditorButton;
     LibrariesPathEditBtn: TPathEditorButton;
     btnUnitOutputDir: TButton;
+    btnRTLPath: TButton;
     DebugPathEditBtn: TPathEditorButton;
     btnShowOptions: TBitBtn;
     btnCheck: TBitBtn;
@@ -487,6 +490,11 @@ begin
       OpenDialog.Title := lisUnitOutputDirectory;
       OpenDialog.Options := OpenDialog.Options + [ofPathMustExist];
     end
+    else if Sender = btnRTLPath then
+    begin
+      OpenDialog.Title := 'RTL path';
+      OpenDialog.Options := OpenDialog.Options + [ofPathMustExist];
+    end
     else
       Exit;
     OpenDialog.Filename := ExtractFilename(DefaultFilename);
@@ -496,7 +504,9 @@ begin
       OpenDialog.InitialDir := FCompilerOpts.BaseDirectory;
     if OpenDialog.Execute then
       if Sender = btnUnitOutputDir then
-        UnitOutputDirEdit.Text := OpenDialog.Filename;
+        UnitOutputDirEdit.Text := OpenDialog.Filename
+      else if Sender = btnRTLPath then
+        RTLPathEdit.Text := OpenDialog.Filename;
   finally
     OpenDialog.Free;
   end;
@@ -659,6 +669,27 @@ begin
 
   {------------------------------------------------------------}
 
+  RTLPathLabel.Caption := 'RTL path (--rtl):';
+  RTLPathEdit.Hint := 'Passed to the compiler as --rtl=<path>. Macros like $(TargetCPU) are expanded.';
+  RTLPathEdit.ShowHint := True;
+  btnRTLPath := TButton.Create(Self);
+  with btnRTLPath do
+  begin
+    Name := 'btnRTLPath';
+    Caption := '...';
+    Parent := Self;
+    TabOrder := 15;
+    Anchors := [akRight, akTop, akBottom];
+    AnchorParallel(akTop, 0, RTLPathEdit);
+    AnchorParallel(akBottom, 0, RTLPathEdit);
+    AnchorParallel(akRight, 0, Self);
+    Width := Height;
+    OnClick := @FileBrowseBtnClick;
+  end;
+  RTLPathEdit.AnchorToNeighbour(akRight, 0, btnRTLPath);
+
+  {------------------------------------------------------------}
+
   // register special buttons in the dialog itself
   btnShowOptions := CreateButton(dlgCOShowOptions);
   IDEImages.AssignImage(btnShowOptions, 'menu_compiler_options');
@@ -707,11 +738,18 @@ begin
     ProjTargetApplyConventionsCheckBox.Checked:=ProjOpts.TargetFilenameApplyConventions;
     ProjTargetApplyConventionsCheckBox.Visible:=true;
     UpdateTargetFileLabel;
+    RTLPathLabel.Visible:=true;
+    RTLPathEdit.Visible:=true;
+    btnRTLPath.Visible:=true;
+    RTLPathEdit.Text:=ProjOpts.RTLPath;
   end else begin
     FHasProjectCompilerOpts:=False;
     ProjTargetFileEdit.Visible:=false;
     ProjTargetFileLabel.Visible:=false;
     ProjTargetApplyConventionsCheckBox.Visible:=false;
+    RTLPathLabel.Visible:=false;
+    RTLPathEdit.Visible:=false;
+    btnRTLPath.Visible:=false;
   end;
 
   SetPathTextAndHint(FCompilerOpts.OtherUnitFiles, OtherUnitsEdit);
@@ -733,6 +771,7 @@ begin
     ProjCompOpts.TargetFilename:=ProjTargetFileEdit.Text;
     ProjCompOpts.TargetFilenameApplyConventions:=ProjTargetApplyConventionsCheckBox.Checked;
     ProjCompOpts.LazProject.UseAsDefault := chkUseAsDefault.Checked;
+    ProjCompOpts.RTLPath := RTLPathEdit.Text;
   end;
 
   with AOptions as TBaseCompilerOptions do

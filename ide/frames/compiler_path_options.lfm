@@ -228,4 +228,34 @@ object CompilerPathOptionsFrame: TCompilerPathOptionsFrame
     ShowHint = True
     TabOrder = 5
   end
+  object RTLPathLabel: TLabel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = DebugPathEdit
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Side = asrBottom
+    Left = 0
+    Height = 15
+    Top = 327
+    Width = 72
+    BorderSpacing.Top = 6
+    Caption = 'RTLPathLabel'
+    ParentColor = False
+  end
+  object RTLPathEdit: TEdit
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = RTLPathLabel
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    Left = 0
+    Height = 23
+    Top = 342
+    Width = 509
+    Anchors = [akTop, akLeft, akRight]
+    BorderSpacing.Bottom = 6
+    ParentShowHint = False
+    ShowHint = True
+    TabOrder = 8
+    Text = 'RTLPathEdit'
+  end
 end
