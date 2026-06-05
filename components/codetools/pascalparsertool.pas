@@ -175,6 +175,7 @@ type
     // type/var/const/resourcestring
     function KeyWordFuncType: boolean;
     function KeyWordFuncVar: boolean;
+    function KeyWordFuncStatic: boolean;
     function KeyWordFuncConst: boolean;
     function KeyWordFuncResourceString: boolean;
     function KeyWordFuncExports: boolean;
@@ -449,6 +450,7 @@ begin
     Add('TYPE',@KeyWordFuncType);
     Add('VAR',@KeyWordFuncVar);
     Add('THREADVAR',@KeyWordFuncVar);
+    Add('STATIC',@KeyWordFuncStatic);
     Add('CONST',@KeyWordFuncConst);
     Add('RESOURCESTRING',@KeyWordFuncResourceString);
     Add('EXPORTS',@KeyWordFuncExports);
@@ -2032,6 +2034,14 @@ begin
                              Src,CurPos.StartPos,CurPos.EndPos-CurPos.StartPos);
     end else
       IsSpecifier:=false;
+    // unleashed staticsection: in a method body `static` after the header
+    // opens a static declaration section, not a method directive (the
+    // directive only applies to the declaration inside the class body) -
+    // yield it to the section parser
+    if IsSpecifier and UpAtomIs('STATIC')
+    and (cmsStaticSection in Scanner.CompilerModeSwitches)
+    and (pphIsMethodBody in ParseAttr) then
+      IsSpecifier:=false;
     if not IsSpecifier then begin
       // current atom does not belong to procedure/method declaration
       UndoReadNextAtom; // unread unknown atom
@@ -3293,6 +3303,13 @@ begin
       ReadWithStatement(true,CreateNodes);
     end else if UpAtomIs('VAR')
     and (BlockType in [ebtBegin,ebtTry,ebtRepeat]) then begin
+      ReadInlineVarDeclaration(CreateNodes);
+    end else if UpAtomIs('STATIC')
+    and (BlockType in [ebtBegin,ebtTry,ebtRepeat])
+    and (cmsInlineStatic in Scanner.CompilerModeSwitches) then begin
+      // unleashed inline-static: shares the post-keyword syntax with inline-var
+      // (`static name [: T] [:= expr];`); reuse the inline-var reader so the
+      // variable is registered in scope the same way
       ReadInlineVarDeclaration(CreateNodes);
     end else if UpAtomIs('ON') and (BlockType=ebtTry)
     and (TryType=ttExcept) then begin
@@ -4605,6 +4622,91 @@ begin
       end;
       // read type
       ReadVariableType;
+    end else if (CurPos.Flag=cafEdgedBracketOpen) and AllowAttributes then begin
+      ReadAttribute;
+    end else begin
+      UndoReadNextAtom;
+      break;
+    end;
+  until false;
+  CurNode.EndPos:=CurPos.EndPos;
+  EndChildNode;
+  FixLastAttributes;
+  Result:=true;
+end;
+
+function TPascalParserTool.KeyWordFuncStatic: boolean;
+{ unleashed staticsection: writeable typed-const-style declarations at the top
+  of a function/procedure body. Modelled as ctnVarSection so identifier
+  completion treats the entries like locals.
+
+  examples:
+
+    procedure Foo;
+    static
+      x: Integer;             // zero-init
+      y: Integer = 42;        // explicit value
+      a, b: Integer;          // multi-name
+      a, b: Integer = 5;      // multi-name with shared init
+      greet := 'hello';       // type inference (single name)
+    begin
+    end;
+}
+var
+  LastIdentifierEnd: LongInt;
+  NameCount: integer;
+begin
+  // outside the staticsection modeswitch, `static` here is unexpected
+  if not (cmsStaticSection in Scanner.CompilerModeSwitches) then
+    SaveRaiseUnexpectedKeyWord(20260605120001);
+  // only legal inside a function/procedure body
+  if (CurNode=nil) or (CurNode.Desc<>ctnProcedure) then
+    SaveRaiseUnexpectedKeyWord(20260605120002);
+  CreateChildNode;
+  CurNode.Desc:=ctnVarSection;
+  repeat
+    ReadNextAtom;
+    if AtomIsIdentifier then begin
+      CreateChildNode;
+      CurNode.Desc:=ctnVarDefinition;
+      LastIdentifierEnd:=CurPos.EndPos;
+      NameCount:=1;
+      ReadNextAtom;
+      while (CurPos.Flag=cafComma) do begin
+        CurNode.EndPos:=LastIdentifierEnd;
+        EndChildNode;
+        ReadNextAtom;
+        AtomIsIdentifierSaveE(20260605120003);
+        CreateChildNode;
+        CurNode.Desc:=ctnVarDefinition;
+        LastIdentifierEnd:=CurPos.EndPos;
+        Inc(NameCount);
+        ReadNextAtom;
+      end;
+      if CurPos.Flag=cafAssignment then begin
+        // `name := expr` type inference; only single name allowed
+        if NameCount>1 then
+          SaveRaiseCharExpectedButAtomFound(20260605120004,':');
+        // skip the initializer expression until ';'
+        repeat
+          ReadNextAtom;
+          if CurPos.StartPos>SrcLen then break;
+          if CurPos.Flag=cafSemicolon then begin
+            UndoReadNextAtom;
+            break;
+          end;
+          if CurPos.Flag in [cafRoundBracketOpen,cafEdgedBracketOpen] then
+            ReadTilBracketClose(true);
+        until false;
+        CurNode.EndPos:=CurPos.EndPos;
+        EndChildNode;
+      end else if CurPos.Flag=cafColon then begin
+        // `name [, ...] : Type [= Value]` -- same shape as a var-section entry,
+        // ReadVariableType already accepts the optional `= Value` when parent
+        // is ctnVarSection under a ctnProcedure
+        ReadVariableType;
+      end else
+        SaveRaiseCharExpectedButAtomFound(20260605120005,':');
     end else if (CurPos.Flag=cafEdgedBracketOpen) and AllowAttributes then begin
       ReadAttribute;
     end else begin

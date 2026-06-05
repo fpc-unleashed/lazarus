@@ -2377,6 +2377,8 @@ begin
         Add('begin');
         Add('type');
         Add('var');
+        if cmsStaticSection in Scanner.CompilerModeSwitches then
+          Add('static');
         Add('const');
         Add('label');
         Add('procedure');

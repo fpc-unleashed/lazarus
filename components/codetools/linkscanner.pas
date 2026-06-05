@@ -234,6 +234,8 @@ type
     cmsImplicitGenerics,   { Delphi-style generic syntax: 'generic'/'specialize' keywords optional, <T> allowed }
     cmsStripRtti,          { strip type-name strings from RTTI/VMT (unleashed) }
     cmsComposableRecords,  { record composition: union, `embed`, inline anon record, per-field sizing }
+    cmsStaticSection,      { allow `static` declaration section in function/procedure bodies }
+    cmsInlineStatic,       { allow `static x := ...` inline declarations inside statement blocks }
 
     // not yet in FPC, supported by pas2js:
     cmsExternalClass,      { pas2js: allow  class external [pkgname] name [symbol] }
@@ -287,7 +289,7 @@ const
      cmsAdvancedRecords,cmsPrefixedAttributes,cmsMultiHelpers,
      cmsFunctionReferences,cmsAnonymousFunctions,cmsImplicitGenerics,
      cmsStatementExpressions,cmsArrayEquality,cmsInlineVars,cmsTuples,
-     cmsComposableRecords,cmsMultiLineStrings]
+     cmsComposableRecords,cmsMultiLineStrings,cmsStaticSection,cmsInlineStatic]
     );
   cmAllModesWithGeneric = [cmDELPHI,cmDELPHIUNICODE,cmOBJFPC,cmUnleashed];
   Pas2jsFixedModeswitches = [cmsArray2dynarray,cmsArrayOperators,
@@ -345,6 +347,8 @@ const
     'IMPLICITGENERICS',
     'STRIPRTTI',
     'COMPOSABLERECORDS',
+    'STATICSECTION',
+    'INLINESTATIC',
     // not yet in FPC, supported by pas2js:
     'EXTERNALCLASS',
     'IGNOREATTRIBUTES',
