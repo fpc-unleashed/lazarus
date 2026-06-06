@@ -6321,6 +6321,43 @@ begin
       if Result.Node.Desc=ctnProcedureHead then begin
         break;
       end else
+      if (Result.Node.Desc=ctnTypeOfExpr) then begin
+        // unleashed: `Type(expr)` resolves to the static type of expr.
+        // expr lives in the source between the parens; resolve it via the
+        // expression-type machinery and continue with the resulting node.
+        if Result.Tool<>Self then begin
+          Result:=Result.Tool.FindBaseTypeOfNode(Params,Result.Node,AliasType,NodeStack);
+          break;
+        end;
+        MoveCursorToCleanPos(Result.Node.StartPos);
+        ReadNextAtom; // 'Type'
+        ReadNextAtom; // '('
+        if (CurPos.Flag<>cafRoundBracketOpen) then
+          break;
+        OldPos:=CurPos.EndPos; // position right after '('
+        if not ReadTilBracketClose(false) then
+          break;
+        TestContext.Tool:=Self;
+        TestContext.Node:=Result.Node;
+        try
+          Params.Save(OldInput);
+          Params.Flags:=[fdfSearchInParentNodes,fdfSearchInAncestors,
+                         fdfExceptionOnNotFound]
+                        +(fdfGlobals*Params.Flags);
+          Params.ContextNode:=Result.Node.Parent;
+          if Params.ContextNode<>nil then
+            with FindExpressionTypeOfTerm(OldPos,CurPos.StartPos,Params,false) do
+              if Context.Node<>nil then begin
+                Result.Tool:=Context.Tool;
+                Result.Node:=Context.Node;
+                TestContext.Node:=nil;
+              end;
+        finally
+          Params.Load(OldInput,true);
+        end;
+        if TestContext.Node<>nil then
+          break; // unresolved or predefined type, stop here
+      end else
       if (Result.Node.Desc=ctnTypeType) then begin
         if fdfTypeType in Params.Flags then
           break; // the type node is wanted, not its real type

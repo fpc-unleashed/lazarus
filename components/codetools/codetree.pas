@@ -165,6 +165,9 @@ const
   ctnHintModifier       =122; // deprecated, platform, unimplemented, library, experimental
   ctnAttribute          =123; // children are ctnAttribParam
   ctnAttribParam        =124; // 1st child: ctnIdentifier, optional 2nd: ctnParamsRound
+  ctnTypeOfExpr         =125; // unleashed `Type(expr)` intrinsic; node range covers
+                              // the entire `Type(...)` construct, the parenthesised
+                              // expression is recovered from Src between `(` and `)`
 
   ctnUser               =1000; // user constants start here
 
@@ -204,7 +207,8 @@ const
       ctnProcedureType,ctnReferenceTo,
       ctnSetType,ctnRangeType,ctnEnumerationType,
       ctnLabel,ctnTypeType,ctnFileType,ctnPointerType,
-      ctnClassOfType,ctnVariantType];
+      ctnClassOfType,ctnVariantType,
+      ctnTypeOfExpr];
   AllPascalTypeParts = AllPascalTypes
      +[ctnEnumIdentifier,ctnConstant,ctnRecordCase,ctnRecordVariant];
   AllProcTypes = [ctnProcedureType,ctnReferenceTo];
@@ -559,6 +563,7 @@ begin
   ctnHintModifier: Result:='Hint Modifier';
   ctnAttribute: Result:='Attribute';
   ctnAttribParam: Result:='Attribute Param';
+  ctnTypeOfExpr: Result:='Type Of Expression';
   else
     Result:='invalid descriptor ('+IntToStr(Desc)+')';
   end;

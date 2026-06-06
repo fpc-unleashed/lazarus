@@ -6132,7 +6132,7 @@ begin
 end;
 
 function TPascalParserTool.KeyWordFuncTypeType: boolean;
-// 'type identifier'
+// 'type identifier' (strong alias) or unleashed `Type(expr)` intrinsic
 var
   StartPos: Integer;
 begin
@@ -6141,6 +6141,22 @@ begin
   if UpAtomIs('HELPER') then begin
     UndoReadNextAtom;
     Result := KeyWordFuncTypeClass;
+  end else
+  if (CurPos.Flag=cafRoundBracketOpen)
+  and (Scanner.CompilerMode=cmUnleashed) then
+  begin
+    { unleashed Type(expr): the parenthesised expression is the operand whose
+      static type the intrinsic yields. body is not parsed into the tree, it
+      is preserved as a text range and resolved on demand by the find-
+      declaration resolver. }
+    CreateChildNode;
+    CurNode.StartPos:=StartPos;
+    CurNode.Desc:=ctnTypeOfExpr;
+    ReadTilBracketClose(true);
+    ReadNextAtom;
+    CurNode.EndPos:=CurPos.StartPos;
+    EndChildNode;
+    Result:=true;
   end else
   begin
     CreateChildNode;
