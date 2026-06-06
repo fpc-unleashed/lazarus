@@ -3103,13 +3103,49 @@ var
   tfb: TPascalCodeFoldBlockType;
 begin
   tfb := TopPascalCodeFoldBlockType;
-  if KeyCompU('STATIC') and (tfb in [cfbtClass, cfbtClassSection, cfbtRecord, cfbtClassConstBlock, cfbtClassTypeBlock]) and
-     (fRange * [rsAfterEqualOrColon, rsInProcHeader, rsProperty] = []) and
-     (fRange * [rsAfterClassMembers, rsAfterClassField] <> []) and
-     (PasCodeFoldRange.BracketNestLevel = 0)
-  then begin
-    if rsWasInProcHeader in fRange then fRange := fRange + [rsInProcHeader]; // there may be inline, noinline, overload, message, cdecl
-    Result := tkModifier;
+  if KeyCompU('STATIC') then begin
+    // class member directive: `class procedure Foo; static;` inside a class
+    // or record declaration body
+    if (tfb in [cfbtClass, cfbtClassSection, cfbtRecord, cfbtClassConstBlock, cfbtClassTypeBlock]) and
+       (fRange * [rsAfterEqualOrColon, rsInProcHeader, rsProperty] = []) and
+       (fRange * [rsAfterClassMembers, rsAfterClassField] <> []) and
+       (PasCodeFoldRange.BracketNestLevel = 0)
+    then begin
+      if rsWasInProcHeader in fRange then fRange := fRange + [rsInProcHeader]; // there may be inline, noinline, overload, message, cdecl
+      Result := tkModifier;
+      exit;
+    end;
+    // staticsection: top-of-body `static <decls>` block, same mechanics as `var`
+    // inlinestatic: `static name := expr` inline declaration inside a statement
+    if (PasCodeFoldRange.BracketNestLevel = 0) and
+       (fRange * [rsInProcHeader, rsProperty] = [])
+    then begin
+      if tfb in cfbtVarConstTypeLabelExt then begin
+        EndPascalCodeFoldBlockLastLine;
+        tfb := TopPascalCodeFoldBlockType;
+      end;
+      if tfb in [cfbtProcedure, cfbtAnonymousProcedure] then begin
+        StartPascalCodeFoldBlock(cfbtLocalVarBlock);
+        FNextTokenState := tsAfterVarConstType;
+        fRange := fRange - [rsProperty, rsInPropertyNameOrIndex,
+                            rsInProcHeader, rsInProcName, rsInParamDeclaration,
+                            rsInGenericParams, rsInGenericConstraint];
+        PasCodeFoldRange.ResetSpecializeBracketNestLevel;
+        Result := tkKey;
+        exit;
+      end;
+      if tfb in PascalStatementBlocks then begin
+        PasCodeFoldRange.InInlineVarStmt := True;
+        FNextTokenState := tsAfterVarConstType;
+        fRange := fRange - [rsProperty, rsInPropertyNameOrIndex,
+                            rsInProcHeader, rsInProcName, rsInParamDeclaration,
+                            rsInGenericParams, rsInGenericConstraint];
+        PasCodeFoldRange.ResetSpecializeBracketNestLevel;
+        Result := tkKey;
+        exit;
+      end;
+    end;
+    Result := tkIdentifier;
   end
   else
   if IsCallingConventionModifier('WINAPI', tfb) then
