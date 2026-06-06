@@ -3307,6 +3307,18 @@ begin
     end else if UpAtomIs('VAR')
     and (BlockType in [ebtBegin,ebtTry,ebtRepeat]) then begin
       ReadInlineVarDeclaration(CreateNodes);
+    end else if UpAtomIs('TYPE')
+    and (Scanner.CompilerMode=cmUnleashed)
+    and (BlockType in [ebtBegin,ebtTry,ebtRepeat,ebtIf,ebtCase]) then begin
+      // unleashed: Type(expr) intrinsic can appear in expression position
+      // inside a body (e.g. typecast `Type(x)(v)`, `SizeOf(Type(x))`,
+      // assignment `y := Type(x)(v)`). skip the parenthesised body so the
+      // bare `type` keyword is not flagged as an unexpected section header.
+      ReadNextAtom;
+      if CurPos.Flag=cafRoundBracketOpen then
+        ReadTilBracketClose(false)
+      else
+        UndoReadNextAtom;
     end else if UpAtomIs('STATIC')
     and (BlockType in [ebtBegin,ebtTry,ebtRepeat])
     and (cmsInlineStatic in Scanner.CompilerModeSwitches) then begin
