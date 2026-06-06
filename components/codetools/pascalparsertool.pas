@@ -4687,14 +4687,13 @@ begin
         // `name := expr` type inference; only single name allowed
         if NameCount>1 then
           SaveRaiseCharExpectedButAtomFound(20260605120004,':');
-        // skip the initializer expression until ';'
+        // skip the initializer expression up to the terminating ';';
+        // leave cursor on the ';' so the outer loop's ReadNextAtom advances
+        // to the next entry's first atom (same convention as ReadVariableType)
         repeat
           ReadNextAtom;
           if CurPos.StartPos>SrcLen then break;
-          if CurPos.Flag=cafSemicolon then begin
-            UndoReadNextAtom;
-            break;
-          end;
+          if CurPos.Flag=cafSemicolon then break;
           if CurPos.Flag in [cafRoundBracketOpen,cafEdgedBracketOpen] then
             ReadTilBracketClose(true);
         until false;
