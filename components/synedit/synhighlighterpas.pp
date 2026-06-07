@@ -2637,9 +2637,10 @@ begin
   end
   else
   if KeyCompU('MATCH') and
-     (TopPascalCodeFoldBlockType in PascalStatementBlocks + [cfbtUnitSection]) and
-     (PasCodeFoldRange.BracketNestLevel = 0)
+     (TopPascalCodeFoldBlockType in PascalStatementBlocks + [cfbtUnitSection])
   then begin
+    // match-as-expression can sit inside parentheses (a call argument like
+    // writeln(match c: v; _: d; end)), so do not require BracketNestLevel=0
     Result := tkKey;
     FNextTokenState := tsAfterMatch;
     DoCodeBlockStatement;
