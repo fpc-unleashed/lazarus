@@ -697,6 +697,7 @@ type
     function SetCDirective: boolean;
     function IncludeDirective: boolean;
     function IncludePathDirective: boolean;
+    function IncFileDirective: boolean;
     function ShortSwitchDirective: boolean;
     function ReadNextSwitchDirective: boolean;
     function LongSwitchDirective: boolean;
@@ -3417,7 +3418,8 @@ begin
           end;
         'N':
           if CompareIdentifiers(p,'INCLUDE')=0 then Result:=IncludeDirective
-          else if CompareIdentifiers(p,'INCLUDEPATH')=0 then Result:=IncludePathDirective;
+          else if CompareIdentifiers(p,'INCLUDEPATH')=0 then Result:=IncludePathDirective
+          else if CompareIdentifiers(p,'INCFILE')=0 then Result:=IncFileDirective;
         'O': if CompareIdentifiers(p,'IOCHECKS')=0 then Result:=LongSwitchDirective;
         end;
       'L':
@@ -4098,6 +4100,51 @@ begin
     end;
   end;
   //DebugLn('[TLinkScanner.IncludeDirective] END ',CommentEndPos,',',SrcPos,',',SrcLen);
+end;
+
+function TLinkScanner.IncFileDirective: boolean;
+// {$incfile NAME 'path'} - FPC reads 'path' and synthesizes
+//   `const NAME: String = '...';` at the directive site. For CodeTools
+//   the symbol matters but not the bytes, so the file is not opened;
+//   we inject `const NAME:String='';` into the cleaned source so that
+//   identifier lookups for NAME resolve.
+var
+  ContentStr: string;
+  VarName: string;
+  Injection: string;
+  i, j: integer;
+begin
+  Result:=true;
+  if StoreDirectives then
+    FDirectives[FDirectivesCount-1].Kind:=lsdkInclude;
+  inc(SrcPos);
+  ContentStr:=copy(Src, SrcPos, CommentInnerEndPos-SrcPos);
+  // skip whitespace, parse a Pascal identifier as the variable name
+  i:=1;
+  while (i<=length(ContentStr)) and (ContentStr[i] in [' ', #9]) do inc(i);
+  if (i<=length(ContentStr)) and (ContentStr[i] in ['A'..'Z','a'..'z','_']) then
+  begin
+    j:=i+1;
+    while (j<=length(ContentStr)) and
+          (ContentStr[j] in ['A'..'Z','a'..'z','_','0'..'9']) do
+      inc(j);
+    VarName:=copy(ContentStr, i, j-i);
+  end
+  else
+    VarName:='';
+  UpdateCleanedSource(CommentStartPos-1);
+  if VarName<>'' then begin
+    Injection:='const '+VarName+':String='''';';
+    if length(Injection)>length(FCleanedSrc)-CleanedLen then
+      SetLength(FCleanedSrc, length(FCleanedSrc)+length(Injection)+1024);
+    AddLink(1, nil, slkCompilerString);
+    for i:=1 to length(Injection) do begin
+      inc(CleanedLen);
+      FCleanedSrc[CleanedLen]:=Injection[i];
+    end;
+  end;
+  CopiedSrcPos:=CommentEndPos-1;
+  AddLink(CommentEndPos, Code);
 end;
 
 function TLinkScanner.IncludePathDirective: boolean;
