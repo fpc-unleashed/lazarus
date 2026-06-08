@@ -971,6 +971,7 @@ begin
     Add('HARDFLOAT'    ,{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('IOCHECK'      ,{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('LOCAL'        ,{$ifdef FPC}@{$endif}AllwaysTrue);
+    Add('ZEROINIT'     ,{$ifdef FPC}@{$endif}AllwaysTrue);
   end;
 
   IsKeyWordProcedureSpecifier:=TKeyWordFunctionList.Create('IsKeyWordProcedureSpecifier');
@@ -1022,6 +1023,7 @@ begin
     Add('VECTORCALL'   ,{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('WEAKEXTERNAL' ,{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('WINAPI'       ,{$ifdef FPC}@{$endif}AllwaysTrue);
+    Add('ZEROINIT'     ,{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('['            ,{$ifdef FPC}@{$endif}AllwaysTrue);
   end;
   
