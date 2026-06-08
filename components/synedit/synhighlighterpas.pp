@@ -945,6 +945,7 @@ type
     function Func108: TtkTokenKind; // "operator"
     function Func111: TtkTokenKind; // "vectorcall"
     function Func112: TtkTokenKind; // "requires"
+    function Func116: TtkTokenKind; // "zeroinit"
     function Func117: TtkTokenKind;
     function Func122: TtkTokenKind; // "otherwise"
     function Func124: TtkTokenKind;
@@ -1525,6 +1526,7 @@ begin
   fIdentFuncTable[108] := @Func108; // "operator"
   fIdentFuncTable[111] := @Func111; // "vectorcall"
   fIdentFuncTable[112] := @Func112; // "requires"
+  fIdentFuncTable[116] := @Func116; // "zeroinit"
   fIdentFuncTable[117] := @Func117;
   fIdentFuncTable[122] := @Func122;
   fIdentFuncTable[124] := @Func124;
@@ -3826,6 +3828,17 @@ function TSynPasSyn.Func112: TtkTokenKind;
 begin
   if KeyCompU('REQUIRES') and (TopPascalCodeFoldBlockType=cfbtPackage) then
     Result := tkKey
+  else
+    Result := tkIdentifier;
+end;
+
+function TSynPasSyn.Func116: TtkTokenKind;
+begin
+  if IsProcModifier and KeyCompU('ZEROINIT') then begin
+    Result := tkModifier;
+    FRange := FRange + [rsInProcHeader];
+    FNextTokenState := tsAtExpressionEnd;
+  end
   else
     Result := tkIdentifier;
 end;

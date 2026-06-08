@@ -278,6 +278,7 @@ type
     psVarargs,
     psVectorCall,
     psVirtual,
+    psZeroInit,
     psEdgedBracket
     );
   TAllProcedureSpecifiers = set of TProcedureSpecifier;
@@ -320,6 +321,7 @@ const
       'VARARGS',
       'VECTORCALL',
       'VIRTUAL',
+      'ZEROINIT',
       '['
     );
 
