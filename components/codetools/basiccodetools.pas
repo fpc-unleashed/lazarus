@@ -436,10 +436,12 @@ procedure SkipPascalInterpolatedString(var p: PChar; NestedComments: Boolean);
 //                newline/EOF on a malformed literal, matching compiler behaviour).
 //
 // Syntax (modeswitch INTERPOLATEDSTRINGS, default in `{$mode unleashed}`):
-//   $'literal text {expr[ as 'fmt']} more text'
+//   $'literal text {expr[:mask]} more text'
 //   - `''` inside the string part  = literal apostrophe
 //   - `{{` / `}}` inside the string = literal brace
 //   - `{` starts an expression; `}` at the top level of that expression ends it
+//   - a `:` at the top level of an expression starts a raw format mask that
+//     runs verbatim to the closing `}` (it is not Pascal, so it is skipped)
 //   - expressions may span multiple lines and contain nested strings, comments,
 //     balanced `(...)`/`[...]` and nested `$'...'` interpolations
 //   - string parts themselves may NOT cross a line
@@ -521,7 +523,9 @@ procedure SkipPascalInterpolatedString(var p: PChar; NestedComments: Boolean);
 
   procedure SkipInterpExpr;
   // p is just past the expression-opening `{`; advance past the matching `}`
+  var PLvl: Integer;
   begin
+    PLvl:=0;
     while p^<>#0 do begin
       case p^ of
         '}':
@@ -529,13 +533,34 @@ procedure SkipPascalInterpolatedString(var p: PChar; NestedComments: Boolean);
             inc(p);
             exit;
           end;
+        ':':
+          if PLvl=0 then begin
+            // `{expr:mask}` - mask runs raw to the closing `}`
+            while not (p^ in [#0,'}']) do inc(p);
+          end else
+            inc(p);
         '{':
           SkipCurlyComment;
         '(':
           if p[1]='*' then
             SkipRoundComment
-          else
+          else begin
+            inc(PLvl); inc(p);
+          end;
+        ')':
+          begin
+            if PLvl>0 then dec(PLvl);
             inc(p);
+          end;
+        '[':
+          begin
+            inc(PLvl); inc(p);
+          end;
+        ']':
+          begin
+            if PLvl>0 then dec(PLvl);
+            inc(p);
+          end;
         '/':
           if p[1]='/' then begin
             while not (p^ in [#0,#10,#13]) do inc(p);

@@ -1015,6 +1015,7 @@ type
     procedure InterpStringPartProc;
     procedure InterpExprOpenProc;
     procedure InterpExprCloseProc;
+    procedure InterpMaskProc;
     procedure BinaryProc;
     procedure OctalProc;
     procedure LFProc;
@@ -5423,6 +5424,19 @@ begin
   FInInterpString := True; // `}` returns to the enclosing string part
 end;
 
+procedure TSynPasSyn.InterpMaskProc;
+// `{expr:mask}` - the `:` and the raw mask text up to the closing `}` (or
+// end of line) are emitted as one interpolation-string token. The mask is
+// not Pascal, so it is not tokenised; `}` is left for InterpExprCloseProc.
+begin
+  FTokenID := tkString;
+  if reStringInterp in FRequiredStates then
+    FCustomCommentTokenMarkup := FPasAttributesMod[attribStringInterp];
+  inc(Run); // consume `:`
+  while not (LinePtr[Run] in [#0, #10, #13, '}']) do
+    inc(Run);
+end;
+
 procedure TSynPasSyn.BinaryProc;
 begin
   inc(Run);
@@ -6612,6 +6626,10 @@ begin
       if (FInterpExprDepth > 0) and (LinePtr[Run] = '}')
          and (LinePtr[Run + 1] <> '}') then begin
         InterpExprCloseProc;
+        exit;
+      end;
+      if (FInterpExprDepth > 0) and (LinePtr[Run] = ':') then begin
+        InterpMaskProc;
         exit;
       end;
       FOldRange := fRange;
