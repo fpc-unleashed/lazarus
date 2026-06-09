@@ -7435,16 +7435,35 @@ var
   procedure ScanInterpExpr;
   // StartPos is just past `{` of an interpolated expression; advance past the
   // matching `}`, calling ReadIdentifier for identifiers inside the expression
-  // (and its comments) so rename / find-references reach them.
+  // (and its comments) so rename / find-references reach them. A top-level `:`
+  // starts a raw `{expr:mask}` format mask which is not Pascal and is skipped.
   var
     Lvl: Integer;
+    PLvl: Integer;
   begin
+    PLvl:=0;
     while StartPos<=MaxPos do begin
       case Src[StartPos] of
       '}':
         begin
           inc(StartPos);
           exit;
+        end;
+      ':':
+        if PLvl=0 then begin
+          // raw format mask - skip to the closing `}` without visiting it
+          while (StartPos<=MaxPos) and (Src[StartPos]<>'}') do inc(StartPos);
+        end else
+          inc(StartPos);
+      ')',']':
+        begin
+          if PLvl>0 then dec(PLvl);
+          inc(StartPos);
+        end;
+      '[':
+        begin
+          inc(PLvl);
+          inc(StartPos);
         end;
       '{':
         begin
@@ -7489,8 +7508,10 @@ var
             end;
             inc(StartPos);
           end;
-        end else
+        end else begin
+          inc(PLvl);
           inc(StartPos);
+        end;
       '/':
         if (StartPos<MaxPos) and (Src[StartPos+1]='/') then begin
           // `//` line comment
