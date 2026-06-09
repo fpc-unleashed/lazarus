@@ -138,6 +138,7 @@ resourcestring
   SYNS_AttrStringHash           =  'Ordinal Char (Hash)';
   SYNS_AttrStringCaret          =  'Ctrl Char (Caret)';
   SYNS_AttrStringBacktick       =  'Backtick String';
+  SYNS_AttrStringInterp         =  'Interpolated String';
   SYNS_AttrSymbol               =  'Symbol';
   SYNS_AttrProcedureHeaderName  =  'Procedure header name';
   SYNS_AttrPropertyName            = 'Property name';
@@ -289,6 +290,7 @@ const
   SYNS_XML_AttrStringHash           =  'String_Hash';
   SYNS_XML_AttrStringCaret          =  'String_Caret';
   SYNS_XML_AttrStringBacktick       =  'String_Backtick';
+  SYNS_XML_AttrStringInterp         =  'String_Interp';
   SYNS_XML_AttrSymbol               =  'Symbol';
   SYNS_XML_AttrProcedureHeaderName  =  'Procedure header name';
   SYNS_XML_AttrPropertyName            = 'Property name';

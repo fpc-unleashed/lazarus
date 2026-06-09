@@ -226,6 +226,7 @@ type
     reStringHash,
     reStringCaret,
     reStringBacktick,
+    reStringInterp,
     reCommentSubTokens   // generate stand-alone tokens for each comment (and nested comment) open/close
   );
   TRequiredStates = set of TRequiredState;
@@ -622,6 +623,7 @@ type
     FSpecializeBracketNestLevel: integer;
     FTokenState: TTokenState;
     FInInlineVarStmt: Boolean;
+    FInterpExprDepth: Byte; // open `{expr}` depth inside `$'...'` interpolated strings
     procedure SetBracketNestLevel(AValue: integer); inline;
   public
     procedure Clear; override;
@@ -661,6 +663,7 @@ type
     // set by `var` inside a statement block; cleared by `;` or `:=`
     // so `:` is treated as a type intro and `^T` as a pointer type
     property InInlineVarStmt: Boolean read FInInlineVarStmt write FInInlineVarStmt;
+    property InterpExprDepth: Byte read FInterpExprDepth write FInterpExprDepth;
   end;
 
   TProcTableProc = procedure of object;
@@ -715,6 +718,7 @@ type
       attribStringHash,
       attribStringCaret,
       attribStringBacktick,
+      attribStringInterp,
       attribIDEDirective,
       attribProcedureHeaderName,
       attribPropertyName,
@@ -803,6 +807,8 @@ type
     FStringMultilineMode: TSynPasMultilineStringModes;
     FSynPasRangeInfo: TSynPasRangeInfo;
     FAtLineStart, FAtSlashStart, FHadSlashLastLine, FInString: Boolean; // Line had only spaces or comments sofar
+    FInInterpString: Boolean; // currently scanning a `$'...'` string part (single-line)
+    FInterpExprDepth: Byte;   // number of currently open `{expr}` scopes in interpolated strings (persists across lines)
     fLineLen: integer;
     fProcTable: array[#0..#255] of TProcTableProc;
     Run: LongInt;// current parser postion in LinePtr
@@ -1005,6 +1011,10 @@ type
     procedure DirectiveProc;
     procedure IdentProc;
     procedure HexProc;
+    procedure ScanInterpStringPart;
+    procedure InterpStringPartProc;
+    procedure InterpExprOpenProc;
+    procedure InterpExprCloseProc;
     procedure BinaryProc;
     procedure OctalProc;
     procedure LFProc;
@@ -4551,7 +4561,7 @@ begin
   CreateAttribute(attribStringCaret, TLazEditHighlighterAttributesModifier_Eol, @SYNS_AttrStringCaret, SYNS_XML_AttrStringCaret);
   CreateAttribute(attribStringBacktick, TLazEditHighlighterAttributesModifier_Eol, @SYNS_AttrStringBacktick, SYNS_XML_AttrStringBacktick, [lafPastEOL]);
   FPasAttributesMod[attribStringBacktick].Features:= [lafPastEOL];
-
+  CreateAttribute(attribStringInterp, TLazEditHighlighterAttributesModifier_Eol, @SYNS_AttrStringInterp, SYNS_XML_AttrStringInterp);
 
   CreateAttribute(attribSymbol, TLazEditHighlighterAttributes, @SYNS_AttrSymbol, SYNS_XML_AttrSymbol);
   CreateAttribute(attribProcedureHeaderName, TLazEditHighlighterAttributesModifier, @SYNS_AttrProcedureHeaderName, SYNS_XML_AttrProcedureHeaderName);
@@ -4636,6 +4646,7 @@ begin
   FAtSlashStart := False;
   FHadSlashLastLine := rsSlash in fRange;
   FInString := False;
+  FInInterpString := False;
   FCustomCommentTokenMarkup := nil;
   if not IsCollectingNodeInfo then
     Next;
@@ -5334,12 +5345,82 @@ end;
 procedure TSynPasSyn.HexProc;
 begin
   inc(Run);
+  if LinePtr[Run] = '''' then begin
+    // `$'...'` interpolated string literal opening: emit the leading
+    // string part as tkString, then let subsequent Next calls handle
+    // `{...}` expressions and the closing quote.
+    inc(Run); // consume opening '
+    FTokenID := tkString;
+    if reStringInterp in FRequiredStates then
+      FCustomCommentTokenMarkup := FPasAttributesMod[attribStringInterp];
+    FInInterpString := True;
+    ScanInterpStringPart;
+    exit;
+  end;
   if (IsIntegerChar[LinePtr[Run]]) then begin
     fTokenID := tkNumber;
     while (IsIntegerChar[LinePtr[Run]]) do inc(Run);
   end
   else
     fTokenID := tkSymbol;
+end;
+
+procedure TSynPasSyn.ScanInterpStringPart;
+// Reads characters of a `$'...'` string part up to the next `{`, `}`
+// escape / `'` / `''` escape or end-of-line. Assumes FInInterpString
+// is already True and caller has set the token id.
+begin
+  while not (LinePtr[Run] in [#0, #10, #13]) do begin
+    case LinePtr[Run] of
+      '''':
+        if LinePtr[Run + 1] = '''' then
+          inc(Run, 2) // doubled apostrophe = literal
+        else begin
+          inc(Run);
+          FInInterpString := False;
+          exit;
+        end;
+      '{':
+        if LinePtr[Run + 1] = '{' then
+          inc(Run, 2) // escaped brace
+        else
+          exit; // leave `{` for InterpExprOpenProc
+      '}':
+        if LinePtr[Run + 1] = '}' then
+          inc(Run, 2) // escaped brace
+        else
+          inc(Run); // stray brace - treat as content
+    else
+      inc(Run);
+    end;
+  end;
+  FInInterpString := False; // unterminated at end of line
+end;
+
+procedure TSynPasSyn.InterpStringPartProc;
+begin
+  FTokenID := tkString;
+  if reStringInterp in FRequiredStates then
+    FCustomCommentTokenMarkup := FPasAttributesMod[attribStringInterp];
+  ScanInterpStringPart;
+end;
+
+procedure TSynPasSyn.InterpExprOpenProc;
+begin
+  inc(Run); // consume `{`
+  FTokenID := tkSymbol;
+  FInInterpString := False;
+  if FInterpExprDepth < 255 then
+    inc(FInterpExprDepth);
+end;
+
+procedure TSynPasSyn.InterpExprCloseProc;
+begin
+  inc(Run); // consume `}`
+  FTokenID := tkSymbol;
+  if FInterpExprDepth > 0 then
+    dec(FInterpExprDepth);
+  FInInterpString := True; // `}` returns to the enclosing string part
 end;
 
 procedure TSynPasSyn.BinaryProc;
@@ -6521,6 +6602,18 @@ begin
     #10: LFProc;
     #13: CRProc;
     else
+      if FInInterpString then begin
+        if (LinePtr[Run] = '{') and (LinePtr[Run + 1] <> '{') then
+          InterpExprOpenProc
+        else
+          InterpStringPartProc;
+        exit;
+      end;
+      if (FInterpExprDepth > 0) and (LinePtr[Run] = '}')
+         and (LinePtr[Run + 1] <> '}') then begin
+        InterpExprCloseProc;
+        exit;
+      end;
       FOldRange := fRange;
       FTokenExtraAttribs := FTokenExtraAttribs - [eaPartTokenNotAtStart, eaPartTokenNotAtEnd, eaUnmatchedClosingBracket];
       if rsAnsi in fRange then begin
@@ -7026,6 +7119,7 @@ begin
   PasCodeFoldRange.TokenState := FTokenState;
   PasCodeFoldRange.Mode := FRangeCompilerMode;
   PasCodeFoldRange.ModeSwitches := FRangeModeSwitches;
+  PasCodeFoldRange.InterpExprDepth := FInterpExprDepth;
   // return a fixed copy of the current CodeFoldRange instance
   Result := inherited GetRange;
 end;
@@ -7037,6 +7131,8 @@ begin
   FRangeCompilerMode := PasCodeFoldRange.Mode;
   FRangeModeSwitches := PasCodeFoldRange.ModeSwitches;
   FTokenState := PasCodeFoldRange.TokenState;
+  FInterpExprDepth := PasCodeFoldRange.InterpExprDepth;
+  FInInterpString := False;
   fRange := TRangeStates(Integer(PtrUInt(CodeFoldRange.RangeType)));
   FSynPasRangeInfo := TSynHighlighterPasRangeList(CurrentRanges).PasRangeInfo[LineIndex-1];
 end;
@@ -8605,6 +8701,7 @@ begin
   if FPasAttributesMod[attribStringHash].IsEnabled then Include(FRequiredStates, reStringHash);
   if FPasAttributesMod[attribStringCaret].IsEnabled then Include(FRequiredStates, reStringCaret);
   if FPasAttributesMod[attribStringBacktick].IsEnabled then Include(FRequiredStates, reStringBacktick);
+  if FPasAttributesMod[attribStringInterp].IsEnabled then Include(FRequiredStates, reStringInterp);
 
   //if FPasAttributesMod[attribPasDocKeyWord].IsEnabled then begin
   //end;
@@ -8755,6 +8852,7 @@ begin
   FPasFoldFixLevel := 0;
   FTokenState := tsNone;
   FInInlineVarStmt := False;
+  FInterpExprDepth := 0;
 end;
 
 function TSynPasSynRange.Compare(Range: TLazHighlighterRange): integer;
@@ -8775,6 +8873,7 @@ begin
     FLastLineCodeFoldLevelFix := TSynPasSynRange(Src).FLastLineCodeFoldLevelFix;
     FPasFoldFixLevel := TSynPasSynRange(Src).FPasFoldFixLevel;
     FInInlineVarStmt := TSynPasSynRange(Src).FInInlineVarStmt;
+    FInterpExprDepth := TSynPasSynRange(Src).FInterpExprDepth;
   end;
 end;
 
