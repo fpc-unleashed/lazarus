@@ -7430,6 +7430,169 @@ var
     end;
   end;
   
+  procedure ScanInterpolatedString; forward;
+
+  procedure ScanInterpExpr;
+  // StartPos is just past `{` of an interpolated expression; advance past the
+  // matching `}`, calling ReadIdentifier for identifiers inside the expression
+  // (and its comments) so rename / find-references reach them.
+  var
+    Lvl: Integer;
+  begin
+    while StartPos<=MaxPos do begin
+      case Src[StartPos] of
+      '}':
+        begin
+          inc(StartPos);
+          exit;
+        end;
+      '{':
+        begin
+          // `{...}` comment inside an expression
+          Lvl:=1;
+          inc(StartPos);
+          while StartPos<=MaxPos do begin
+            case Src[StartPos] of
+            '{': if Scanner.NestedComments then inc(Lvl);
+            '}':
+              begin
+                dec(Lvl);
+                if Lvl=0 then begin
+                  inc(StartPos);
+                  break;
+                end;
+              end;
+            'a'..'z','A'..'Z','_','&':
+              begin
+                ReadIdentifier(true);
+                continue;
+              end;
+            end;
+            inc(StartPos);
+          end;
+        end;
+      '(':
+        if (StartPos<MaxPos) and (Src[StartPos+1]='*') then begin
+          // `(*...*)` comment
+          inc(StartPos,2);
+          while StartPos<=MaxPos do begin
+            if (Src[StartPos]='*') and (StartPos<MaxPos) and (Src[StartPos+1]=')') then begin
+              inc(StartPos,2);
+              break;
+            end;
+            case Src[StartPos] of
+            'a'..'z','A'..'Z','_','&':
+              begin
+                ReadIdentifier(true);
+                continue;
+              end;
+            end;
+            inc(StartPos);
+          end;
+        end else
+          inc(StartPos);
+      '/':
+        if (StartPos<MaxPos) and (Src[StartPos+1]='/') then begin
+          // `//` line comment
+          inc(StartPos,2);
+          while (StartPos<=MaxPos) and not (Src[StartPos] in [#10,#13]) do begin
+            case Src[StartPos] of
+            'a'..'z','A'..'Z','_','&':
+              begin
+                ReadIdentifier(true);
+                continue;
+              end;
+            end;
+            inc(StartPos);
+          end;
+        end else
+          inc(StartPos);
+      '''':
+        begin
+          // regular single-quoted string literal (no identifiers inside)
+          inc(StartPos);
+          while StartPos<=MaxPos do begin
+            if Src[StartPos] in [#10,#13] then break;
+            if Src[StartPos]='''' then begin
+              if (StartPos<MaxPos) and (Src[StartPos+1]='''') then
+                inc(StartPos,2)
+              else begin
+                inc(StartPos);
+                break;
+              end;
+            end else
+              inc(StartPos);
+          end;
+        end;
+      '`':
+        begin
+          inc(StartPos);
+          while (StartPos<=MaxPos) and (Src[StartPos]<>'`') do inc(StartPos);
+          if StartPos<=MaxPos then inc(StartPos);
+        end;
+      '$':
+        if (StartPos<MaxPos) and (Src[StartPos+1]='''') then
+          ScanInterpolatedString
+        else begin
+          // hex constant
+          inc(StartPos);
+          while (StartPos<=MaxPos) and IsHexNumberChar[Src[StartPos]] do
+            inc(StartPos);
+        end;
+      '#':
+        begin
+          // char constant #nnn or #$hh
+          inc(StartPos);
+          if (StartPos<=MaxPos) and (Src[StartPos]='$') then begin
+            inc(StartPos);
+            while (StartPos<=MaxPos) and IsHexNumberChar[Src[StartPos]] do
+              inc(StartPos);
+          end else
+            while (StartPos<=MaxPos) and IsNumberChar[Src[StartPos]] do
+              inc(StartPos);
+        end;
+      'a'..'z','A'..'Z','_','&':
+        ReadIdentifier(false);
+      else
+        inc(StartPos);
+      end;
+    end;
+  end;
+
+  procedure ScanInterpolatedString;
+  // StartPos is at `$` of `$'...'`; advance past the closing apostrophe,
+  // descending into `{expr}` bodies so identifiers there are visited.
+  begin
+    inc(StartPos,2); // skip $'
+    while StartPos<=MaxPos do begin
+      case Src[StartPos] of
+      '''':
+        if (StartPos<MaxPos) and (Src[StartPos+1]='''') then
+          inc(StartPos,2) // doubled apostrophe
+        else begin
+          inc(StartPos);
+          exit;
+        end;
+      '{':
+        if (StartPos<MaxPos) and (Src[StartPos+1]='{') then
+          inc(StartPos,2) // escaped brace
+        else begin
+          inc(StartPos);
+          ScanInterpExpr;
+        end;
+      '}':
+        if (StartPos<MaxPos) and (Src[StartPos+1]='}') then
+          inc(StartPos,2) // escaped brace
+        else
+          inc(StartPos);
+      #10,#13:
+        exit; // string parts are single-line
+      else
+        inc(StartPos);
+      end;
+    end;
+  end;
+
   procedure SearchIdentifiers;
   var
     CommentLvl: Integer;
@@ -7536,7 +7699,7 @@ var
         
       'a'..'z','A'..'Z','_','&':
         ReadIdentifier(false);
-        
+
       '''':
         begin
           // skip string constant
@@ -7550,7 +7713,15 @@ var
             end;
           end;
         end;
-        
+
+      '$':
+        if (StartPos<MaxPos) and (Src[StartPos+1]='''') then
+          // descend into `$'...{expr}...'` so identifiers inside the
+          // expression body are visited by rename / find-references
+          ScanInterpolatedString
+        else
+          inc(StartPos);
+
       else
         inc(StartPos);
       end;
