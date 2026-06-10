@@ -1648,6 +1648,30 @@ var
   end;
 
   function FindConflict: boolean;
+
+    function InnermostBeginBlock(Node: TCodeTreeNode): TCodeTreeNode;
+    begin
+      Result:=Node;
+      while (Result<>nil) and (Result.Desc<>ctnBeginBlock) do
+        Result:=Result.Parent;
+    end;
+
+    function NodesInSameOrNestedBeginBlock(A, B: TCodeTreeNode): boolean;
+    var
+      ABlock, BBlock: TCodeTreeNode;
+    begin
+      // inline-vars are block-scoped: a `var x` in one begin..end block does
+      // not actually conflict with a `var y` in a sibling begin..end block.
+      // walk up to each node's innermost ctnBeginBlock and check that one
+      // contains the other.
+      ABlock:=InnermostBeginBlock(A);
+      BBlock:=InnermostBeginBlock(B);
+      if (ABlock=nil) or (BBlock=nil) then exit(true);
+      Result:=(ABlock=BBlock)
+           or BBlock.HasAsParent(ABlock)
+           or ABlock.HasAsParent(BBlock);
+    end;
+
   var
     anItem: TIdentifierListItem;
   begin
@@ -1657,6 +1681,8 @@ var
     if Result then begin
       if iliTemplate in anItem.Flags then exit(False); //template name can be used
       if anItem.Node<>nil then begin
+        if (FNode<>nil) and not NodesInSameOrNestedBeginBlock(anItem.Node, FNode) then
+          exit(False); // declared in a sibling begin..end block, no real conflict
         ErrInfo:= Format(lisIdentifierIsAlreadyUsed2,[FNewIdentifier]);
       end else begin
         if anItem.ResultType='' then
