@@ -6973,9 +6973,21 @@ var
         if TopBlockType(Stack) in [btCaseOf,btMatch] then
           BeginBlock(Stack,btCaseColon,CurPos.StartPos);
       cafSemicolon:
-        while TopBlockType(Stack)
-        in [btCaseColon,btIf,btIfElse,btRoundBracket,btEdgedBracket] do begin
-          if not EndBlockIsOk then exit;
+        begin
+          while TopBlockType(Stack)
+          in [btCaseColon,btIf,btIfElse,btRoundBracket,btEdgedBracket] do begin
+            if not EndBlockIsOk then exit;
+          end;
+          // case/match-as-expression with `else` has no trailing `end` - the
+          // `;` after the else value closes the whole construct (same as the
+          // inline-var path). Detect via IsCaseExpression on the enclosing
+          // case/match keyword position
+          if (TopBlockType(Stack)=btCaseElse) and (Stack.Top>=1)
+          and (Stack.Stack[Stack.Top-1].Typ in [btCase,btMatch])
+          and IsCaseExpression(Stack.Stack[Stack.Top-1].StartPos) then begin
+            if not EndBlockIsOk then exit; // close btCaseElse
+            if not EndBlockIsOk then exit; // close btCase/btMatch
+          end;
         end;
       cafWord:
         if TopBlockType(Stack)<>btAsm then begin
@@ -7050,6 +7062,10 @@ var
                 if not EndBlockIsOk then exit;
                 BeginBlock(Stack,btCaseElse,CurPos.StartPos);
               end;
+            btMatch:
+              // `match X of ... else val` has no btCaseOf (of does not open
+              // one for match); the else catch-all opens directly on btMatch
+              BeginBlock(Stack,btCaseElse,CurPos.StartPos);
             btBegin:
               begin
                 // missing end
