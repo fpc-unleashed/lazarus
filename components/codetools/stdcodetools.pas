@@ -6732,15 +6732,24 @@ var
           CursorBlock:=Stack.Stack[CursorBlockLvl];
           CursorBlockOuterIndent:=Beauty.GetLineIndent(Src,CursorBlock.StartPos);
           CursorBlockInnerIndent:=Stack.Stack[Stack.Top].InnerIndent;
+          AtomInFrontOfCursor:=LastAtoms.GetPriorAtom;
           if (CursorBlockInnerIndent<=CursorBlockOuterIndent)
           and OnlyIfCursorBlockIndented then begin
-            // cursor block not indented
-            {$IFDEF VerboseCompleteBlock}
-            DebugLn(['ReadStatements no completion: cursor block not indented ',CleanPosToStr(CurPos.StartPos),' CursorBlockOuterIndent=',CursorBlockOuterIndent,' CursorBlockInnerIndent=',CursorBlockInnerIndent]);
-            {$ENDIF}
-            exit;
+            if (AtomInFrontOfCursor.StartPos=CursorBlock.StartPos)
+            and CursorAtEmptyLine then
+              // the block body is not indented deeper than the block keyword,
+              // but the cursor is on an empty line right after this block's own
+              // begin/asm (just pressed Enter before existing same-indent code).
+              // treat it as an indented block so `end` is still inserted
+              CursorBlockInnerIndent:=CursorBlockOuterIndent+Beauty.Indent
+            else begin
+              // cursor block not indented
+              {$IFDEF VerboseCompleteBlock}
+              DebugLn(['ReadStatements no completion: cursor block not indented ',CleanPosToStr(CurPos.StartPos),' CursorBlockOuterIndent=',CursorBlockOuterIndent,' CursorBlockInnerIndent=',CursorBlockInnerIndent]);
+              {$ENDIF}
+              exit;
+            end;
           end;
-          AtomInFrontOfCursor:=LastAtoms.GetPriorAtom;
           {$IFDEF VerboseCompleteBlock}
           DebugLn(['ReadStatements reached cursor: ',CleanPosToStr(CurPos.StartPos),' CursorBlockOuterIndent=',CursorBlockOuterIndent,' CursorBlockInnerIndent=',CursorBlockInnerIndent,' LastAtom=',GetAtom(AtomInFrontOfCursor),' CurAtom=',GetAtom]);
           {$ENDIF}
