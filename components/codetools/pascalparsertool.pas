@@ -3175,7 +3175,10 @@ begin
     BlockType:=ebtIf
   else if UpAtomIs('CASE') or UpAtomIs('MATCH') then begin
     BlockType:=ebtCase;
-    IsExprCase:=UpAtomIs('CASE') and IsCaseExpression(CurPos.StartPos);
+    // match-as-expression with 'else' terminates after the else value just
+    // like case-as-expression (no trailing 'end'); detect both the same way
+    IsExprCase:=(UpAtomIs('CASE') or UpAtomIs('MATCH'))
+                and IsCaseExpression(CurPos.StartPos);
   end
   else if UpAtomIs('ASM') then
     BlockType:=ebtAsm
