@@ -241,7 +241,8 @@ type
     cmsExternalClass,      { pas2js: allow  class external [pkgname] name [symbol] }
     cmsIgnoreAttributes,   { pas2js: ignore attributes }
     cmsOmitRTTI,           { pas2js: treat class section 'published' as 'public' and typeinfo does not work on symbols declared with this switch }
-    cmsMultiLineStrings    { pas2js: Multiline strings }
+    cmsMultiLineStrings,   { pas2js: Multiline strings }
+    cmsInterpolatedStrings { Unleashed: $'text {expr} text' interpolated string literals }
     );
   TCompilerModeSwitches = set of TCompilerModeSwitch;
 const
@@ -289,7 +290,8 @@ const
      cmsAdvancedRecords,cmsPrefixedAttributes,cmsMultiHelpers,
      cmsFunctionReferences,cmsAnonymousFunctions,cmsImplicitGenerics,
      cmsStatementExpressions,cmsArrayEquality,cmsInlineVars,cmsTuples,
-     cmsComposableRecords,cmsMultiLineStrings,cmsStaticSection,cmsInlineStatic]
+     cmsComposableRecords,cmsMultiLineStrings,cmsStaticSection,cmsInlineStatic,
+     cmsInterpolatedStrings]
     );
   cmAllModesWithGeneric = [cmDELPHI,cmDELPHIUNICODE,cmOBJFPC,cmUnleashed];
   Pas2jsFixedModeswitches = [cmsArray2dynarray,cmsArrayOperators,
@@ -353,7 +355,8 @@ const
     'EXTERNALCLASS',
     'IGNOREATTRIBUTES',
     'OMITRTTI',
-    'MULTILINESTRINGS'
+    'MULTILINESTRINGS',
+    'INTERPOLATEDSTRINGS'
     );
 
 type
@@ -2055,12 +2058,17 @@ begin
         inc(p);
       SrcPos:=p-PChar(Src)+1;
     end;
-  '$': // hex
+  '$': // hex constant or interpolated string ($'...')
     begin
-      TokenType:=lsttNone;
-      inc(p);
-      while IsHexNumberChar[p^] do
+      if p[1]='''' then begin
+        TokenType:=lsttStringConstant;
+        SkipPascalInterpolatedString(p,FNestedComments);
+      end else begin
+        TokenType:=lsttNone;
         inc(p);
+        while IsHexNumberChar[p^] do
+          inc(p);
+      end;
       SrcPos:=p-PChar(Src)+1;
     end;
   '=':
@@ -4698,6 +4706,14 @@ begin
           inc(p);
           while not (p^ in ['`',#0]) do inc(p);
           if p^='`' then
+            inc(p);
+        end;
+      '$':
+        begin
+          if p[1]='''' then
+            // skip interpolated string literal $'...'
+            SkipPascalInterpolatedString(p,FNestedComments)
+          else
             inc(p);
         end;
       #0:

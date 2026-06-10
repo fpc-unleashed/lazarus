@@ -152,6 +152,9 @@ function TrimLineEnds(const s: string; TrimStart, TrimEnd: boolean): string;
 function GetBracketLvl(const Src: string; StartPos, EndPos: integer;
     NestedComments: boolean): integer;
 
+// string interpolation ($'text {expr} text')
+procedure SkipPascalInterpolatedString(var p: PChar; NestedComments: Boolean);
+
 // replacements
 function ReplacementNeedsLineEnd(const Source: string;
     FromPos, ToPos, NewLength, MaxLineLength: integer): boolean;
@@ -425,6 +428,193 @@ end;
 function Max(i1, i2: integer): integer; inline;
 begin
   if i1>=i2 then Result:=i1 else Result:=i2;
+end;
+
+procedure SkipPascalInterpolatedString(var p: PChar; NestedComments: Boolean);
+// Precondition:  p^ = '$' and p[1] = ''''
+// Postcondition: p advanced past the closing apostrophe (or past the offending
+//                newline/EOF on a malformed literal, matching compiler behaviour).
+//
+// Syntax (modeswitch INTERPOLATEDSTRINGS, default in `{$mode unleashed}`):
+//   $'literal text {expr[:mask]} more text'
+//   - `''` inside the string part  = literal apostrophe
+//   - `{{` / `}}` inside the string = literal brace
+//   - `{` starts an expression; `}` at the top level of that expression ends it
+//   - a `:` at the top level of an expression starts a raw format mask that
+//     runs verbatim to the closing `}` (it is not Pascal, so it is skipped)
+//   - expressions may span multiple lines and contain nested strings, comments,
+//     balanced `(...)`/`[...]` and nested `$'...'` interpolations
+//   - string parts themselves may NOT cross a line
+
+  procedure SkipCurlyComment;
+  var Lvl: Integer;
+  begin
+    Lvl:=1;
+    inc(p);
+    while p^<>#0 do begin
+      case p^ of
+        '{': if NestedComments then inc(Lvl);
+        '}':
+          begin
+            dec(Lvl);
+            if Lvl=0 then begin
+              inc(p);
+              exit;
+            end;
+          end;
+      end;
+      inc(p);
+    end;
+  end;
+
+  procedure SkipRoundComment;
+  var Lvl: Integer;
+  begin
+    Lvl:=1;
+    inc(p,2);
+    while p^<>#0 do begin
+      if (p^='(') and (p[1]='*') and NestedComments then begin
+        inc(Lvl); inc(p,2);
+      end else if (p^='*') and (p[1]=')') then begin
+        dec(Lvl); inc(p,2);
+        if Lvl=0 then exit;
+      end else
+        inc(p);
+    end;
+  end;
+
+  procedure SkipRegularApostropheString;
+  // p^ = ''''; skip `'...'` with `''` as escaped apostrophe, single line
+  begin
+    inc(p);
+    while p^<>#0 do begin
+      case p^ of
+        '''':
+          if p[1]='''' then
+            inc(p,2)
+          else begin
+            inc(p);
+            exit;
+          end;
+        #10,#13:
+          exit;
+      else
+        inc(p);
+      end;
+    end;
+  end;
+
+  procedure SkipBacktickString;
+  begin
+    inc(p);
+    while not (p^ in [#0,'`']) do inc(p);
+    if p^='`' then inc(p);
+  end;
+
+  procedure SkipCharConstant;
+  begin
+    inc(p);
+    if p^='$' then begin
+      inc(p);
+      while IsHexNumberChar[p^] do inc(p);
+    end else
+      while IsNumberChar[p^] do inc(p);
+  end;
+
+  procedure SkipInterpExpr;
+  // p is just past the expression-opening `{`; advance past the matching `}`
+  var PLvl: Integer;
+  begin
+    PLvl:=0;
+    while p^<>#0 do begin
+      case p^ of
+        '}':
+          begin
+            inc(p);
+            exit;
+          end;
+        ':':
+          if PLvl=0 then begin
+            // `{expr:mask}` - mask runs raw to the closing `}`
+            while not (p^ in [#0,'}']) do inc(p);
+          end else
+            inc(p);
+        '{':
+          SkipCurlyComment;
+        '(':
+          if p[1]='*' then
+            SkipRoundComment
+          else begin
+            inc(PLvl); inc(p);
+          end;
+        ')':
+          begin
+            if PLvl>0 then dec(PLvl);
+            inc(p);
+          end;
+        '[':
+          begin
+            inc(PLvl); inc(p);
+          end;
+        ']':
+          begin
+            if PLvl>0 then dec(PLvl);
+            inc(p);
+          end;
+        '/':
+          if p[1]='/' then begin
+            while not (p^ in [#0,#10,#13]) do inc(p);
+          end else
+            inc(p);
+        '''':
+          SkipRegularApostropheString;
+        '`':
+          SkipBacktickString;
+        '#':
+          SkipCharConstant;
+        '$':
+          if p[1]='''' then
+            SkipPascalInterpolatedString(p,NestedComments)
+          else begin
+            inc(p);
+            while IsHexNumberChar[p^] do inc(p);
+          end;
+      else
+        inc(p);
+      end;
+    end;
+  end;
+
+begin
+  // skip $'
+  inc(p,2);
+  while p^<>#0 do begin
+    case p^ of
+      '''':
+        if p[1]='''' then
+          inc(p,2) // doubled apostrophe = literal
+        else begin
+          inc(p);
+          exit;
+        end;
+      '{':
+        if p[1]='{' then
+          inc(p,2) // escaped brace
+        else begin
+          inc(p);
+          SkipInterpExpr;
+        end;
+      '}':
+        if p[1]='}' then
+          inc(p,2) // escaped brace
+        else
+          inc(p);
+      #10,#13:
+        exit; // newline in string part ends the literal
+    else
+      inc(p);
+    end;
+  end;
 end;
 
 { most simple code tools - just methods }
@@ -2214,11 +2404,15 @@ begin
         end;
       end;
     end;
-  '$':  // hex constant
+  '$':  // hex constant or interpolated string ($'...')
     begin
-      inc(Src);
-      while IsHexNumberChar[Src^] do
+      if Src[1]='''' then
+        SkipPascalInterpolatedString(Src,NestedComments)
+      else begin
         inc(Src);
+        while IsHexNumberChar[Src^] do
+          inc(Src);
+      end;
     end;
   '&':  // octal constant or keyword as identifier (e.g. &label)
     begin
@@ -2857,11 +3051,15 @@ begin
         end;
       end;
     end;
-   '$':  // hex constant
+   '$':  // hex constant or interpolated string ($'...')
     begin
-      inc(p);
-      while (IsHexNumberChar[p^]) do
+      if p[1]='''' then
+        SkipPascalInterpolatedString(p,NestedComments)
+      else begin
         inc(p);
+        while (IsHexNumberChar[p^]) do
+          inc(p);
+      end;
     end;
    '{':  // compiler directive
     begin
