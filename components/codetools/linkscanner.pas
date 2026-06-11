@@ -415,7 +415,8 @@ type
     lsdkSetC,
     lsdkShortSwitch,
     lsdkThreading,
-    lsdkUndef
+    lsdkUndef,
+    lsdkAlias
     );
   TLSDirectiveKinds = set of TLSDirectiveKind;
 const
@@ -441,6 +442,14 @@ type
   end;
   PLSDirective = ^TLSDirective;
   PPLSDirective = ^PLSDirective;
+
+  // a {$alias SrcName AliasName} directive (unleashed mode)
+  TLSAlias = record
+    CleanPos: integer; // clean source pos where the directive sits (between decls)
+    SrcName: string;   // the already declared routine
+    AliasName: string; // the new name it also answers to
+  end;
+  PLSAlias = ^TLSAlias;
 
 type
   { TMissingIncludeFile is a missing include file together with all
@@ -637,6 +646,9 @@ type
     FDirectiveName: string;
     FDirectiveCleanPos: integer;
     FDirectivesStored: boolean;
+    // unleashed {$alias} directives, always collected (independent of StoreDirectives)
+    FAliases: array of TLSAlias;
+    FAliasCount: integer;
     FDirectoryCachePool: TCTDirectoryCachePool;
     FIsDelphiMode: boolean;
     FMacrosOn: boolean;
@@ -679,6 +691,7 @@ type
     function ElIfCDirective: boolean;
     function DefineDirective: boolean;
     function UndefDirective: boolean;
+    function AliasDirective: boolean;
     function SetCDirective: boolean;
     function IncludeDirective: boolean;
     function IncludePathDirective: boolean;
@@ -765,6 +778,9 @@ type
     property DirectivesSorted[Index: integer]: PLSDirective read GetDirectivesSorted; // sorted for Code and SrcPos
     property DirectiveCount: integer read FDirectivesCount;
     procedure ClearDirectives(FreeMemory: boolean);
+    // unleashed {$alias} directives
+    property AliasCount: integer read FAliasCount;
+    function Alias(Index: integer): PLSAlias;
     function StoreDirectives: boolean; inline; // store directives on next Scan
     procedure DemandStoreDirectives; // increase internal counter to StoreDirectives
     procedure ReleaseStoreDirectives; // decrease internal counter to StoreDirectives
@@ -1465,6 +1481,8 @@ begin
   ClearMacros;
   ClearLastError;
   ClearDirectives(false);
+  FAliasCount:=0;
+  SetLength(FAliases,0);
   ClearMissingIncludeFiles;
   for i:=0 to FIncludeStack.Count-1 do begin
     PLink:=PSourceLink(FIncludeStack[i]);
@@ -3351,7 +3369,8 @@ begin
       case UpChars[p^] of
       'A':
         case UpChars[p[1]] of
-        'L': if CompareIdentifiers(p,'ALIGN')=0 then Result:=LongSwitchDirective;
+        'L': if CompareIdentifiers(p,'ALIAS')=0 then Result:=AliasDirective
+             else if CompareIdentifiers(p,'ALIGN')=0 then Result:=LongSwitchDirective;
         'S': if CompareIdentifiers(p,'ASSERTIONS')=0 then Result:=LongSwitchDirective;
         end;
       'B':
@@ -3964,6 +3983,33 @@ begin
   if (VariableName<>'') then
     Values.Undefine(VariableName);
   Result:=true;
+end;
+
+function TLinkScanner.AliasDirective: boolean;
+// {$alias SrcName AliasName} - give an existing routine a second name (unleashed mode)
+var SrcName, AliasName: string;
+begin
+  Result:=true;
+  if StoreDirectives then
+    FDirectives[FDirectivesCount-1].Kind:=lsdkAlias;
+  // outside unleashed this is just an unknown directive (ignored)
+  if FCompilerMode<>cmUnleashed then exit;
+  ReadSpace;
+  SrcName:=ReadIdentifier;
+  ReadSpace;
+  AliasName:=ReadIdentifier;
+  if (SrcName='') or (AliasName='') then exit;
+  if FAliasCount=length(FAliases) then
+    SetLength(FAliases,FAliasCount*2+8);
+  FAliases[FAliasCount].CleanPos:=FDirectiveCleanPos;
+  FAliases[FAliasCount].SrcName:=SrcName;
+  FAliases[FAliasCount].AliasName:=AliasName;
+  inc(FAliasCount);
+end;
+
+function TLinkScanner.Alias(Index: integer): PLSAlias;
+begin
+  Result:=@FAliases[Index];
 end;
 
 function TLinkScanner.SetCDirective: boolean;

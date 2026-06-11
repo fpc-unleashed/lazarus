@@ -166,7 +166,10 @@ type
     FLastDefineStatic: Boolean;
     FLastDefineEmbedded: Boolean;
     FLastDefineTargetCPU: String;
+    FHasAliasRoutineNodes: Boolean; // a {$alias} synthesized at least one ctnAliasRoutine
     procedure FetchScannerSource; override;
+    // unleashed {$alias} support
+    procedure BuildAliasRoutineNodes;
     // sections
     function KeyWordFuncSectionInvalid: boolean;
     function KeyWordFuncSectionImplementation: boolean;
@@ -342,6 +345,10 @@ type
 
     function NodeHasParentOfType(ANode: TCodeTreeNode;
         NodeDesc: TCodeTreeNodeDesc): boolean;
+
+    // unleashed {$alias}: names of the routine a ctnAliasRoutine node stands for
+    function GetAliasRoutineNames(AliasNode: TCodeTreeNode;
+        out AliasName, SrcName: string): boolean;
 
     constructor Create;
     destructor Destroy; override;
@@ -1112,12 +1119,89 @@ begin
     DebugLn('TPascalParserTool.BuildTree ',MainFilename,' IGNORING ERROR: ',LastErrorMessage);
     {$ENDIF}
   end;
+  BuildAliasRoutineNodes;
   {$IFDEF CTDEBUG}
   DebugLn('[TPascalParserTool.BuildTree] END');
   {$ENDIF}
   {$IFDEF MEM_CHECK}
   CheckHeap('TPascalParserTool.BuildTree END '+IntToStr(MemCheck_GetMem_Cnt));
   {$ENDIF}
+end;
+
+procedure TPascalParserTool.BuildAliasRoutineNodes;
+// unleashed: turn each {$alias SrcName AliasName} the scanner recorded into a
+// childless ctnAliasRoutine node placed where the directive sits. The node only
+// marks the second name; find-declaration and completion redirect it to the
+// original routine (looked up via GetAliasRoutineNames + the scanner's list)
+var
+  i: integer;
+  AliasPtr: PLSAlias;
+  ParentNode, Brother, AliasNode, NextNode: TCodeTreeNode;
+begin
+  // nothing to build and nothing stale to remove
+  if (Scanner.AliasCount=0) and not FHasAliasRoutineNodes then exit;
+
+  // remove alias nodes left over from a previous build (tree may have been
+  // rebuilt or incrementally extended since)
+  if FHasAliasRoutineNodes then begin
+    AliasNode:=Tree.Root;
+    while AliasNode<>nil do begin
+      NextNode:=AliasNode.Next;
+      if AliasNode.Desc=ctnAliasRoutine then
+        Tree.DeleteNode(AliasNode);
+      AliasNode:=NextNode;
+    end;
+    FHasAliasRoutineNodes:=false;
+  end;
+
+  if Tree.Root=nil then exit;
+
+  for i:=0 to Scanner.AliasCount-1 do begin
+    AliasPtr:=Scanner.Alias(i);
+    ParentNode:=FindDeepestNodeAtPos(AliasPtr^.CleanPos,false);
+    if ParentNode=nil then continue;
+    AliasNode:=TCodeTreeNode.Create;
+    AliasNode.Desc:=ctnAliasRoutine;
+    AliasNode.StartPos:=AliasPtr^.CleanPos;
+    AliasNode.EndPos:=AliasPtr^.CleanPos;
+    if ParentNode.StartPos=AliasNode.StartPos then
+      // the stripped directive collapsed onto the start of the next declaration;
+      // the alias is that declaration's preceding sibling, not its child
+      Tree.AddNodeInFrontOf(ParentNode,AliasNode)
+    else begin
+      // directive sits in the gap inside a scope -> ordered sibling among decls
+      Brother:=ParentNode.FirstChild;
+      while (Brother<>nil) and (Brother.StartPos<=AliasNode.StartPos) do
+        Brother:=Brother.NextBrother;
+      if Brother<>nil then
+        Tree.AddNodeInFrontOf(Brother,AliasNode)
+      else
+        Tree.AddNodeAsLastChild(ParentNode,AliasNode);
+    end;
+    FHasAliasRoutineNodes:=true;
+  end;
+end;
+
+function TPascalParserTool.GetAliasRoutineNames(AliasNode: TCodeTreeNode;
+  out AliasName, SrcName: string): boolean;
+var
+  i: integer;
+  AliasPtr: PLSAlias;
+begin
+  Result:=false;
+  AliasName:='';
+  SrcName:='';
+  if (AliasNode=nil) or (AliasNode.Desc<>ctnAliasRoutine) then exit;
+  // the node is just a positional marker; its names live in the scanner, keyed
+  // by the directive's clean position (= the node's StartPos)
+  for i:=0 to Scanner.AliasCount-1 do begin
+    AliasPtr:=Scanner.Alias(i);
+    if AliasPtr^.CleanPos=AliasNode.StartPos then begin
+      AliasName:=AliasPtr^.AliasName;
+      SrcName:=AliasPtr^.SrcName;
+      exit(true);
+    end;
+  end;
 end;
 
 function TPascalParserTool.KeyWordFuncClassIdentifier: boolean;

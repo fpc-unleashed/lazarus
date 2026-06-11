@@ -1379,6 +1379,8 @@ var
   HasLowerVisibility: Boolean;
   IsDottedIdent, IsStrict, IsHelper: Boolean;
   PlaceForDotted: string;
+  AliasName: string;
+  AliasTarget: TFindContext;
 begin
   // proceed searching ...
   Result:=ifrProceedSearch;
@@ -1648,6 +1650,28 @@ begin
         debugln(['TIdentCompletionTool.CollectAllIdentifiers ','skipped "',GetIdentifier(Ident),'"']);
         exit;
       end;
+    end;
+
+  ctnAliasRoutine:
+    begin
+      // unleashed {$alias}: offer the alias name, but the item points at the
+      // original routine so its signature, params and jump are the real ones
+      if FoundContext.Tool.FindAliasRoutineTarget(FoundContext.Node,AliasName,AliasTarget)
+      and (AliasTarget.Node<>nil)
+      and (CurrentIdentifierList.FindIdentifier(PChar(AliasName),true)=nil) then
+      begin
+        NewItem:=CIdentifierListItem.Create(
+                            icompUnknown,
+                            false,
+                            0,
+                            PChar(AliasName),
+                            Lvl,
+                            AliasTarget.Node,
+                            AliasTarget.Tool,
+                            ctnNone);
+        CurrentIdentifierList.Add(NewItem);
+      end;
+      exit;
     end;
 
   ctnProperty:

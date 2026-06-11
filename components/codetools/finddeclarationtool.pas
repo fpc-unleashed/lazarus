@@ -814,6 +814,8 @@ type
       FoundNode: TCodeTreeNode): TIdentifierFoundResult;
     function FindIdentifierInProcContext(ProcContextNode: TCodeTreeNode;
       Params: TFindDeclarationParams): TIdentifierFoundResult;
+    function FindIdentifierInAliasContext(AliasNode: TCodeTreeNode;
+      Params: TFindDeclarationParams): TIdentifierFoundResult;
     function FindIdentifierInClassOfMethod(ProcContextNode: TCodeTreeNode;
       Params: TFindDeclarationParams): boolean;
     function FindIdentifierInWithVarContext(WithVarNode: TCodeTreeNode;
@@ -1004,6 +1006,8 @@ type
     function FindDeclarationWithMainUsesSection(const Identifier: string;
       out NewPos: TCodeXYPosition; out NewTopLine: integer): boolean;
     function FindMainDeclarationNode(DeclNode: TCodeTreeNode; SkipPropertyWithoutType: boolean): TFindContext;
+    function FindAliasRoutineTarget(AliasNode: TCodeTreeNode;
+      out AliasName: string; out Target: TFindContext): boolean;
 
     function FindClassMember(aClassNode: TCodeTreeNode;
       const Identifier: String; SearchInAncestors: boolean): TFindContext;
@@ -5674,6 +5678,14 @@ begin
               end;
             end;
 
+          ctnAliasRoutine:
+            begin
+              IdentifierFoundResult:=FindIdentifierInAliasContext(ContextNode,Params);
+              if IdentifierFoundResult in [ifrAbortSearch,ifrSuccess] then
+                if CheckResult(IdentifierFoundResult=ifrSuccess,true) then
+                  exit;
+            end;
+
           ctnProcedureHead:
             begin
               if ContextNode.FirstChild<>nil then
@@ -9144,6 +9156,54 @@ begin
     end else begin
       // proceed the search normally ...
     end;
+  end;
+end;
+
+function TFindDeclarationTool.FindAliasRoutineTarget(AliasNode: TCodeTreeNode;
+  out AliasName: string; out Target: TFindContext): boolean;
+{ resolve the original routine a ctnAliasRoutine stands for, searching its
+  source name from the directive's scope (may land in another unit) }
+var
+  SrcName: string;
+  SubParams: TFindDeclarationParams;
+begin
+  Result:=false;
+  Target:=CleanFindContext;
+  if not GetAliasRoutineNames(AliasNode,AliasName,SrcName) then exit;
+  SubParams:=TFindDeclarationParams.Create(Self,AliasNode);
+  try
+    SubParams.Flags:=[fdfSearchInParentNodes,fdfSearchInAncestors,fdfIgnoreCurContextNode];
+    SubParams.SetIdentifier(Self,PChar(SrcName),nil);
+    if FindIdentifierInContext(SubParams) then begin
+      Target:=CreateFindContext(SubParams.NewCodeTool,SubParams.NewNode);
+      Result:=true;
+    end;
+  finally
+    SubParams.Free;
+  end;
+end;
+
+function TFindDeclarationTool.FindIdentifierInAliasContext(
+  AliasNode: TCodeTreeNode; Params: TFindDeclarationParams): TIdentifierFoundResult;
+{ a ctnAliasRoutine ({$alias SrcName AliasName}) answers to AliasName and
+  resolves to the original routine SrcName declared earlier in this scope }
+var
+  AliasName, SrcName: string;
+  Target: TFindContext;
+begin
+  Result:=ifrProceedSearch;
+  if not GetAliasRoutineNames(AliasNode,AliasName,SrcName) then exit;
+  if fdfCollect in Params.Flags then begin
+    // identifier completion: offer the alias name (CollectAllIdentifiers reads
+    // the names back and shows the original routine's signature)
+    Result:=DoOnIdentifierFound(Params,AliasNode);
+    exit;
+  end;
+  if CompareIdentifiers(PChar(AliasName),Params.Identifier)<>0 then exit;
+  // redirect to the original routine
+  if FindAliasRoutineTarget(AliasNode,AliasName,Target) then begin
+    Params.SetResult(Target.Tool,Target.Node);
+    Result:=ifrSuccess;
   end;
 end;
 

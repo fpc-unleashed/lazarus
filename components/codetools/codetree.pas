@@ -121,6 +121,7 @@ const
   ctnProcedure          = 60;  // children: ctnProcedureHead, sections, ctnBeginBlock/ctnAsmBlock
   ctnProcedureHead      = 61;  // children: ctnParameterList, operator: ctnVarDefinition, operator/function: ctnIdentifier
   ctnParameterList      = 62;  // children: ctnVarDefinition
+  ctnAliasRoutine       = 63;  // childless, second name of a routine via {$alias X Y}, redirects to the original
 
   ctnIdentifier         = 70;
   ctnRangedArrayType    = 71;
@@ -486,6 +487,7 @@ begin
   ctnProcedure: Result:='Procedure';
   ctnProcedureHead: Result:='ProcedureHead';
   ctnParameterList: Result:='ParameterList';
+  ctnAliasRoutine: Result:='AliasRoutine';
 
   ctnBeginBlock: Result:='BeginBlock';
   ctnAsmBlock: Result:='AsmBlock';
@@ -1144,7 +1146,10 @@ begin
   ANode.PriorBrother:=NextBrotherNode.PriorBrother;
   NextBrotherNode.PriorBrother:=ANode;
   if ANode.PriorBrother<>nil then
-    ANode.PriorBrother.NextBrother:=ANode;
+    ANode.PriorBrother.NextBrother:=ANode
+  else if ANode.Parent<>nil then
+    ANode.Parent.FirstChild:=ANode;
+  inc(FNodeCount);
 end;
 
 function TCodeTree.FindFirstPosition: integer;
