@@ -7045,6 +7045,12 @@ var
             // match has no 'of' keyword; branches like '_: begin..end;'
             // close as ordinary statements inside btMatch
             BeginBlock(Stack,btMatch,CurPos.StartPos)
+          end else if UpAtomIs('TRYLOCK')
+          and (cmsLock in Scanner.CompilerModeSwitches) then begin
+            // `trylock ... do <stmt> else <stmt>`: the mandatory else
+            // belongs to the trylock, not to a missing end; track the
+            // statement like an if so the else/semicolon close it
+            BeginBlock(Stack,btIf,CurPos.StartPos)
           end else if UpAtomIs('OF') then begin
             CloseBrackets;
             if TopBlockType(Stack)=btCase then
