@@ -236,6 +236,7 @@ type
     cmsComposableRecords,  { record composition: union, `embed`, inline anon record, per-field sizing }
     cmsStaticSection,      { allow `static` declaration section in function/procedure bodies }
     cmsInlineStatic,       { allow `static x := ...` inline declarations inside statement blocks }
+    cmsLock,               { `lock` block: wraps a statement in Enter/try/finally/LeaveCriticalSection }
 
     // not yet in FPC, supported by pas2js:
     cmsExternalClass,      { pas2js: allow  class external [pkgname] name [symbol] }
@@ -291,7 +292,7 @@ const
      cmsFunctionReferences,cmsAnonymousFunctions,cmsImplicitGenerics,
      cmsStatementExpressions,cmsArrayEquality,cmsInlineVars,cmsTuples,
      cmsComposableRecords,cmsMultiLineStrings,cmsStaticSection,cmsInlineStatic,
-     cmsInterpolatedStrings]
+     cmsInterpolatedStrings,cmsLock]
     );
   cmAllModesWithGeneric = [cmDELPHI,cmDELPHIUNICODE,cmOBJFPC,cmUnleashed];
   Pas2jsFixedModeswitches = [cmsArray2dynarray,cmsArrayOperators,
@@ -351,6 +352,7 @@ const
     'COMPOSABLERECORDS',
     'STATICSECTION',
     'INLINESTATIC',
+    'LOCK',
     // not yet in FPC, supported by pas2js:
     'EXTERNALCLASS',
     'IGNOREATTRIBUTES',
