@@ -1870,6 +1870,9 @@ begin
     AddCompilerFunction('Slice','var A:Array;Count:Integer','Array');
     AddCompilerProcedure('Str','const X[:Width[:Decimals]];var S:String');
     AddCompilerFunction('Succ','X:Ordinal', 'Ordinal');
+    if Scanner.CompilerMode=cmUnleashed then
+      // unleashed: compile-time type-of-expression intrinsic
+      AddCompilerFunction('Type','Expr','typeof Expr');
     AddCompilerFunction('TypeInfo','Identifier', 'Pointer');
     AddCompilerFunction('GetTypeKind','Identifier', 'TTypeKind');
     AddCompilerFunction('IsManagedType','Identifier', 'Boolean');
@@ -4136,6 +4139,9 @@ var
       AddCompilerProc('Slice','var A:Array;Count:Integer','Array');
       AddCompilerProc('Str','const X[:Width[:Decimals]];var S:String');
       AddCompilerProc('Succ','X:Ordinal', 'Ordinal');
+      if Scanner.CompilerMode=cmUnleashed then
+        // unleashed: compile-time type-of-expression intrinsic
+        AddCompilerProc('Type','Expr','typeof Expr');
       AddCompilerProc('TypeInfo','Identifier', 'Pointer');
       AddCompilerProc('GetTypeKind','Identifier', 'TTypeKind');
       AddCompilerProc('IsManagedType','Identifier', 'Boolean');

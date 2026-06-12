@@ -3307,6 +3307,18 @@ begin
     end else if UpAtomIs('VAR')
     and (BlockType in [ebtBegin,ebtTry,ebtRepeat]) then begin
       ReadInlineVarDeclaration(CreateNodes);
+    end else if UpAtomIs('TYPE')
+    and (Scanner.CompilerMode=cmUnleashed)
+    and (BlockType in [ebtBegin,ebtTry,ebtRepeat,ebtIf,ebtCase]) then begin
+      // unleashed: Type(expr) intrinsic can appear in expression position
+      // inside a body (e.g. typecast `Type(x)(v)`, `SizeOf(Type(x))`,
+      // assignment `y := Type(x)(v)`). skip the parenthesised body so the
+      // bare `type` keyword is not flagged as an unexpected section header.
+      ReadNextAtom;
+      if CurPos.Flag=cafRoundBracketOpen then
+        ReadTilBracketClose(false)
+      else
+        UndoReadNextAtom;
     end else if UpAtomIs('STATIC')
     and (BlockType in [ebtBegin,ebtTry,ebtRepeat])
     and (cmsInlineStatic in Scanner.CompilerModeSwitches) then begin
@@ -6132,7 +6144,7 @@ begin
 end;
 
 function TPascalParserTool.KeyWordFuncTypeType: boolean;
-// 'type identifier'
+// 'type identifier' (strong alias) or unleashed `Type(expr)` intrinsic
 var
   StartPos: Integer;
 begin
@@ -6141,6 +6153,22 @@ begin
   if UpAtomIs('HELPER') then begin
     UndoReadNextAtom;
     Result := KeyWordFuncTypeClass;
+  end else
+  if (CurPos.Flag=cafRoundBracketOpen)
+  and (Scanner.CompilerMode=cmUnleashed) then
+  begin
+    { unleashed Type(expr): the parenthesised expression is the operand whose
+      static type the intrinsic yields. body is not parsed into the tree, it
+      is preserved as a text range and resolved on demand by the find-
+      declaration resolver. }
+    CreateChildNode;
+    CurNode.StartPos:=StartPos;
+    CurNode.Desc:=ctnTypeOfExpr;
+    ReadTilBracketClose(true);
+    ReadNextAtom;
+    CurNode.EndPos:=CurPos.StartPos;
+    EndChildNode;
+    Result:=true;
   end else
   begin
     CreateChildNode;
