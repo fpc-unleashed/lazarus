@@ -181,9 +181,11 @@ type
     tsAfterFamType,       // After "array [] of TYPE", watching for "count"
     tsInForHeader,        // Between "for" and "do", for contextual "step" keyword.
                           //   Set right after "for", and after "to"/"downto"/operator (no value yet)
-    tsInForHeaderAfterValue  // In for-header AND last token completed an expression value:
+    tsInForHeaderAfterValue, // In for-header AND last token completed an expression value:
                              //   identifier, number, string, ")", "]", "^" deref.
                              //   Only here is "step" recognized as the keyword.
+    tsInTryLockHeader     // Between "trylock" and "do", for contextual "wait" keyword.
+                          //   Set right after "trylock"; "do" and ";" clear it
   );
 
   TTokenStates = set of TTokenState;
@@ -899,6 +901,7 @@ type
     function Func47: TtkTokenKind;
     function Func49: TtkTokenKind;
     function Func52: TtkTokenKind;
+    function Func53: TtkTokenKind; // "wait" (lock)
     function Func54: TtkTokenKind;
     function Func55: TtkTokenKind;
     function Func56: TtkTokenKind;
@@ -940,6 +943,7 @@ type
     function Func101: TtkTokenKind;
     function Func102: TtkTokenKind;
     function Func103: TtkTokenKind;
+    function Func104: TtkTokenKind; // "trylock"
     function Func105: TtkTokenKind;
     function Func106: TtkTokenKind;
     function Func108: TtkTokenKind; // "operator"
@@ -1372,9 +1376,10 @@ const
     'value'
   );
 
-  RESERVED_WORDS_FPC: array [1..9] of String = (
+  RESERVED_WORDS_FPC: array [1..11] of String = (
     'autofree', 'defer',
-    'dispose', 'exit', 'false', 'leave', 'match', 'new', 'true'
+    'dispose', 'exit', 'false', 'leave', 'lock', 'match', 'new', 'true',
+    'trylock'
   );
 
 var
@@ -1480,6 +1485,7 @@ begin
   fIdentFuncTable[47] := @Func47;
   fIdentFuncTable[49] := @Func49;
   fIdentFuncTable[52] := @Func52;
+  fIdentFuncTable[53] := @Func53; // "wait" (lock)
   fIdentFuncTable[54] := @Func54;
   fIdentFuncTable[55] := @Func55;
   fIdentFuncTable[56] := @Func56;
@@ -1521,6 +1527,7 @@ begin
   fIdentFuncTable[101] := @Func101;
   fIdentFuncTable[102] := @Func102;
   fIdentFuncTable[103] := @Func103;
+  fIdentFuncTable[104] := @Func104; // "trylock"
   fIdentFuncTable[105] := @Func105;
   fIdentFuncTable[106] := @Func106;
   fIdentFuncTable[108] := @Func108; // "operator"
@@ -2562,6 +2569,14 @@ begin
     end;
     Result := tkKey;
   end
+  else
+  if KeyCompU('LOCK') and
+     (TopPascalCodeFoldBlockType in PascalStatementBlocks) and
+     (PasCodeFoldRange.BracketNestLevel = 0)
+  then begin
+    Result := tkKey;
+    DoCodeBlockStatement;
+  end
   else Result := tkIdentifier;
 end;
 
@@ -2721,6 +2736,18 @@ begin
     fRange := fRange + [rsInRaise];
     FNextTokenState := tsAfterRaise;
   end
+  else
+    Result := tkIdentifier;
+end;
+
+function TSynPasSyn.Func53: TtkTokenKind;
+begin
+  if KeyCompU('WAIT') and (FTokenState = tsInTryLockHeader) and
+     (PasCodeFoldRange.BracketNestLevel = 0)
+  then
+    // contextual: `trylock(...) wait N do` budget clause; inside the
+    // target parens (nest level 1) `wait` is a target variable name
+    Result := tkKey
   else
     Result := tkIdentifier;
 end;
@@ -3749,6 +3776,21 @@ function TSynPasSyn.Func103: TtkTokenKind;
 begin
   if IsVirtualityModifier('VIRTUAL') then
     Result := DoVirtualityModifier
+  else
+    Result := tkIdentifier;
+end;
+
+function TSynPasSyn.Func104: TtkTokenKind;
+begin
+  if KeyCompU('TRYLOCK') and
+     (TopPascalCodeFoldBlockType in PascalStatementBlocks) and
+     (PasCodeFoldRange.BracketNestLevel = 0)
+  then begin
+    Result := tkKey;
+    DoCodeBlockStatement;
+    // contextual `wait` between the target list and `do`
+    FNextTokenState := tsInTryLockHeader;
+  end
   else
     Result := tkIdentifier;
 end;
@@ -6716,6 +6758,11 @@ begin
                   FNextTokenState := tsInForHeaderAfterValue
                 else
                   FNextTokenState := tsInForHeader;
+            tsInTryLockHeader:
+                { keep trylock-header alive across the target list and the
+                  wait clause; "do" (and ";" on broken code) set their own
+                  state and thereby clear it }
+                FNextTokenState := tsInTryLockHeader;
           end;
         end;
 
