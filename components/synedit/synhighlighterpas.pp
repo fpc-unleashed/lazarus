@@ -914,6 +914,7 @@ type
     function Func59: TtkTokenKind;
     function Func60: TtkTokenKind;
     function Func61: TtkTokenKind;
+    function Func62: TtkTokenKind; // "async"
     function Func63: TtkTokenKind;
     function Func64: TtkTokenKind;
     function Func65: TtkTokenKind;
@@ -1381,10 +1382,10 @@ const
     'value'
   );
 
-  RESERVED_WORDS_FPC: array [1..12] of String = (
-    'autofree', 'defer',
-    'dispose', 'exit', 'false', 'leave', 'lock', 'match', 'new', 'parallel',
-    'true', 'trylock'
+  RESERVED_WORDS_FPC: array [1..15] of String = (
+    'async', 'autofree', 'await', 'defer',
+    'dispose', 'exit', 'false', 'future', 'leave', 'lock', 'match', 'new',
+    'parallel', 'true', 'trylock'
   );
 
 var
@@ -1499,6 +1500,7 @@ begin
   fIdentFuncTable[59] := @Func59;
   fIdentFuncTable[60] := @Func60;
   fIdentFuncTable[61] := @Func61;
+  fIdentFuncTable[62] := @Func62; // "async"
   fIdentFuncTable[63] := @Func63;
   fIdentFuncTable[64] := @Func64;
   fIdentFuncTable[65] := @Func65;
@@ -2774,6 +2776,14 @@ begin
     end;
   end
   else
+  if KeyCompU('AWAIT') and
+     (FRangeCompilerMode in [pcmUnleashed, pcmUnknown]) and
+     (TopPascalCodeFoldBlockType in PascalStatementBlocks)
+  then
+    // prefix operator joining a future; lives in routine bodies and may sit
+    // inside a call's argument list, so no BracketNestLevel requirement
+    Result := tkKey
+  else
     Result := tkIdentifier;
 end;
 
@@ -2917,6 +2927,19 @@ begin
 //      FNextTokenState := tsAtSpecializeName;
     Result := tkKey;
   end
+  else
+    Result := tkIdentifier;
+end;
+
+function TSynPasSyn.Func62: TtkTokenKind;
+begin
+  if KeyCompU('ASYNC') and
+     (FRangeCompilerMode in [pcmUnleashed, pcmUnknown]) and
+     (TopPascalCodeFoldBlockType in PascalStatementBlocks)
+  then
+    // prefix operator spawning a worker thread (`async call` / `async begin`);
+    // lives in routine bodies and may sit inside a call's argument list
+    Result := tkKey
   else
     Result := tkIdentifier;
 end;
@@ -3552,6 +3575,12 @@ begin
     Result := tkKey
   else
   if KeyCompU('AUTOFREE') then
+    Result := tkKey
+  else
+  if KeyCompU('FUTURE') and
+     (FRangeCompilerMode in [pcmUnleashed, pcmUnknown])
+  then
+    // `future of T` (or bare `future`) result/var/parameter type
     Result := tkKey
   else
   if IsClassSection('PRIVATE') then
