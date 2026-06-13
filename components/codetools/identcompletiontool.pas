@@ -2280,6 +2280,8 @@ type
       Add('record');
       Add('helper');
       Add('of');  // array of // set of
+      if cmsAsyncAwait in Scanner.CompilerModeSwitches then
+        Add('future');  // future of T
     end;
   end;
 
@@ -2527,6 +2529,10 @@ begin
           and (ilcfStartOfStatement in CurrentIdentifierList.ContextFlags)
           then begin
             Add('asm');
+            if cmsAsyncAwait in Scanner.CompilerModeSwitches then begin
+              Add('async');
+              Add('await');
+            end;
             Add('begin');
             Add('end');
             Add('case');

@@ -238,6 +238,7 @@ type
     cmsInlineStatic,       { allow `static x := ...` inline declarations inside statement blocks }
     cmsThreadStatic,       { allow `threadstatic` section and `threadstatic x := ...` per-thread declarations }
     cmsLock,               { `lock` block: wraps a statement in Enter/try/finally/LeaveCriticalSection }
+    cmsAsyncAwait,         { `async` spawns work on a worker thread returning a `future of T`; `await` joins it }
 
     // not yet in FPC, supported by pas2js:
     cmsExternalClass,      { pas2js: allow  class external [pkgname] name [symbol] }
@@ -295,7 +296,7 @@ const
      cmsFunctionReferences,cmsAnonymousFunctions,cmsImplicitGenerics,
      cmsStatementExpressions,cmsArrayEquality,cmsInlineVars,cmsTuples,
      cmsComposableRecords,cmsMultiLineStrings,cmsStaticSection,cmsInlineStatic,
-     cmsThreadStatic,cmsInterpolatedStrings,cmsLock,cmsAutoProperties,
+     cmsThreadStatic,cmsInterpolatedStrings,cmsLock,cmsAsyncAwait,cmsAutoProperties,
      cmsParallelFor]
     );
   cmAllModesWithGeneric = [cmDELPHI,cmDELPHIUNICODE,cmOBJFPC,cmUnleashed];
@@ -358,6 +359,7 @@ const
     'INLINESTATIC',
     'THREADSTATIC',
     'LOCK',
+    'ASYNCAWAIT',
     // not yet in FPC, supported by pas2js:
     'EXTERNALCLASS',
     'IGNOREATTRIBUTES',
