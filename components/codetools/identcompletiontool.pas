@@ -2504,9 +2504,13 @@ begin
             Add('for');
             Add('goto');
             Add('if');
+            if cmsLock in Scanner.CompilerModeSwitches then
+              Add('lock');
             Add('raise');
             Add('repeat');
             Add('try');
+            if cmsLock in Scanner.CompilerModeSwitches then
+              Add('trylock');
             Add('until');
             Add('while');
             Add('with');
