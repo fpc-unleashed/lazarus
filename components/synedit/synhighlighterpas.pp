@@ -179,8 +179,10 @@ type
     tsAfterEmptyArrayBracket, // After "array []", watching for "of"
     tsAfterFamOf,         // After "array [] of", watching for type identifier
     tsAfterFamType,       // After "array [] of TYPE", watching for "count"
+    tsAfterForKeyword,    // Right after "for", before the loop variable - the one
+                          //   spot where the contextual "parallel" keyword may appear
     tsInForHeader,        // Between "for" and "do", for contextual "step" keyword.
-                          //   Set right after "for", and after "to"/"downto"/operator (no value yet)
+                          //   Set after the loop variable and after "to"/"downto"/operator (no value yet)
     tsInForHeaderAfterValue, // In for-header AND last token completed an expression value:
                              //   identifier, number, string, ")", "]", "^" deref.
                              //   Only here is "step" recognized as the keyword.
@@ -924,6 +926,7 @@ type
     function Func74: TtkTokenKind; // "bitalign" (composablerecords)
     function Func75: TtkTokenKind;
     function Func76: TtkTokenKind;
+    function Func77: TtkTokenKind; // "parallel" (parallelfor)
     function Func79: TtkTokenKind;
     function Func81: TtkTokenKind;
     function Func84: TtkTokenKind;
@@ -1378,10 +1381,10 @@ const
     'value'
   );
 
-  RESERVED_WORDS_FPC: array [1..11] of String = (
+  RESERVED_WORDS_FPC: array [1..12] of String = (
     'autofree', 'defer',
-    'dispose', 'exit', 'false', 'leave', 'lock', 'match', 'new', 'true',
-    'trylock'
+    'dispose', 'exit', 'false', 'leave', 'lock', 'match', 'new', 'parallel',
+    'true', 'trylock'
   );
 
 var
@@ -1508,6 +1511,7 @@ begin
   fIdentFuncTable[74] := @Func74; // "bitalign" (composablerecords)
   fIdentFuncTable[75] := @Func75;
   fIdentFuncTable[76] := @Func76;
+  fIdentFuncTable[77] := @Func77;
   fIdentFuncTable[79] := @Func79;
   fIdentFuncTable[81] := @Func81;
   fIdentFuncTable[84] := @Func84;
@@ -2492,7 +2496,7 @@ begin
     if TopPascalCodeFoldBlockType in PascalStatementBlocks then begin
       DoCodeBlockStatement;
       StartPascalCodeFoldBlock(cfbtForDo);
-      FNextTokenState := tsInForHeader;
+      FNextTokenState := tsAfterForKeyword;
     end
     else
     if rsInTypeHelper in FOldRange then begin
@@ -2542,7 +2546,7 @@ begin
     end
   end
   else if KeyCompU('VAR') then begin
-    if FTokenState in [tsInForHeader, tsInForHeaderAfterValue] then begin
+    if FTokenState in [tsAfterForKeyword, tsInForHeader, tsInForHeaderAfterValue] then begin
       { inline var inside for-loop header: keep the for-header state alive
         so contextual `step` later in the same header is still recognized.
         `var` is not a value-completer, stay in the plain header state }
@@ -3275,6 +3279,19 @@ begin
     if TopPascalCodeFoldBlockType = cfbtRepeat then EndPascalCodeFoldBlock;
   end
   else Result := tkIdentifier;
+end;
+
+function TSynPasSyn.Func77: TtkTokenKind;
+begin
+  if KeyCompU('PARALLEL') and (FTokenState = tsAfterForKeyword) and
+     (FRangeCompilerMode = pcmUnleashed)
+  then
+    { contextual keyword: only the token right after "for", and only in
+      Unleashed mode, where `for parallel [(N)] var i := ...` runs the loop
+      body on a worker pool. Anywhere else "parallel" stays an identifier. }
+    Result := tkKey
+  else
+    Result := tkIdentifier;
 end;
 
 function TSynPasSyn.Func79: TtkTokenKind;
@@ -6833,7 +6850,7 @@ begin
             tsAfterFamOf:
                 if FTokenID = tkIdentifier then
                   FNextTokenState := tsAfterFamType;
-            tsInForHeader, tsInForHeaderAfterValue:
+            tsAfterForKeyword, tsInForHeader, tsInForHeaderAfterValue:
                 { keep for-header alive until "do" (or any other parser
                   function that sets FNextTokenState explicitly) clears it.
                   Track whether the last token completed a value: a value-
