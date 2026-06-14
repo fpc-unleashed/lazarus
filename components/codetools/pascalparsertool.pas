@@ -6225,10 +6225,12 @@ var
 
   procedure ReadTillTypeEnd;
   begin
-    // read till ';', ':', ')', '=', 'end'
+    // read till ';', ':', ':=', ')', '=', 'end'. ':=' ends an inline-var
+    // type just like '=' ends a typed-const type - without it the element
+    // type of `array[..] of T := (..)` swallows the initializer
     while (CurPos.StartPos<=SrcLen) do begin
       if (CurPos.Flag in [cafSemicolon,cafColon,cafRoundBracketClose,
-        cafEqual,cafEdgedBracketClose])
+        cafEqual,cafEdgedBracketClose,cafAssignment])
       or (AtomIsKeyWord
           and (not IsKeyWordInConstAllowed.DoIdentifier(@Src[CurPos.StartPos])))
       then
