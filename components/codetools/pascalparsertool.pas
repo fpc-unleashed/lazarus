@@ -2822,6 +2822,12 @@ begin
       ReadNextAtom;
       if CurPos.Flag<>cafSemicolon then
         RaiseSemicolonAfterPropSpecMissing('enumerator');
+    end else if (cmsAutoProperties in Scanner.CompilerModeSwitches)
+        and (UpAtomIs('READONLY') or UpAtomIs('WRITEONLY')) then begin
+      // accessor-less property direction directive: `property X: T; readonly;`
+      ReadNextAtom;
+      if CurPos.Flag<>cafSemicolon then
+        RaiseSemicolonAfterPropSpecMissing('readonly');
     end else
       UndoReadNextAtom;
 

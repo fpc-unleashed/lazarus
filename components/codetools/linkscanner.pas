@@ -244,7 +244,8 @@ type
     cmsIgnoreAttributes,   { pas2js: ignore attributes }
     cmsOmitRTTI,           { pas2js: treat class section 'published' as 'public' and typeinfo does not work on symbols declared with this switch }
     cmsMultiLineStrings,   { pas2js: Multiline strings }
-    cmsInterpolatedStrings { Unleashed: $'text {expr} text' interpolated string literals }
+    cmsInterpolatedStrings,{ Unleashed: $'text {expr} text' interpolated string literals }
+    cmsAutoProperties      { Unleashed: accessor-less property synthesizes a backing field }
     );
   TCompilerModeSwitches = set of TCompilerModeSwitch;
 const
@@ -293,7 +294,7 @@ const
      cmsFunctionReferences,cmsAnonymousFunctions,cmsImplicitGenerics,
      cmsStatementExpressions,cmsArrayEquality,cmsInlineVars,cmsTuples,
      cmsComposableRecords,cmsMultiLineStrings,cmsStaticSection,cmsInlineStatic,
-     cmsThreadStatic,cmsInterpolatedStrings,cmsLock]
+     cmsThreadStatic,cmsInterpolatedStrings,cmsLock,cmsAutoProperties]
     );
   cmAllModesWithGeneric = [cmDELPHI,cmDELPHIUNICODE,cmOBJFPC,cmUnleashed];
   Pas2jsFixedModeswitches = [cmsArray2dynarray,cmsArrayOperators,
@@ -360,7 +361,8 @@ const
     'IGNOREATTRIBUTES',
     'OMITRTTI',
     'MULTILINESTRINGS',
-    'INTERPOLATEDSTRINGS'
+    'INTERPOLATEDSTRINGS',
+    'AUTOPROPERTIES'
     );
 
 type
