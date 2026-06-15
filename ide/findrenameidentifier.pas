@@ -640,9 +640,10 @@ var
   UGUnit: TUGUnit;
   Identifier, NewFilename, OldFileName, PasFilename, s: string;
   FindRefFlags: TFindRefsFlags;
-  TreeOfPCodeXYPosition, LFMTreeOfPCodeXYPosition: TAVLTree;
+  TreeOfPCodeXYPosition, LFMTreeOfPCodeXYPosition, FieldTree: TAVLTree;
   Refs, OldRefs: TSrcNameRefs;
   AUnitInfo: TEditableUnitInfo;
+  IsAutoProp: Boolean;
 begin
   Result:=mrCancel;
   if not LazarusIDE.BeginCodeTools then exit(mrCancel);
@@ -910,9 +911,28 @@ begin
           if (PascalReferences<>nil) and (PascalReferences.Count>0) then begin
             Refs:=TSrcNameRefs(PascalReferences[0]);
             TreeOfPCodeXYPosition:=Refs.TreeOfPCodeXYPosition;
+            // detect an accessor-less auto-property before the rename invalidates DeclNode
+            IsAutoProp:=(DeclTool<>nil) and (DeclNode<>nil) and (DeclNode.Desc=ctnProperty)
+              and (cmsAutoProperties in DeclTool.Scanner.CompilerModeSwitches)
+              and not DeclTool.PropertyNodeHasParamList(DeclNode)
+              and not DeclTool.PropertyHasSpecifier(DeclNode,'READ',false)
+              and not DeclTool.PropertyHasSpecifier(DeclNode,'WRITE',false);
             if not CodeToolBoss.RenameIdentifier(TreeOfPCodeXYPosition,
                 Identifier, Options.RenameTo, DeclCodeXY.Code, @DeclXY) then
               Result:=mrCancel;
+            // the property has a hidden F<Name> backing field: rename its references too
+            if (Result=mrOk) and IsAutoProp then begin
+              FieldTree:=nil;
+              if DeclTool.GatherIdentifierReferences('F'+Identifier,FieldTree)
+              and (FieldTree<>nil) then
+                try
+                  if not CodeToolBoss.RenameIdentifier(FieldTree,
+                      'F'+Identifier,'F'+Options.RenameTo,DeclCodeXY.Code,@DeclXY) then
+                    Result:=mrCancel;
+                finally
+                  FreeTreeOfPCodeXYPosition(FieldTree);
+                end;
+            end;
           end;
           LFMTreeOfPCodeXYPosition:=nil;
           if (LFMReferences<>nil) and (LFMReferences.Count>0) then begin
