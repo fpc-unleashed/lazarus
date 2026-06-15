@@ -1109,6 +1109,8 @@ type
     function FindReferences(const CursorPos: TCodeXYPosition;
       SkipComments: boolean; out ListOfPCodeXYPosition: TFPList;
       Flags: TFindRefsFlags = []): boolean;
+    function GatherIdentifierReferences(const Identifier: string;
+      out TreeOfPCodeXYPosition: TAVLTree): boolean; // code-aware text scan (skips comments/strings), no resolution
     function FindSourceNameReferences(const TargetFilename: string; SkipComments: boolean;
       out LocalSrcName: string; out InFilenameCleanPos: integer;
       out TreeOfPCodeXYPosition: TAVLTree; SyntaxExceptions: boolean = false): boolean;
@@ -7052,6 +7054,40 @@ begin
   end;
   Result:=true;
   Params.Load(OldInput,true);
+end;
+
+function TFindDeclarationTool.GatherIdentifierReferences(const Identifier: string;
+  out TreeOfPCodeXYPosition: TAVLTree): boolean;
+// scan the current unit for code occurrences of Identifier (the atom reader
+// skips comments and strings) and collect their source positions; used to
+// rename the implicit F<Name> backing field of an accessor-less property
+var
+  CodeXYPos: TCodeXYPosition;
+  IdentPtr: PChar;
+begin
+  Result:=false;
+  TreeOfPCodeXYPosition:=nil;
+  if Identifier='' then exit;
+  ActivateGlobalWriteLock;
+  try
+    BuildTree(lsrEnd);
+    IdentPtr:=PChar(Identifier);
+    MoveCursorToCleanPos(1);
+    repeat
+      ReadNextAtom;
+      if CurPos.StartPos>SrcLen then break;
+      if (CurPos.Flag=cafWord)
+      and (CompareIdentifiers(@Src[CurPos.StartPos],IdentPtr)=0)
+      and CleanPosToCaret(CurPos.StartPos,CodeXYPos) then begin
+        if TreeOfPCodeXYPosition=nil then
+          TreeOfPCodeXYPosition:=CreateTreeOfPCodeXYPosition;
+        AddCodePosition(TreeOfPCodeXYPosition,CodeXYPos);
+      end;
+    until false;
+    Result:=true;
+  finally
+    DeactivateGlobalWriteLock;
+  end;
 end;
 
 {-------------------------------------------------------------------------------
