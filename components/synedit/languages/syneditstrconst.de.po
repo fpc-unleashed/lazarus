@@ -517,6 +517,10 @@ msgstr ""
 msgid "Ordinal Char (Hash)"
 msgstr ""
 
+#: syneditstrconst.syns_attrstringinterp
+msgid "Interpolated String"
+msgstr ""
+
 #: syneditstrconst.syns_attrstringsingle
 msgid "Single quoted String"
 msgstr ""
