@@ -11272,6 +11272,7 @@ var
     InlineVarExprStartPos, InlineVarExprEndPos: integer;
     InlineVarExprType: TExpressionType;
     InlineVarOldInput: TFindDeclarationInput;
+    ForInTermPos: TAtomPosition;
     CurAliasType: PFindContext;
     Context: TFindContext;
     FirstParamProcExpr: TExpressionType;
@@ -11370,6 +11371,60 @@ var
             { promote Char to ConstString so var s := 'x' gets string methods }
             if InlineVarExprType.Desc in [xtChar,xtAnsiChar,xtWideChar] then
               InlineVarExprType.Desc:=xtConstString;
+            if InlineVarExprType.Desc<>xtNone then
+              ExprType:=InlineVarExprType;
+          except
+          end;
+          Params.Load(InlineVarOldInput,true);
+        end;
+      end
+      else if (InlineVarExprStartPos+1<=ExprType.Context.Tool.SrcLen)
+      and (ExprType.Context.Tool.Src[InlineVarExprStartPos] in ['i','I'])
+      and (ExprType.Context.Tool.Src[InlineVarExprStartPos+1] in ['n','N'])
+      and ((InlineVarExprStartPos+2>ExprType.Context.Tool.SrcLen)
+        or not (ExprType.Context.Tool.Src[InlineVarExprStartPos+2] in
+                ['a'..'z','A'..'Z','0'..'9','_'])) then
+      begin
+        // for-in inline var: `for var x in <collection> do` - x has the
+        // element type of the collection. find the collection term (after
+        // `in`, before the `do` keyword, bracket-aware) and infer via the
+        // existing FindForInTypeAsString
+        ForInTermPos.StartPos:=InlineVarExprStartPos+2;
+        while (ForInTermPos.StartPos<=ExprType.Context.Tool.SrcLen)
+        and (ExprType.Context.Tool.Src[ForInTermPos.StartPos] in [' ',#9,#10,#13]) do
+          inc(ForInTermPos.StartPos);
+        ForInTermPos.EndPos:=ForInTermPos.StartPos;
+        InlineVarExprEndPos:=0; // reuse as bracket depth
+        while (ForInTermPos.EndPos<=ExprType.Context.Tool.SrcLen) do begin
+          case ExprType.Context.Tool.Src[ForInTermPos.EndPos] of
+          '(','[': inc(InlineVarExprEndPos);
+          ')',']': if InlineVarExprEndPos>0 then dec(InlineVarExprEndPos);
+          ';': break;
+          'd','D':
+            if (InlineVarExprEndPos=0)
+            and (ForInTermPos.EndPos+1<=ExprType.Context.Tool.SrcLen)
+            and (ExprType.Context.Tool.Src[ForInTermPos.EndPos+1] in ['o','O'])
+            and ((ForInTermPos.EndPos=1)
+              or not (ExprType.Context.Tool.Src[ForInTermPos.EndPos-1] in
+                      ['a'..'z','A'..'Z','0'..'9','_']))
+            and ((ForInTermPos.EndPos+2>ExprType.Context.Tool.SrcLen)
+              or not (ExprType.Context.Tool.Src[ForInTermPos.EndPos+2] in
+                      ['a'..'z','A'..'Z','0'..'9','_'])) then
+              break;
+          end;
+          inc(ForInTermPos.EndPos);
+        end;
+        while (ForInTermPos.EndPos>ForInTermPos.StartPos)
+        and (ExprType.Context.Tool.Src[ForInTermPos.EndPos-1] in [' ',#9,#10,#13]) do
+          dec(ForInTermPos.EndPos);
+        if ForInTermPos.EndPos>ForInTermPos.StartPos then begin
+          ForInTermPos.Flag:=cafNone;
+          Params.Save(InlineVarOldInput);
+          try
+            Params.ContextNode:=ExprType.Context.Node;
+            Params.Flags:=[fdfSearchInParentNodes];
+            ExprType.Context.Tool.FindForInTypeAsString(
+              ForInTermPos,ExprType.Context.Node,Params,InlineVarExprType);
             if InlineVarExprType.Desc<>xtNone then
               ExprType:=InlineVarExprType;
           except
