@@ -515,6 +515,10 @@ msgstr "Символ с ^ в начале"
 msgid "Ordinal Char (Hash)"
 msgstr "Символ с # в начале"
 
+#: syneditstrconst.syns_attrstringinterp
+msgid "Interpolated String"
+msgstr ""
+
 #: syneditstrconst.syns_attrstringsingle
 msgid "Single quoted String"
 msgstr "Строка в одинарных кавычках"
