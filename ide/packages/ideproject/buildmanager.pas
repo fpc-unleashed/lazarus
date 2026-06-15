@@ -558,6 +558,14 @@ procedure TBuildManager.RescanCompilerDefines(ResetBuildTarget,
     Result:=true;
   end;
 
+  function ProjectUsesCustomRTL: boolean;
+  // a non-empty project RTL path (--rtl=) builds system.ppu into the project
+  // output dir, not the compiler unit dirs, so FoundSystemPPU misses it
+  begin
+    Result:=(FBuildTarget<>nil)
+        and (TProjectCompilerOptions(FBuildTarget.LazCompilerOptions).RTLPath<>'');
+  end;
+
   function PPUFilesAndCompilerMatch: boolean;
   // check if compiler is in another directory than the ppu files
   // for example: a 'make install' installs to /usr/local/lib/fpc
@@ -816,7 +824,7 @@ begin
           WorkDir+='-'+Subtarget;
         MaybeAddIgnorePath(WorkDir);
       end;
-      if not FoundSystemPPU then begin
+      if (not FoundSystemPPU) and not ProjectUsesCustomRTL then begin
         // system.ppu is missing
         LazMessageWorker(lisCCOErrorCaption,
           Format(lisTheProjectUsesTargetOSAndCPUTheSystemPpuForThisTar,
