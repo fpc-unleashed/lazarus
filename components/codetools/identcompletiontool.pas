@@ -433,6 +433,7 @@ type
       AResultType: PChar);
     procedure AddCompilerProcedure(const AProcName, AParameterList: PChar);
     procedure AddKeyWord(aKeyWord: string);
+    procedure AddAutoPropertyBackingFields(ClassNode: TCodeTreeNode);
   protected
     CurrentIdentifierList: TIdentifierList;
     CurrentIdentifierContexts: TCodeContextInfo;
@@ -1252,6 +1253,43 @@ begin
   CurrentIdentifierList.Add(NewItem);
 end;
 
+procedure TIdentCompletionTool.AddAutoPropertyBackingFields(ClassNode: TCodeTreeNode);
+// an accessor-less property in {$modeswitch autoproperties} gets a strict-private
+// F<Name> backing field; offer it for completion inside the class's own methods
+var
+  SectionNode, MemberNode: TCodeTreeNode;
+  NewItem: TIdentifierListItem;
+  FieldIdent, PropType: PChar;
+begin
+  if (ClassNode=nil) or not (cmsAutoProperties in Scanner.CompilerModeSwitches) then
+    exit;
+  SectionNode:=ClassNode.FirstChild;
+  while SectionNode<>nil do begin
+    if SectionNode.Desc in AllClassSections then begin
+      MemberNode:=SectionNode.FirstChild;
+      while MemberNode<>nil do begin
+        if (MemberNode.Desc=ctnProperty)
+        and not PropertyNodeHasParamList(MemberNode)
+        and not PropertyHasSpecifier(MemberNode,'READ',false)
+        and not PropertyHasSpecifier(MemberNode,'WRITE',false) then begin
+          PropType:=GetPropertyTypeIdentifier(MemberNode);
+          if PropType<>nil then begin
+            FieldIdent:=CurrentIdentifierList.CreateIdentifier('F'+ExtractPropName(MemberNode,false));
+            if not CurrentIdentifierList.HasIdentifier(FieldIdent,'') then begin
+              NewItem:=CIdentifierListItem.Create(
+                  icompUnknown,false,0,FieldIdent,1,nil,nil,ctnVarDefinition);
+              NewItem.ResultType:=GetIdentifier(PropType);
+              CurrentIdentifierList.Add(NewItem);
+            end;
+          end;
+        end;
+        MemberNode:=MemberNode.NextBrother;
+      end;
+    end;
+    SectionNode:=SectionNode.NextBrother;
+  end;
+end;
+
 procedure TIdentCompletionTool.AddCompilerFunction(const AProcName, AParameterList,
   AResultType: PChar);
 var
@@ -1437,6 +1475,13 @@ begin
           NewItem.ResultType:= FoundContext.Tool.ExtractClassNameOfProcNode(FuncNode,false);
           CurrentIdentifierList.Add(NewItem);
         end;
+
+        // accessor-less auto-properties expose a strict-private F<Name> backing field
+        if (cmsAutoProperties in Scanner.CompilerModeSwitches)
+        and FoundContext.Tool.NodeIsMethodBody(FuncNode)
+        and not FoundContext.Tool.NodeIsClassMethod(FuncNode) then
+          AddAutoPropertyBackingFields(
+            FoundContext.Tool.FindClassNodeForMethodBody(FuncNode,true,false));
 
         if (cmsResult in Scanner.CompilerModeSwitches) and
         not CurrentIdentifierList.HasIdentifier(PChar('Result'),'') then begin
