@@ -5545,7 +5545,8 @@ begin
   //DebugLn('CheckIdentCompletionValidity: ' + Self.GetWordFromCaret(LogCaret) + ' = ' + CodeAttribute) ;
   if (CodeAttribute = SYNS_XML_AttrComment) or
      (CodeAttribute = SYNS_XML_AttrString) or
-     (CodeAttribute = SYNS_XML_AttrNumber)
+     (CodeAttribute = SYNS_XML_AttrNumber) or
+     (CodeAttribute = SYNS_XML_AttrDirective)
   then
     Exit;
 
