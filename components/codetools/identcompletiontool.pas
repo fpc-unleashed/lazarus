@@ -2382,6 +2382,10 @@ begin
         Add('var');
         if cmsStaticSection in Scanner.CompilerModeSwitches then
           Add('static');
+        if cmsThreadStatic in Scanner.CompilerModeSwitches then begin
+          Add('threadstatic');
+          Add('tstatic');
+        end;
         Add('const');
         Add('label');
         Add('procedure');
