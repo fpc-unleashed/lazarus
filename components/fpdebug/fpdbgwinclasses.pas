@@ -148,6 +148,7 @@ type
     FName: String;
     FUnwinder: TDbgStackUnwinderX86MultiMethod;
     FFailed_CONTEXT_EXTENDED_REGISTERS: boolean;
+    FTebBase: TDBGPtr;
   protected
     FThreadContextChanged: boolean;
     FThreadContextChangeFlags: TFpContextChangeFlags;
@@ -182,6 +183,7 @@ type
     procedure SetInstructionPointerRegisterValue(AValue: TDbgPtr); override;
     procedure SetStackPointerRegisterValue(AValue: TDbgPtr); override;
     function GetStackPointerRegisterValue: TDbgPtr; override;
+    function GetSegmentBaseRegister(ARegNum: Cardinal; out AValue: TDbgPtr): Boolean; override;
     property Process;
     property HitExternalWatchPoint: boolean read FHitExternalWatchPoint;
   end;
@@ -378,6 +380,24 @@ const
   XSTATE_MASK_AVX                   = XSTATE_MASK_GSSE;
 type
   PPCONTEXT = ^PCONTEXT;
+
+{$PUSH}
+{$PACKRECORDS C}
+  TThreadBasicInformation = record
+    ExitStatus: LongInt;
+    TebBaseAddress: Pointer;
+    ClientIdProcess: Pointer;
+    ClientIdThread: Pointer;
+    AffinityMask: PtrUInt;
+    Priority: LongInt;
+    BasePriority: LongInt;
+  end;
+{$POP}
+
+// ntdll, ThreadBasicInformation (=0) yields the thread's TEB base, i.e. the
+// linear gs base (x64) / fs base (x86)
+function NtQueryInformationThread(ThreadHandle: THandle; ThreadInformationClass: LongInt;
+  ThreadInformation: Pointer; ThreadInformationLength: DWORD; ReturnLength: Pointer): LongInt; stdcall; external 'ntdll.dll' name 'NtQueryInformationThread';
 
 var
   DebugBreakAddr: Pointer = nil;
@@ -1813,6 +1833,32 @@ begin
 end;
 
 { TDbgWinThread }
+
+function TDbgWinThread.GetSegmentBaseRegister(ARegNum: Cardinal; out AValue: TDbgPtr): Boolean;
+var
+  tbi: TThreadBasicInformation;
+  WantReg: Cardinal;
+begin
+  AValue := 0;
+  Result := False;
+  {$ifdef cpui386}
+  WantReg := 58; // fs base
+  {$else}
+  if TDbgWinProcess(Process).FBitness = b32 then
+    WantReg := 58 // fs base
+  else
+    WantReg := 59; // gs base
+  {$endif}
+  if ARegNum <> WantReg then
+    exit;
+  if FTebBase = 0 then begin
+    FillByte(tbi, SizeOf(tbi), 0);
+    if NtQueryInformationThread(Handle, 0, @tbi, SizeOf(tbi), nil) >= 0 then
+      FTebBase := TDBGPtr(PtrUInt(tbi.TebBaseAddress));
+  end;
+  AValue := FTebBase;
+  Result := FTebBase <> 0;
+end;
 
 procedure TDbgWinThread.LoadRegisterValues;
 {$IF FPC_Fullversion>30202}{$ifNdef cpui386}
