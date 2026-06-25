@@ -112,7 +112,9 @@ begin
   if Assigned(OnLCLWidgetType) then
     Result := OnLCLWidgetType()
   else
-    Result := lpGtk2;
+    // no running widgetset (e.g. lazbuild): fall back to the platform this
+    // binary was built for, not a hardcoded gtk2
+    Result := GetBuildLCLWidgetType;
 end;
 
 function GetLCLWidgetTypeName: string;
