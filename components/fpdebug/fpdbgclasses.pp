@@ -311,6 +311,9 @@ type
     function GetStackPointerRegisterValue: TDbgPtr; virtual; abstract;
     procedure SetStackPointerRegisterValue(AValue: TDbgPtr); virtual; abstract;
     procedure SetInstructionPointerRegisterValue(AValue: TDbgPtr); virtual; abstract;
+    // Thread-constant segment base registers (DWARF gs.base / fs.base) that the
+    // CPU context does not carry. Returns False unless the OS thread resolves it.
+    function GetSegmentBaseRegister(ARegNum: Cardinal; out AValue: TDbgPtr): Boolean; virtual;
     function GetCurrentStackFrameInfo: TDbgStackFrameInfo;
     function GetSymbolAtCurrentInstructionPtr: TFpSymbol;
 
@@ -2147,7 +2150,10 @@ begin
     begin
     AValue := ARegister.NumValue;
     result := true;
-    end;
+    end
+  else
+    // segment base registers are thread-constant and not part of any frame's list
+    result := CtxThread.GetSegmentBaseRegister(ARegNum, AValue);
 end;
 
 function TDbgMemReader.WriteRegister(ARegNum: Cardinal; const AValue: TDbgPtr; AContext: TFpDbgLocationContext): Boolean;
@@ -3919,6 +3925,12 @@ end;
 procedure TDbgThread.LoadRegisterValues;
 begin
   // Do nothing
+end;
+
+function TDbgThread.GetSegmentBaseRegister(ARegNum: Cardinal; out AValue: TDbgPtr): Boolean;
+begin
+  AValue := 0;
+  Result := False;
 end;
 
 procedure TDbgThread.StoreHasBreakpointInfoForAddress(AnAddr: TDBGPtr);

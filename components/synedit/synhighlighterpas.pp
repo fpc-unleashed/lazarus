@@ -3533,6 +3533,8 @@ begin
 end;
 
 function TSynPasSyn.Func92: TtkTokenKind;
+var
+  tfb: TPascalCodeFoldBlockType;
 begin
   if D4syntax and
      IsProcModifier and
@@ -3554,6 +3556,41 @@ begin
   if KeyCompU('INHERITED')
   then
     Result := tkKey
+  else if KeyCompU('TSTATIC') then begin
+    // unleashed `tstatic` (short alias for `threadstatic`): top-of-body section
+    // (same mechanics as `var`) or `tstatic name := expr` inline declaration
+    // inside a statement block; elsewhere it is an ordinary identifier
+    tfb := TopPascalCodeFoldBlockType;
+    if (PasCodeFoldRange.BracketNestLevel = 0) and
+       (fRange * [rsInProcHeader, rsProperty] = [])
+    then begin
+      if tfb in cfbtVarConstTypeLabelExt then begin
+        EndPascalCodeFoldBlockLastLine;
+        tfb := TopPascalCodeFoldBlockType;
+      end;
+      if tfb in [cfbtProcedure, cfbtAnonymousProcedure] then begin
+        StartPascalCodeFoldBlock(cfbtLocalVarBlock);
+        FNextTokenState := tsAfterVarConstType;
+        fRange := fRange - [rsProperty, rsInPropertyNameOrIndex,
+                            rsInProcHeader, rsInProcName, rsInParamDeclaration,
+                            rsInGenericParams, rsInGenericConstraint];
+        PasCodeFoldRange.ResetSpecializeBracketNestLevel;
+        Result := tkKey;
+        exit;
+      end;
+      if tfb in PascalStatementBlocks then begin
+        PasCodeFoldRange.InInlineVarStmt := True;
+        FNextTokenState := tsAfterVarConstType;
+        fRange := fRange - [rsProperty, rsInPropertyNameOrIndex,
+                            rsInProcHeader, rsInProcName, rsInParamDeclaration,
+                            rsInGenericParams, rsInGenericConstraint];
+        PasCodeFoldRange.ResetSpecializeBracketNestLevel;
+        Result := tkKey;
+        exit;
+      end;
+    end;
+    Result := tkIdentifier;
+  end
   else
     Result := tkIdentifier;
 end;
@@ -3949,10 +3986,47 @@ begin
 end;
 
 function TSynPasSyn.Func128: TtkTokenKind;
+var
+  tfb: TPascalCodeFoldBlockType;
 begin
   if (FStringKeywordMode in [spsmDefault]) and KeyCompU('WIDESTRING') then begin
     Result := tkKey;
     FTokenIsValueOrTypeName := True;
+  end
+  else if KeyCompU('THREADSTATIC') then begin
+    // unleashed threadstatic: top-of-body `threadstatic <decls>` section (same
+    // mechanics as `var`) or `threadstatic name := expr` inline declaration
+    // inside a statement block; elsewhere it is an ordinary identifier
+    tfb := TopPascalCodeFoldBlockType;
+    if (PasCodeFoldRange.BracketNestLevel = 0) and
+       (fRange * [rsInProcHeader, rsProperty] = [])
+    then begin
+      if tfb in cfbtVarConstTypeLabelExt then begin
+        EndPascalCodeFoldBlockLastLine;
+        tfb := TopPascalCodeFoldBlockType;
+      end;
+      if tfb in [cfbtProcedure, cfbtAnonymousProcedure] then begin
+        StartPascalCodeFoldBlock(cfbtLocalVarBlock);
+        FNextTokenState := tsAfterVarConstType;
+        fRange := fRange - [rsProperty, rsInPropertyNameOrIndex,
+                            rsInProcHeader, rsInProcName, rsInParamDeclaration,
+                            rsInGenericParams, rsInGenericConstraint];
+        PasCodeFoldRange.ResetSpecializeBracketNestLevel;
+        Result := tkKey;
+        exit;
+      end;
+      if tfb in PascalStatementBlocks then begin
+        PasCodeFoldRange.InInlineVarStmt := True;
+        FNextTokenState := tsAfterVarConstType;
+        fRange := fRange - [rsProperty, rsInPropertyNameOrIndex,
+                            rsInProcHeader, rsInProcName, rsInParamDeclaration,
+                            rsInGenericParams, rsInGenericConstraint];
+        PasCodeFoldRange.ResetSpecializeBracketNestLevel;
+        Result := tkKey;
+        exit;
+      end;
+    end;
+    Result := tkIdentifier;
   end
   else
     Result := tkIdentifier;

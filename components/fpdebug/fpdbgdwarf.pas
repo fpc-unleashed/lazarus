@@ -7737,6 +7737,11 @@ function TFpSymbolDwarfDataVariable.GetValueAddress(AValueObj: TFpValueDwarf; ou
 var
   AttrData: TDwarfAttribData;
 begin
+  // a windows relocate-model threadvar carries the per-thread location here;
+  // DW_AT_location stays a static address for other debuggers
+  if InformationEntry.GetAttribData(DW_AT_FPC_threadvar, AttrData) then
+    Result := LocationFromAttrData(AttrData, AValueObj, AnAddress, nil, True)
+  else
   if InformationEntry.GetAttribData(DW_AT_location, AttrData) then
     Result := LocationFromAttrData(AttrData, AValueObj, AnAddress, nil, True)
   else

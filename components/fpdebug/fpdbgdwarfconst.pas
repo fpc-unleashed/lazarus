@@ -199,6 +199,8 @@ const
   // ---  ---
   DW_AT_lo_user              = $2000;    // ---
   DW_AT_hi_user              = $3fff;    // ---
+  // per-thread location expression for a windows relocate-model threadvar
+  DW_AT_FPC_threadvar        = $2e00;    // block
 
 
   { Attribute form encodings }

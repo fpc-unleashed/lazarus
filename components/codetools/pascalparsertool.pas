@@ -176,6 +176,7 @@ type
     function KeyWordFuncType: boolean;
     function KeyWordFuncVar: boolean;
     function KeyWordFuncStatic: boolean;
+    function KeyWordFuncThreadStatic: boolean;
     function KeyWordFuncConst: boolean;
     function KeyWordFuncResourceString: boolean;
     function KeyWordFuncExports: boolean;
@@ -451,6 +452,8 @@ begin
     Add('VAR',@KeyWordFuncVar);
     Add('THREADVAR',@KeyWordFuncVar);
     Add('STATIC',@KeyWordFuncStatic);
+    Add('THREADSTATIC',@KeyWordFuncThreadStatic);
+    Add('TSTATIC',@KeyWordFuncThreadStatic);
     Add('CONST',@KeyWordFuncConst);
     Add('RESOURCESTRING',@KeyWordFuncResourceString);
     Add('EXPORTS',@KeyWordFuncExports);
@@ -3326,6 +3329,13 @@ begin
       // (`static name [: T] [:= expr];`); reuse the inline-var reader so the
       // variable is registered in scope the same way
       ReadInlineVarDeclaration(CreateNodes);
+    end else if (UpAtomIs('THREADSTATIC') or UpAtomIs('TSTATIC'))
+    and (BlockType in [ebtBegin,ebtTry,ebtRepeat])
+    and (cmsThreadStatic in Scanner.CompilerModeSwitches) then begin
+      // unleashed inline-threadstatic (`tstatic` is the short alias): same
+      // post-keyword syntax as inline-var (`threadstatic name [: T] [:= expr];`);
+      // reuse the inline-var reader so the variable is registered in scope
+      ReadInlineVarDeclaration(CreateNodes);
     end else if UpAtomIs('ON') and (BlockType=ebtTry)
     and (TryType=ttExcept) then begin
       ReadOnStatement(true,CreateNodes);
@@ -4721,6 +4731,90 @@ begin
         ReadVariableType;
       end else
         SaveRaiseCharExpectedButAtomFound(20260605120005,':');
+    end else if (CurPos.Flag=cafEdgedBracketOpen) and AllowAttributes then begin
+      ReadAttribute;
+    end else begin
+      UndoReadNextAtom;
+      break;
+    end;
+  until false;
+  CurNode.EndPos:=CurPos.EndPos;
+  EndChildNode;
+  FixLastAttributes;
+  Result:=true;
+end;
+
+function TPascalParserTool.KeyWordFuncThreadStatic: boolean;
+{ unleashed threadstatic: per-thread declarations at the top of a
+  function/procedure body. Same syntax as the `static` section, modelled as
+  ctnVarSection so identifier completion treats the entries like locals.
+
+  examples:
+
+    procedure Foo;
+    threadstatic
+      x: Integer;             // zero-init per thread
+      y: Integer = 42;        // explicit per-thread value
+      a, b: Integer;          // multi-name
+      a, b: Integer = 5;      // multi-name with shared init
+      greet := 'hello';       // type inference (single name)
+    begin
+    end;
+}
+var
+  LastIdentifierEnd: LongInt;
+  NameCount: integer;
+begin
+  // outside the threadstatic modeswitch, `threadstatic` here is unexpected
+  if not (cmsThreadStatic in Scanner.CompilerModeSwitches) then
+    SaveRaiseUnexpectedKeyWord(20260625120001);
+  // only legal inside a function/procedure body
+  if (CurNode=nil) or (CurNode.Desc<>ctnProcedure) then
+    SaveRaiseUnexpectedKeyWord(20260625120002);
+  CreateChildNode;
+  CurNode.Desc:=ctnVarSection;
+  repeat
+    ReadNextAtom;
+    if AtomIsIdentifier then begin
+      CreateChildNode;
+      CurNode.Desc:=ctnVarDefinition;
+      LastIdentifierEnd:=CurPos.EndPos;
+      NameCount:=1;
+      ReadNextAtom;
+      while (CurPos.Flag=cafComma) do begin
+        CurNode.EndPos:=LastIdentifierEnd;
+        EndChildNode;
+        ReadNextAtom;
+        AtomIsIdentifierSaveE(20260625120003);
+        CreateChildNode;
+        CurNode.Desc:=ctnVarDefinition;
+        LastIdentifierEnd:=CurPos.EndPos;
+        Inc(NameCount);
+        ReadNextAtom;
+      end;
+      if CurPos.Flag=cafAssignment then begin
+        // `name := expr` type inference; only single name allowed
+        if NameCount>1 then
+          SaveRaiseCharExpectedButAtomFound(20260625120004,':');
+        // skip the initializer expression up to the terminating ';';
+        // leave cursor on the ';' so the outer loop's ReadNextAtom advances
+        // to the next entry's first atom (same convention as ReadVariableType)
+        repeat
+          ReadNextAtom;
+          if CurPos.StartPos>SrcLen then break;
+          if CurPos.Flag=cafSemicolon then break;
+          if CurPos.Flag in [cafRoundBracketOpen,cafEdgedBracketOpen] then
+            ReadTilBracketClose(true);
+        until false;
+        CurNode.EndPos:=CurPos.EndPos;
+        EndChildNode;
+      end else if CurPos.Flag=cafColon then begin
+        // `name [, ...] : Type [= Value]` -- same shape as a var-section entry,
+        // ReadVariableType already accepts the optional `= Value` when parent
+        // is ctnVarSection under a ctnProcedure
+        ReadVariableType;
+      end else
+        SaveRaiseCharExpectedButAtomFound(20260625120005,':');
     end else if (CurPos.Flag=cafEdgedBracketOpen) and AllowAttributes then begin
       ReadAttribute;
     end else begin
