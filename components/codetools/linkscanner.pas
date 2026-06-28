@@ -3537,7 +3537,7 @@ begin
     FDirectives[FDirectivesCount-1].Kind:=lsdkLongSwitch;
   ReadSpace;
   ValStart:=SrcPos;
-  while (SrcPos<=SrcLen) and IsWordChar[Src[SrcPos]] do
+  while (SrcPos<=SrcLen) and IsIdentChar[Src[SrcPos]] do
     inc(SrcPos);
   if SrcPos>ValStart then
     SetDirectiveValueWithSequence(sdAutoPropPrefix,copy(Src,ValStart,SrcPos-ValStart));
