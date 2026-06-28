@@ -319,6 +319,8 @@ type
     procedure SetAlternativeCompile(const Command: string; ScanFPCMsgs: boolean); override;
 
     function MakeCompilerParams(Flags: TCompilerCmdLineOptions): TStringListUTF8Fast;
+    // extension point for subclasses to add raw command line params (one per entry)
+    procedure AppendExtraOptions({%H-}Params: TStrings); virtual;
     procedure GetSyntaxOptions(Kind: TPascalCompiler; Params: TStrings); virtual;
     function CreatePPUFilename(const SourceFileName: string): string; override;
     function CreateTargetFilename: string; override;
@@ -2790,7 +2792,14 @@ begin
     CurCustomOptions:=GetCustomOptions(coptParsed);
     if CurCustomOptions<>'' then
       ConvertOptionsToCmdParams('', CurCustomOptions, Result);
+    // subclass-provided params, added verbatim so values may contain spaces
+    AppendExtraOptions(Result);
   end;
+end;
+
+procedure TBaseCompilerOptions.AppendExtraOptions(Params: TStrings);
+begin
+  // nothing by default
 end;
 
 procedure TBaseCompilerOptions.GetSyntaxOptions(Kind: TPascalCompiler;

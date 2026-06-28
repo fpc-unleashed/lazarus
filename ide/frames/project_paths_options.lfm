@@ -1,33 +1,39 @@
 object ProjectPathsOptionsFrame: TProjectPathsOptionsFrame
   Left = 0
-  Height = 460
+  Height = 800
   Top = 0
-  Width = 536
-  ClientHeight = 460
-  ClientWidth = 536
+  Width = 560
+  ClientHeight = 800
+  ClientWidth = 560
   TabOrder = 0
   DesignLeft = 306
   DesignTop = 188
-  object FPCSrcDirLabel: TLabel
+  object divSrcDir: TDividerBevel
     AnchorSideLeft.Control = Owner
     AnchorSideTop.Control = Owner
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
     Left = 0
-    Height = 17
+    Height = 18
     Top = 0
-    Width = 200
-    Caption = 'FPCSrcDirLabel'
+    Width = 560
+    Caption = 'divSrcDir'
+    Anchors = [akTop, akLeft, akRight]
+    Font.Style = [fsBold]
+    LeftIndent = 10
     ParentColor = False
+    ParentFont = False
   end
   object FPCSrcDirEdit: TEdit
     AnchorSideLeft.Control = Owner
-    AnchorSideTop.Control = FPCSrcDirLabel
+    AnchorSideTop.Control = divSrcDir
     AnchorSideTop.Side = asrBottom
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
     Left = 0
     Height = 33
-    Top = 23
-    Width = 536
+    Top = 24
+    Width = 560
     Anchors = [akTop, akLeft, akRight]
     BorderSpacing.Top = 6
     TabOrder = 0
@@ -36,12 +42,551 @@ object ProjectPathsOptionsFrame: TProjectPathsOptionsFrame
     AnchorSideLeft.Control = Owner
     AnchorSideTop.Control = FPCSrcDirEdit
     AnchorSideTop.Side = asrBottom
-    Left = 0
+    Left = 6
     Height = 17
-    Top = 68
+    Top = 63
     Width = 200
-    BorderSpacing.Top = 12
+    BorderSpacing.Left = 6
+    BorderSpacing.Top = 6
     Caption = 'RescanInfoLabel'
     ParentColor = False
+  end
+  object divSignature: TDividerBevel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = RescanInfoLabel
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    Left = 0
+    Height = 18
+    Top = 95
+    Width = 560
+    Caption = 'divSignature'
+    Anchors = [akTop, akLeft, akRight]
+    BorderSpacing.Top = 15
+    Font.Style = [fsBold]
+    LeftIndent = 10
+    ParentColor = False
+    ParentFont = False
+  end
+  object SignatureDocsPrefix: TLabel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = divSignature
+    AnchorSideTop.Side = asrBottom
+    Left = 6
+    Height = 17
+    Top = 119
+    Width = 32
+    BorderSpacing.Left = 6
+    BorderSpacing.Top = 6
+    Caption = 'docs:'
+    ParentColor = False
+  end
+  object SignatureDocsLink: TLabel
+    AnchorSideLeft.Control = SignatureDocsPrefix
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = SignatureDocsPrefix
+    AnchorSideTop.Side = asrCenter
+    Cursor = crHandPoint
+    Left = 42
+    Height = 17
+    Top = 119
+    Width = 110
+    BorderSpacing.Left = 4
+    Caption = 'SignatureDocsLink'
+    Font.Color = clWindowText
+    Font.Style = [fsUnderline]
+    ParentColor = False
+    ParentFont = False
+    OnClick = DocsLinkClick
+    OnMouseEnter = DocsLinkMouseEnter
+    OnMouseLeave = DocsLinkMouseLeave
+  end
+  object FPCSignatureEdit: TEdit
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = SignatureDocsPrefix
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    Left = 0
+    Height = 33
+    Top = 142
+    Width = 560
+    Anchors = [akTop, akLeft, akRight]
+    BorderSpacing.Top = 6
+    TabOrder = 1
+  end
+  object SignatureEmptyCheckBox: TCheckBox
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = FPCSignatureEdit
+    AnchorSideTop.Side = asrBottom
+    Left = 6
+    Height = 23
+    Top = 181
+    Width = 80
+    BorderSpacing.Left = 6
+    BorderSpacing.Top = 6
+    Caption = 'Set empty'
+    TabOrder = 2
+    OnChange = SignatureEmptyCheckBoxChange
+  end
+  object SignatureInfoLabel: TLabel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = SignatureEmptyCheckBox
+    AnchorSideTop.Side = asrBottom
+    Left = 6
+    Height = 17
+    Top = 210
+    Width = 200
+    BorderSpacing.Left = 6
+    BorderSpacing.Top = 6
+    Caption = 'SignatureInfoLabel'
+    ParentColor = False
+  end
+  object divLinker: TDividerBevel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = SignatureInfoLabel
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    Left = 0
+    Height = 18
+    Top = 242
+    Width = 560
+    Caption = 'divLinker'
+    Anchors = [akTop, akLeft, akRight]
+    BorderSpacing.Top = 15
+    Font.Style = [fsBold]
+    LeftIndent = 10
+    ParentColor = False
+    ParentFont = False
+  end
+  object LinkerDocsPrefix: TLabel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = divLinker
+    AnchorSideTop.Side = asrBottom
+    Left = 6
+    Height = 17
+    Top = 266
+    Width = 32
+    BorderSpacing.Left = 6
+    BorderSpacing.Top = 6
+    Caption = 'docs:'
+    ParentColor = False
+  end
+  object LinkerDocsLink: TLabel
+    AnchorSideLeft.Control = LinkerDocsPrefix
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = LinkerDocsPrefix
+    AnchorSideTop.Side = asrCenter
+    Cursor = crHandPoint
+    Left = 42
+    Height = 17
+    Top = 266
+    Width = 110
+    BorderSpacing.Left = 4
+    Caption = 'LinkerDocsLink'
+    Font.Color = clWindowText
+    Font.Style = [fsUnderline]
+    ParentColor = False
+    ParentFont = False
+    OnClick = DocsLinkClick
+    OnMouseEnter = DocsLinkMouseEnter
+    OnMouseLeave = DocsLinkMouseLeave
+  end
+  object LinkerPresetCombo: TComboBox
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = LinkerDocsPrefix
+    AnchorSideTop.Side = asrBottom
+    Left = 6
+    Height = 26
+    Top = 289
+    Width = 240
+    BorderSpacing.Left = 6
+    BorderSpacing.Top = 6
+    Font.Name = 'Lucida Console'
+    ItemHeight = 26
+    ParentFont = False
+    Style = csDropDownList
+    TabOrder = 3
+    OnSelect = LinkerPresetComboSelect
+  end
+  object LinkerMajorLabel: TLabel
+    AnchorSideLeft.Control = LinkerPresetCombo
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = LinkerPresetCombo
+    AnchorSideTop.Side = asrCenter
+    Left = 258
+    Height = 17
+    Top = 297
+    Width = 40
+    BorderSpacing.Left = 12
+    Caption = 'major:'
+    ParentColor = False
+  end
+  object LinkerMajorEdit: TEdit
+    AnchorSideLeft.Control = LinkerMajorLabel
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = LinkerPresetCombo
+    AnchorSideTop.Side = asrCenter
+    Left = 302
+    Height = 33
+    Top = 289
+    Width = 56
+    BorderSpacing.Left = 4
+    TabOrder = 4
+    OnChange = LinkerVersionEditChange
+  end
+  object LinkerMinorLabel: TLabel
+    AnchorSideLeft.Control = LinkerMajorEdit
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = LinkerPresetCombo
+    AnchorSideTop.Side = asrCenter
+    Left = 366
+    Height = 17
+    Top = 297
+    Width = 40
+    BorderSpacing.Left = 8
+    Caption = 'minor:'
+    ParentColor = False
+  end
+  object LinkerMinorEdit: TEdit
+    AnchorSideLeft.Control = LinkerMinorLabel
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = LinkerPresetCombo
+    AnchorSideTop.Side = asrCenter
+    Left = 410
+    Height = 33
+    Top = 289
+    Width = 56
+    BorderSpacing.Left = 4
+    TabOrder = 5
+    OnChange = LinkerVersionEditChange
+  end
+  object LinkerInfoLabel: TLabel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = LinkerPresetCombo
+    AnchorSideTop.Side = asrBottom
+    Left = 6
+    Height = 17
+    Top = 328
+    Width = 200
+    BorderSpacing.Left = 6
+    BorderSpacing.Top = 6
+    Caption = 'LinkerInfoLabel'
+    ParentColor = False
+  end
+  object divOS: TDividerBevel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = LinkerInfoLabel
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    Left = 0
+    Height = 18
+    Top = 360
+    Width = 560
+    Caption = 'divOS'
+    Anchors = [akTop, akLeft, akRight]
+    BorderSpacing.Top = 15
+    Font.Style = [fsBold]
+    LeftIndent = 10
+    ParentColor = False
+    ParentFont = False
+  end
+  object OSDocsPrefix: TLabel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = divOS
+    AnchorSideTop.Side = asrBottom
+    Left = 6
+    Height = 17
+    Top = 384
+    Width = 32
+    BorderSpacing.Left = 6
+    BorderSpacing.Top = 6
+    Caption = 'docs:'
+    ParentColor = False
+  end
+  object OSDocsLink: TLabel
+    AnchorSideLeft.Control = OSDocsPrefix
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = OSDocsPrefix
+    AnchorSideTop.Side = asrCenter
+    Cursor = crHandPoint
+    Left = 42
+    Height = 17
+    Top = 384
+    Width = 110
+    BorderSpacing.Left = 4
+    Caption = 'OSDocsLink'
+    Font.Color = clWindowText
+    Font.Style = [fsUnderline]
+    ParentColor = False
+    ParentFont = False
+    OnClick = DocsLinkClick
+    OnMouseEnter = DocsLinkMouseEnter
+    OnMouseLeave = DocsLinkMouseLeave
+  end
+  object OSPresetCombo: TComboBox
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = OSDocsPrefix
+    AnchorSideTop.Side = asrBottom
+    Left = 6
+    Height = 26
+    Top = 407
+    Width = 240
+    BorderSpacing.Left = 6
+    BorderSpacing.Top = 6
+    Font.Name = 'Lucida Console'
+    ItemHeight = 26
+    ParentFont = False
+    Style = csDropDownList
+    TabOrder = 6
+    OnSelect = OSPresetComboSelect
+  end
+  object OSMajorLabel: TLabel
+    AnchorSideLeft.Control = OSPresetCombo
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = OSPresetCombo
+    AnchorSideTop.Side = asrCenter
+    Left = 258
+    Height = 17
+    Top = 415
+    Width = 40
+    BorderSpacing.Left = 12
+    Caption = 'major:'
+    ParentColor = False
+  end
+  object OSMajorEdit: TEdit
+    AnchorSideLeft.Control = OSMajorLabel
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = OSPresetCombo
+    AnchorSideTop.Side = asrCenter
+    Left = 302
+    Height = 33
+    Top = 407
+    Width = 56
+    BorderSpacing.Left = 4
+    TabOrder = 7
+    OnChange = OSVersionEditChange
+  end
+  object OSMinorLabel: TLabel
+    AnchorSideLeft.Control = OSMajorEdit
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = OSPresetCombo
+    AnchorSideTop.Side = asrCenter
+    Left = 366
+    Height = 17
+    Top = 415
+    Width = 40
+    BorderSpacing.Left = 8
+    Caption = 'minor:'
+    ParentColor = False
+  end
+  object OSMinorEdit: TEdit
+    AnchorSideLeft.Control = OSMinorLabel
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = OSPresetCombo
+    AnchorSideTop.Side = asrCenter
+    Left = 410
+    Height = 33
+    Top = 407
+    Width = 56
+    BorderSpacing.Left = 4
+    TabOrder = 8
+    OnChange = OSVersionEditChange
+  end
+  object OSInfoLabel: TLabel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = OSPresetCombo
+    AnchorSideTop.Side = asrBottom
+    Left = 6
+    Height = 17
+    Top = 446
+    Width = 200
+    BorderSpacing.Left = 6
+    BorderSpacing.Top = 6
+    Caption = 'OSInfoLabel'
+    ParentColor = False
+  end
+  object divStripRTTI: TDividerBevel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = OSInfoLabel
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    Left = 0
+    Height = 18
+    Top = 478
+    Width = 560
+    Caption = 'divStripRTTI'
+    Anchors = [akTop, akLeft, akRight]
+    BorderSpacing.Top = 15
+    Font.Style = [fsBold]
+    LeftIndent = 10
+    ParentColor = False
+    ParentFont = False
+  end
+  object StripDocsPrefix: TLabel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = divStripRTTI
+    AnchorSideTop.Side = asrBottom
+    Left = 6
+    Height = 17
+    Top = 502
+    Width = 32
+    BorderSpacing.Left = 6
+    BorderSpacing.Top = 6
+    Caption = 'docs:'
+    ParentColor = False
+  end
+  object StripDocsLink: TLabel
+    AnchorSideLeft.Control = StripDocsPrefix
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = StripDocsPrefix
+    AnchorSideTop.Side = asrCenter
+    Cursor = crHandPoint
+    Left = 42
+    Height = 17
+    Top = 502
+    Width = 110
+    BorderSpacing.Left = 4
+    Caption = 'StripDocsLink'
+    Font.Color = clWindowText
+    Font.Style = [fsUnderline]
+    ParentColor = False
+    ParentFont = False
+    OnClick = DocsLinkClick
+    OnMouseEnter = DocsLinkMouseEnter
+    OnMouseLeave = DocsLinkMouseLeave
+  end
+  object StripRTTICheckBox: TCheckBox
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = StripDocsPrefix
+    AnchorSideTop.Side = asrBottom
+    Left = 6
+    Height = 23
+    Top = 525
+    Width = 80
+    BorderSpacing.Left = 6
+    BorderSpacing.Top = 6
+    Caption = 'Strip RTTI'
+    TabOrder = 9
+    OnChange = StripRTTICheckBoxChange
+  end
+  object WhitelistLabel: TLabel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = StripRTTICheckBox
+    AnchorSideTop.Side = asrBottom
+    Left = 6
+    Height = 17
+    Top = 554
+    Width = 200
+    BorderSpacing.Left = 6
+    BorderSpacing.Top = 6
+    Caption = 'WhitelistLabel'
+    ParentColor = False
+  end
+  object RTTIExposeEdit: TEdit
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = WhitelistLabel
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    Left = 0
+    Height = 33
+    Top = 577
+    Width = 560
+    Anchors = [akTop, akLeft, akRight]
+    BorderSpacing.Top = 6
+    TabOrder = 10
+  end
+  object StripInfoLabel: TLabel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = RTTIExposeEdit
+    AnchorSideTop.Side = asrBottom
+    Left = 6
+    Height = 17
+    Top = 616
+    Width = 200
+    BorderSpacing.Left = 6
+    BorderSpacing.Top = 6
+    Caption = 'StripInfoLabel'
+    ParentColor = False
+  end
+  object divAutoProp: TDividerBevel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = StripInfoLabel
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    Left = 0
+    Height = 18
+    Top = 648
+    Width = 560
+    Caption = 'divAutoProp'
+    Anchors = [akTop, akLeft, akRight]
+    BorderSpacing.Top = 15
+    Font.Style = [fsBold]
+    LeftIndent = 10
+    ParentColor = False
+    ParentFont = False
+  end
+  object AutoPropPrefixEdit: TEdit
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = divAutoProp
+    AnchorSideTop.Side = asrBottom
+    Left = 6
+    Height = 33
+    Top = 672
+    Width = 120
+    BorderSpacing.Left = 6
+    BorderSpacing.Top = 6
+    MaxLength = 127
+    TabOrder = 11
+    Text = 'F'
+  end
+  object AutoPropInfoLabel: TLabel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = AutoPropPrefixEdit
+    AnchorSideTop.Side = asrBottom
+    Left = 6
+    Height = 17
+    Top = 711
+    Width = 200
+    BorderSpacing.Left = 6
+    BorderSpacing.Top = 6
+    Caption = 'AutoPropInfoLabel'
+    ParentColor = False
+  end
+  object ResetPanel: TPanel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = AutoPropInfoLabel
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    Left = 0
+    Height = 39
+    Top = 744
+    Width = 560
+    Anchors = [akTop, akLeft, akRight]
+    BevelOuter = bvNone
+    BorderSpacing.Top = 10
+    Caption = ''
+    ClientHeight = 39
+    ClientWidth = 560
+    TabOrder = 12
+    object ResetButton: TButton
+      AnchorSideLeft.Control = ResetPanel
+      AnchorSideTop.Control = ResetPanel
+      Left = 6
+      Height = 33
+      Top = 0
+      Width = 160
+      BorderSpacing.Left = 6
+      Caption = 'ResetButton'
+      TabOrder = 0
+      OnClick = ResetButtonClick
+    end
   end
 end

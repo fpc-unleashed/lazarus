@@ -103,6 +103,17 @@ type
 const
   AllUnitCompDependencyTypes = [low(TUnitCompDependencyType)..high(TUnitCompDependencyType)];
 
+  // project .lpi CustomData keys for the compiler metadata overrides edited
+  // in the project "Overrides" options frame; consumed at build time by
+  // TProjectCompilerOptions.AppendExtraOptions
+  ProjFPCSignatureKey      = 'FPCSignature';
+  ProjFPCSignatureEmptyKey = 'FPCSignatureEmpty';
+  ProjLinkerVersionKey     = 'LinkerVersion';
+  ProjOSVersionKey         = 'OSVersion';
+  ProjStripRTTIKey         = 'StripRTTI';
+  ProjRTTIExposeKey        = 'RTTIExpose';
+  ProjAutoPropPrefixKey    = 'AutoPropPrefix';
+
 type
 
   { TUCDComponentProperty }
@@ -457,6 +468,7 @@ type
     function GetDefaultMainSourceFileName: string; override;
     function GetDefaultWriteConfigFilePath: string; override;
     procedure GetInheritedCompilerOptions(var OptionsList: TFPList); override;
+    procedure AppendExtraOptions(Params: TStrings); override;
     procedure Assign(Source: TPersistent); override;
     function CreateDiff(CompOpts: TBaseCompilerOptions;
                         Tool: TCompilerDiffTool = nil): boolean; override; // true if differ
@@ -5622,6 +5634,40 @@ begin
   finally
     PkgList.Free;
   end;
+end;
+
+procedure TProjectCompilerOptions.AppendExtraOptions(Params: TStrings);
+var
+  Data: TStringToStringTree;
+  s: string;
+begin
+  if FProject=nil then exit;
+  Data:=FProject.CustomData;
+
+  // empty form drops the .fpc.version section; otherwise emit the literal value.
+  // a value with spaces stays a single param because AppendExtraOptions is called
+  // after the custom-options split
+  if Data.Values[ProjFPCSignatureEmptyKey]='1' then
+    Params.Add('--fpcsignature=')
+  else begin
+    s:=Data.Values[ProjFPCSignatureKey];
+    if s<>'' then Params.Add('--fpcsignature='+s);
+  end;
+
+  s:=Data.Values[ProjLinkerVersionKey];
+  if s<>'' then Params.Add('--linkerversion='+s);
+
+  s:=Data.Values[ProjOSVersionKey];
+  if s<>'' then Params.Add('--osversion='+s);
+
+  if Data.Values[ProjStripRTTIKey]='1' then
+    Params.Add('--striprtti');
+
+  s:=Data.Values[ProjRTTIExposeKey];
+  if s<>'' then Params.Add('--rttiexpose='+s);
+
+  s:=Data.Values[ProjAutoPropPrefixKey];
+  if s<>'' then Params.Add('--autopropprefix='+s);
 end;
 
 { TProjectDefineTemplates }
