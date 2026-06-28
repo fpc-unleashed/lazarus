@@ -640,9 +640,11 @@ var
   UGUnit: TUGUnit;
   Identifier, NewFilename, OldFileName, PasFilename, s: string;
   FindRefFlags: TFindRefsFlags;
-  TreeOfPCodeXYPosition, LFMTreeOfPCodeXYPosition: TAVLTree;
+  TreeOfPCodeXYPosition, LFMTreeOfPCodeXYPosition, FieldTree: TAVLTree;
   Refs, OldRefs: TSrcNameRefs;
   AUnitInfo: TEditableUnitInfo;
+  IsAutoProp: Boolean;
+  FieldPrefix: string;
 begin
   Result:=mrCancel;
   if not LazarusIDE.BeginCodeTools then exit(mrCancel);
@@ -910,9 +912,37 @@ begin
           if (PascalReferences<>nil) and (PascalReferences.Count>0) then begin
             Refs:=TSrcNameRefs(PascalReferences[0]);
             TreeOfPCodeXYPosition:=Refs.TreeOfPCodeXYPosition;
-            if not CodeToolBoss.RenameIdentifier(TreeOfPCodeXYPosition,
-                Identifier, Options.RenameTo, DeclCodeXY.Code, @DeclXY) then
-              Result:=mrCancel;
+            // an accessor-less auto-property also has a hidden F<Name> backing
+            // field; detect it (and gather its references) before the rename
+            // invalidates DeclNode
+            IsAutoProp:=(DeclTool<>nil) and (DeclNode<>nil) and (DeclNode.Desc=ctnProperty)
+              and (cmsAutoProperties in DeclTool.Scanner.CompilerModeSwitches)
+              and not DeclTool.PropertyNodeHasParamList(DeclNode)
+              and not DeclTool.PropertyHasSpecifier(DeclNode,'READ',false)
+              and not DeclTool.PropertyHasSpecifier(DeclNode,'WRITE',false);
+            FieldTree:=nil;
+            if IsAutoProp then begin
+              FieldPrefix:=DeclTool.GetAutoPropertyFieldPrefix(DeclNode.StartPos);
+              DeclTool.GatherIdentifierReferences(FieldPrefix+Identifier,FieldTree);
+            end;
+            if FieldTree<>nil then begin
+              // rename the property and its backing field together, so a single
+              // undo reverts both
+              try
+                CodeToolBoss.SourceChangeCache.Clear;
+                if (not CodeToolBoss.RenameIdentifier(TreeOfPCodeXYPosition,
+                        Identifier,Options.RenameTo,DeclCodeXY.Code,@DeclXY,false))
+                or (not CodeToolBoss.RenameIdentifier(FieldTree,
+                        FieldPrefix+Identifier,FieldPrefix+Options.RenameTo,DeclCodeXY.Code,@DeclXY,false))
+                or (not CodeToolBoss.SourceChangeCache.Apply) then
+                  Result:=mrCancel;
+              finally
+                FreeTreeOfPCodeXYPosition(FieldTree);
+              end;
+            end else
+              if not CodeToolBoss.RenameIdentifier(TreeOfPCodeXYPosition,
+                  Identifier, Options.RenameTo, DeclCodeXY.Code, @DeclXY) then
+                Result:=mrCancel;
           end;
           LFMTreeOfPCodeXYPosition:=nil;
           if (LFMReferences<>nil) and (LFMReferences.Count>0) then begin

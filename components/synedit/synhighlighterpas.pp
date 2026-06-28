@@ -184,8 +184,10 @@ type
     tsInForHeaderAfterValue, // In for-header AND last token completed an expression value:
                              //   identifier, number, string, ")", "]", "^" deref.
                              //   Only here is "step" recognized as the keyword.
-    tsInTryLockHeader     // Between "trylock" and "do", for contextual "wait" keyword.
+    tsInTryLockHeader,    // Between "trylock" and "do", for contextual "wait" keyword.
                           //   Set right after "trylock"; "do" and ";" clear it
+    tsAfterPropertySemi   // Right after an accessor-less property's ";", for a
+                          //   contextual "readonly"/"writeonly" directive
   );
 
   TTokenStates = set of TTokenState;
@@ -3613,6 +3615,8 @@ begin
     FOldRange := FOldRange - [rsAtPropertyOrReadWrite, rsInGenericParams, rsInGenericConstraint, rsInPropertyNameOrIndex];
     PasCodeFoldRange.ResetSpecializeBracketNestLevel;
   end
+  else if (FTokenState = tsAfterPropertySemi) and KeyCompU('READONLY') then
+    Result := tkKey
   else
     Result := tkIdentifier;
 end;
@@ -4140,7 +4144,10 @@ function TSynPasSyn.Func141: TtkTokenKind;
 begin
   if KeyCompU('WRITEONLY') then
   begin
-    if rsProperty in fRange then Result := tkKey else Result := tkIdentifier;
+    if (rsProperty in fRange) or (FTokenState = tsAfterPropertySemi) then
+      Result := tkKey
+    else
+      Result := tkIdentifier;
   end else Result := tkIdentifier;
 end;
 
@@ -6041,6 +6048,7 @@ procedure TSynPasSyn.SemicolonProc;
 var
   tfb: TPascalCodeFoldBlockType;
   InSkipBlocks: Boolean;
+  WasProperty: Boolean;
 begin
   fTokenID := tkSymbol;
   tfb := TopPascalCodeFoldBlockType;
@@ -6083,11 +6091,13 @@ begin
   then
     fRange := fRange + [rsAfterClassField];
 
+  WasProperty := False;
   if (fRange * [rsProperty, rsInProcHeader] <> []) and
      (PasCodeFoldRange.BracketNestLevel = 0)
   then begin
     if rsInProcHeader in fRange then
       fRange := fRange + [rsWasInProcHeader];
+    WasProperty := rsProperty in fRange;
     fRange := fRange - [rsProperty, rsInPropertyNameOrIndex, rsInProcHeader];
   end;
 
@@ -6099,6 +6109,10 @@ begin
   else
   if (rsInTypedConst in fRange) and (PasCodeFoldRange.BracketNestLevel = 0) then
     FNextTokenState := tsAfterTypedConst
+  else
+  if WasProperty then
+    // accessor-less property: a readonly/writeonly directive may follow the ";"
+    FNextTokenState := tsAfterPropertySemi
   else
     FNextTokenState := tsAtBeginOfStatement;
 

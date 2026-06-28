@@ -576,7 +576,8 @@ type
           var TreeOfPCodeXYPosition: TAVLTree; const Flags: TFindRefsFlags = []): boolean;
     function RenameIdentifier(TreeOfPCodeXYPosition: TAVLTree;
           const OldIdentifier, NewIdentifier: string;
-          DeclarationCode: TCodeBuffer; DeclarationCaretXY: PPoint): boolean;
+          DeclarationCode: TCodeBuffer; DeclarationCaretXY: PPoint;
+          CommitChanges: boolean = true): boolean;
     function RenameIdentifierInLFMs(TreeOfPCodeXYPosition: TAVLTree;
           const OldIdentifier, NewIdentifier: string): boolean;
     function UpdateFindIdentifierRefCache(IdentifierCode: TCodeBuffer; X, Y: integer;
@@ -3281,7 +3282,8 @@ begin
 end;
 
 function TCodeToolManager.RenameIdentifier(TreeOfPCodeXYPosition: TAVLTree; const OldIdentifier,
-  NewIdentifier: string; DeclarationCode: TCodeBuffer; DeclarationCaretXY: PPoint): boolean;
+  NewIdentifier: string; DeclarationCode: TCodeBuffer; DeclarationCaretXY: PPoint;
+  CommitChanges: boolean): boolean;
 var
   ANode: TAVLTreeNode;
   CurCodePos: PCodeXYPosition;
@@ -3311,7 +3313,8 @@ begin
   DottedIdents:= (Pos('.',OldIdentifier)>0) or
                  (Pos('.',NewIdentifier)>0);
   ClearCurCodeTool;
-  SourceChangeCache.Clear;
+  if CommitChanges then
+    SourceChangeCache.Clear;
   //IdentLenDiff := length(NewIdentifier) - length(OldIdentifier);
   if DeclarationCode = nil then
     DeclarationCaretXY := nil;
@@ -3405,9 +3408,9 @@ begin
     ANode:=TreeOfPCodeXYPosition.FindSuccessor(ANode);
   end;
 
-  // apply
+  // apply (skipped when batching several renames into one transaction)
   //DebugLn('TCodeToolManager.RenameIdentifier Apply');
-  if not SourceChangeCache.Apply then exit;
+  if CommitChanges and not SourceChangeCache.Apply then exit;
 
   //DebugLn('TCodeToolManager.RenameIdentifier Success');
   Result:=true;

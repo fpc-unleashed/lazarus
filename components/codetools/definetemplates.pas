@@ -7564,6 +7564,15 @@ begin
             Inc(p);
           end;
         end;
+      '-':
+        begin
+          // long option: --autopropprefix=<prefix> seeds the backing-field name
+          // prefix queried per property via GetDirectiveValueAt(sdAutoPropPrefix,...)
+          s:='--autopropprefix=';
+          if copy(Param,1,length(s))=s then
+            AddDefine('AutoPropPrefix','--autopropprefix','AUTOPROPPREFIX',
+              copy(Param,length(s)+1,length(Param)));
+        end;
       end;
     end;
   finally

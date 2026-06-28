@@ -150,6 +150,7 @@ type
     function PropNodeIsTypeLess(PropNode: TCodeTreeNode): boolean;
     function PropertyHasSpecifier(PropNode: TCodeTreeNode;
       const UpperKeyword: string; ExceptionOnNotFound: boolean = true): boolean;
+    function GetAutoPropertyFieldPrefix(CleanPropPos: integer): string;
 
     // procs
     function ExtractProcName(ProcNode: TCodeTreeNode;
@@ -3814,6 +3815,15 @@ begin
       exit;
     ReadNextAtom;
   end;
+end;
+
+function TPascalReaderTool.GetAutoPropertyFieldPrefix(CleanPropPos: integer): string;
+// backing-field name prefix for an accessor-less {$modeswitch autoproperties}
+// property: the {$autopropprefix} in effect at CleanPropPos, else the
+// --autopropprefix= command line value, else 'F'
+begin
+  Result:=Scanner.GetDirectiveValueAt(sdAutoPropPrefix,CleanPropPos);
+  if Result='' then Result:='F';
 end;
 
 function TPascalReaderTool.ProcNodeHasSpecifier(ProcNode: TCodeTreeNode;

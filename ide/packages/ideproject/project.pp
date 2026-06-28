@@ -5886,12 +5886,17 @@ end;
 procedure TProjectDefineTemplates.UpdateDefinesForCustomDefines;
 var
   OptionsDefTempl: TDefineTemplate;
-  NewCustomOptions: String;
+  NewCustomOptions, AutoPropPrefix: String;
 begin
   if (not Owner.NeedsDefineTemplates) or (not Active) then exit;
 
   // check if something has changed
   NewCustomOptions:=Owner.BaseCompilerOptions.GetOptionsForCTDefines;
+  // the auto-property backing-field prefix lives in project Overrides, not in
+  // the compiler options, so fold it into the CT defines as --autopropprefix=
+  AutoPropPrefix:=(Owner as TProject).CustomData.Values[ProjAutoPropPrefixKey];
+  if AutoPropPrefix<>'' then
+    NewCustomOptions:=NewCustomOptions+' --autopropprefix='+AutoPropPrefix;
   if (FLastCustomOptions=NewCustomOptions) then exit;
 
   FLastCustomOptions:=NewCustomOptions;
