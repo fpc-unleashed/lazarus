@@ -188,6 +188,21 @@ object IdeStartupFrame: TIdeStartupFrame
     Caption = 'SimpleModeUnleashedCheckBox'
     TabOrder = 5
   end
+  object SimpleResetButton: TButton
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = SimpleModeUnleashedCheckBox
+    AnchorSideTop.Side = asrBottom
+    Left = 6
+    Height = 25
+    Top = 277
+    Width = 120
+    BorderSpacing.Left = 6
+    BorderSpacing.Top = 6
+    AutoSize = True
+    Caption = 'SimpleResetButton'
+    TabOrder = 6
+    OnClick = SimpleResetButtonClick
+  end
   object CheckFPPkgCheckBox: TCheckBox
     AnchorSideLeft.Control = Owner
     AnchorSideTop.Control = divInitialChecks
@@ -199,10 +214,10 @@ object IdeStartupFrame: TIdeStartupFrame
     BorderSpacing.Left = 6
     BorderSpacing.Top = 6
     Caption = 'CheckFPPkgCheckBox'
-    TabOrder = 6
+    TabOrder = 7
   end
   object divInitialChecks: TDividerBevel
-    AnchorSideTop.Control = SimpleModeUnleashedCheckBox
+    AnchorSideTop.Control = SimpleResetButton
     AnchorSideTop.Side = asrBottom
     Left = 0
     Height = 18

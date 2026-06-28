@@ -63,9 +63,11 @@ type
     SimpleMainProcLabel: TLabel;
     SimpleMainProcEdit: TEdit;
     SimpleModeUnleashedCheckBox: TCheckBox;
+    SimpleResetButton: TButton;
     LazarusInstancesCB: TComboBox;
     LazarusInstancesLabel: TLabel;
     OpenLastProjectAtStartCheckBox: TCheckBox;
+    procedure SimpleResetButtonClick(Sender: TObject);
   private
     FOldOpenLastProjectAtStart: boolean;
     FOldProjectTemplateAtStart: string;
@@ -96,6 +98,13 @@ begin
   for i := 2 to Length(s) do
     if not (s[i] in ['A'..'Z','a'..'z','0'..'9','_']) then exit;
   Result := True;
+end;
+
+procedure TIdeStartupFrame.SimpleResetButtonClick(Sender: TObject);
+begin
+  SimpleAppNameEdit.Text := 'app';
+  SimpleMainProcEdit.Text := 'main';
+  SimpleModeUnleashedCheckBox.Checked := True;
 end;
 
 function TIdeStartupFrame.Check: Boolean;
@@ -166,6 +175,7 @@ begin
   SimpleAppNameLabel.Caption := 'Default app name';
   SimpleMainProcLabel.Caption := 'Main proc name';
   SimpleModeUnleashedCheckBox.Caption := 'Include {$mode unleashed}';
+  SimpleResetButton.Caption := 'Reset to defaults';
 
   divInitialChecks.Caption := lisInitialChecks;
   CheckFPPkgCheckBox.Caption:=lisQuickCheckFppkgConfigurationAtStart;
