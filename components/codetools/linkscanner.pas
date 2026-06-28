@@ -477,7 +477,7 @@ type
     Value: string;
   end;
 
-  TSequenceDirective = (sdScopedEnums);
+  TSequenceDirective = (sdScopedEnums, sdAutoPropPrefix);
 
   TDirectiveSequenceItem = class
   private
@@ -695,6 +695,7 @@ type
     function ReadNextSwitchDirective: boolean;
     function LongSwitchDirective: boolean;
     function LongSwitchDirectiveWithSequence(const ADirective: TSequenceDirective): boolean;
+    function AutoPropPrefixDirective: boolean;
     function MacroDirective: boolean;
     function ModeDirective: boolean;
     function ModeSwitchDirective: boolean;
@@ -894,7 +895,7 @@ type
 
 const
   DirectiveSequenceName: array [TSequenceDirective] of string =
-    ('SCOPEDENUMS');
+    ('SCOPEDENUMS', 'AUTOPROPPREFIX');
 var
   CompilerModeVars: array[TCompilerMode] of string;
 
@@ -3362,6 +3363,7 @@ begin
         case UpChars[p[1]] of
         'L': if CompareIdentifiers(p,'ALIGN')=0 then Result:=LongSwitchDirective;
         'S': if CompareIdentifiers(p,'ASSERTIONS')=0 then Result:=LongSwitchDirective;
+        'U': if CompareIdentifiers(p,'AUTOPROPPREFIX')=0 then Result:=AutoPropPrefixDirective;
         end;
       'B':
         if CompareIdentifiers(p,'BOOLEVAL')=0 then Result:=LongSwitchDirective;
@@ -3522,6 +3524,23 @@ begin
     RaiseExceptionFmt(20170422130115,ctsInvalidFlagValueForDirective,
         [copy(Src,ValStart,SrcPos-ValStart),FDirectiveName]);
   end;
+  Result:=ReadNextSwitchDirective;
+end;
+
+function TLinkScanner.AutoPropPrefixDirective: boolean;
+// example: {$autopropprefix MyPrefix}
+// stores the backing-field name prefix in effect from here on, queried later
+// per property node via GetDirectiveValueAt(sdAutoPropPrefix,...)
+var ValStart: integer;
+begin
+  if StoreDirectives then
+    FDirectives[FDirectivesCount-1].Kind:=lsdkLongSwitch;
+  ReadSpace;
+  ValStart:=SrcPos;
+  while (SrcPos<=SrcLen) and IsWordChar[Src[SrcPos]] do
+    inc(SrcPos);
+  if SrcPos>ValStart then
+    SetDirectiveValueWithSequence(sdAutoPropPrefix,copy(Src,ValStart,SrcPos-ValStart));
   Result:=ReadNextSwitchDirective;
 end;
 

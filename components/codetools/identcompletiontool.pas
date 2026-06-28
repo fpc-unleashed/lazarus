@@ -1274,7 +1274,8 @@ begin
         and not PropertyHasSpecifier(MemberNode,'WRITE',false) then begin
           PropType:=GetPropertyTypeIdentifier(MemberNode);
           if PropType<>nil then begin
-            FieldIdent:=CurrentIdentifierList.CreateIdentifier('F'+ExtractPropName(MemberNode,false));
+            FieldIdent:=CurrentIdentifierList.CreateIdentifier(
+              GetAutoPropertyFieldPrefix(MemberNode.StartPos)+ExtractPropName(MemberNode,false));
             if not CurrentIdentifierList.HasIdentifier(FieldIdent,'') then begin
               NewItem:=CIdentifierListItem.Create(
                   icompUnknown,false,0,FieldIdent,1,nil,nil,ctnVarDefinition);
