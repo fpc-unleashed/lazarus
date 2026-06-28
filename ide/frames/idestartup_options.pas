@@ -30,6 +30,7 @@ unit IdeStartup_Options;
 interface
 
 uses
+  SysUtils,
   // LCL
   StdCtrls, Controls, Dialogs,
   // LazControls
@@ -56,6 +57,12 @@ type
     ProjectTypeCB: TComboBox;
     divFileAssociation: TDividerBevel;
     divProjectToOpen: TDividerBevel;
+    divSimpleProgram: TDividerBevel;
+    SimpleAppNameLabel: TLabel;
+    SimpleAppNameEdit: TEdit;
+    SimpleMainProcLabel: TLabel;
+    SimpleMainProcEdit: TEdit;
+    SimpleModeUnleashedCheckBox: TCheckBox;
     LazarusInstancesCB: TComboBox;
     LazarusInstancesLabel: TLabel;
     OpenLastProjectAtStartCheckBox: TCheckBox;
@@ -63,7 +70,7 @@ type
     FOldOpenLastProjectAtStart: boolean;
     FOldProjectTemplateAtStart: string;
   public
-    //function Check: Boolean; override;
+    function Check: Boolean; override;
     function GetTitle: String; override;
     procedure Setup({%H-}ADialog: TAbstractOptionsEditorDialog); override;
     procedure ReadSettings(AOptions: TAbstractIDEOptions); override;
@@ -78,12 +85,49 @@ implementation
 
 { TIdeStartupFrame }
 
-{
-function TIdeStartupFrame.Check: Boolean;
+// matches (?i)^[a-z_][a-z0-9_]{0,126}$ - a valid Pascal identifier, max 127 chars
+function IsValidSimpleName(const s: string): boolean;
+var
+  i: integer;
 begin
-  Result:=inherited Check;
+  Result := False;
+  if (Length(s) < 1) or (Length(s) > 127) then exit;
+  if not (s[1] in ['A'..'Z','a'..'z','_']) then exit;
+  for i := 2 to Length(s) do
+    if not (s[i] in ['A'..'Z','a'..'z','0'..'9','_']) then exit;
+  Result := True;
 end;
-}
+
+function TIdeStartupFrame.Check: Boolean;
+var
+  s: string;
+begin
+  Result := False;
+  s := Trim(SimpleAppNameEdit.Text);
+  if s = '' then
+  begin
+    ShowMessage('Simple program: app name cannot be empty.');
+    exit;
+  end;
+  if not IsValidSimpleName(s) then
+  begin
+    ShowMessage('Simple program: app name must be a valid identifier.');
+    exit;
+  end;
+  s := Trim(SimpleMainProcEdit.Text);
+  if s = '' then
+  begin
+    ShowMessage('Simple program: main proc name cannot be empty.');
+    exit;
+  end;
+  if not IsValidSimpleName(s) then
+  begin
+    ShowMessage('Simple program: main proc name must be a valid identifier.');
+    exit;
+  end;
+  Result := True;
+end;
+
 function TIdeStartupFrame.GetTitle: String;
 begin
   Result := dlgEnvIdeStartup;
@@ -117,6 +161,12 @@ begin
       ProjectTypeCB.Items.AddObject(pd.GetLocalizedName, pd);
   end;
 
+  // Simple program
+  divSimpleProgram.Caption := 'Simple program';
+  SimpleAppNameLabel.Caption := 'Default app name';
+  SimpleMainProcLabel.Caption := 'Main proc name';
+  SimpleModeUnleashedCheckBox.Caption := 'Include {$mode unleashed}';
+
   divInitialChecks.Caption := lisInitialChecks;
   CheckFPPkgCheckBox.Caption:=lisQuickCheckFppkgConfigurationAtStart;
 end;
@@ -146,6 +196,10 @@ begin
     ProjectTypeCB.ItemIndex := i;
 
     CheckFPPkgCheckBox.Checked:=FppkgCheck;
+
+    SimpleAppNameEdit.Text:=SimpleProgramAppName;
+    SimpleMainProcEdit.Text:=SimpleProgramMainProc;
+    SimpleModeUnleashedCheckBox.Checked:=SimpleProgramModeUnleashed;
   end;
 end;
 
@@ -163,6 +217,10 @@ begin
     NewProjectTemplateAtStart := pd.Name;
 
     FppkgCheck:=CheckFPPkgCheckBox.Checked;
+
+    SimpleProgramAppName:=Trim(SimpleAppNameEdit.Text);
+    SimpleProgramMainProc:=Trim(SimpleMainProcEdit.Text);
+    SimpleProgramModeUnleashed:=SimpleModeUnleashedCheckBox.Checked;
   end;
 end;
 
