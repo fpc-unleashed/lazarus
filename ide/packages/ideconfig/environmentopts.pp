@@ -316,6 +316,9 @@ type
     FMaxRecentPackageFiles: integer;
     FOpenLastProjectAtStart: boolean;
     FNewProjectTemplateAtStart: string;
+    FSimpleProgramAppName: string;
+    FSimpleProgramMainProc: string;
+    FSimpleProgramModeUnleashed: boolean;
     FMultipleInstances: TIDEMultipleInstancesOption;
     // Prevent repopulating Recent project files menu with example projects if it was already cleared up.
     FAlreadyPopulatedRecentFiles: Boolean;
@@ -506,6 +509,12 @@ type
                                              write FOpenLastProjectAtStart;
     property NewProjectTemplateAtStart: string read FNewProjectTemplateAtStart
                                                write FNewProjectTemplateAtStart;
+    property SimpleProgramAppName: string read FSimpleProgramAppName
+                                          write FSimpleProgramAppName;
+    property SimpleProgramMainProc: string read FSimpleProgramMainProc
+                                           write FSimpleProgramMainProc;
+    property SimpleProgramModeUnleashed: boolean read FSimpleProgramModeUnleashed
+                                                 write FSimpleProgramModeUnleashed;
     property MultipleInstances: TIDEMultipleInstancesOption read FMultipleInstances
                                                            write FMultipleInstances;
     property AlreadyPopulatedRecentFiles: Boolean read FAlreadyPopulatedRecentFiles
@@ -777,6 +786,9 @@ begin
   FRecentPackageFiles:=TStringList.Create;
   FMaxRecentPackageFiles:=DefaultMaxRecentPackageFiles;
   FOpenLastProjectAtStart:=true;
+  FSimpleProgramAppName:='app';
+  FSimpleProgramMainProc:='main';
+  FSimpleProgramModeUnleashed:=true;
   FMultipleInstances:=DefaultIDEMultipleInstancesOption;
 
   // other recent settings
@@ -1100,6 +1112,9 @@ begin
     FMaxRecentPackageFiles:=FXMLCfg.GetValue(Path+'Recent/PackageFiles/Max',DefaultMaxRecentPackageFiles);
     LoadRecentList(FXMLCfg,FRecentPackageFiles,Path+'Recent/PackageFiles/',rltFile);
     FNewProjectTemplateAtStart:=FXMLCfg.GetValue(Path+'NewProjectTemplateAtStart/Value','Simple Program');
+    FSimpleProgramAppName:=FXMLCfg.GetValue(Path+'SimpleProgram/AppName','app');
+    FSimpleProgramMainProc:=FXMLCfg.GetValue(Path+'SimpleProgram/MainProc','main');
+    FSimpleProgramModeUnleashed:=FXMLCfg.GetValue(Path+'SimpleProgram/ModeUnleashed',true);
     FMultipleInstances:=StrToIDEMultipleInstancesOption(FXMLCfg.GetValue(Path+'MultipleInstances/Value',''));
     FAlreadyPopulatedRecentFiles := FXMLCfg.GetValue(Path+'Recent/AlreadyPopulated', false);
     FInitialFPCSrcRescanDone := FXMLCfg.GetValue(Path+'InitialFPCSrcRescanDone/Value', false);
@@ -1308,6 +1323,9 @@ begin
     FXMLCfg.SetDeleteValue(Path+'Recent/PackageFiles/Max',FMaxRecentPackageFiles,DefaultMaxRecentPackageFiles);
     SaveRecentList(FXMLCfg,FRecentPackageFiles,Path+'Recent/PackageFiles/',FMaxRecentPackageFiles);
     FXMLCfg.SetDeleteValue(Path+'NewProjectTemplateAtStart/Value',FNewProjectTemplateAtStart,'Simple Program');
+    FXMLCfg.SetDeleteValue(Path+'SimpleProgram/AppName',FSimpleProgramAppName,'app');
+    FXMLCfg.SetDeleteValue(Path+'SimpleProgram/MainProc',FSimpleProgramMainProc,'main');
+    FXMLCfg.SetDeleteValue(Path+'SimpleProgram/ModeUnleashed',FSimpleProgramModeUnleashed,true);
     FXMLCfg.SetDeleteValue(Path+'MultipleInstances/Value',
         IDEMultipleInstancesOptionNames[FMultipleInstances],
         IDEMultipleInstancesOptionNames[DefaultIDEMultipleInstancesOption]);

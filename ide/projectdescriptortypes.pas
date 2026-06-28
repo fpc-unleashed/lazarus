@@ -16,7 +16,7 @@ uses
   CompOptsIntf, ProjectIntf, LazIDEIntf,
   // IDE
   frmCustomApplicationOptions, LazarusIDEStrConsts, Project, W32Manifest,
-  SourceEditor;
+  EnvironmentOpts, SourceEditor;
 
 type
 
@@ -36,6 +36,9 @@ type
   { TProjectSimpleProgramDescriptor }
 
   TProjectSimpleProgramDescriptor = class(TProjectDescriptor)
+  private
+    // caret position of the {caret} marker in the generated source
+    FCaretX, FCaretY: integer;
   public
     constructor Create; override;
     function GetLocalizedName: string; override;
@@ -212,10 +215,37 @@ begin
   Result:=lisSimpleProgramProgramDescriptor;
 end;
 
+// line/column (1-based) of the {caret} marker, (1,1) if it is absent
+procedure FindCaretMarker(const Src: string; out X, Y: integer);
+var
+  sl: TStringList;
+  i, p: integer;
+begin
+  X:=1;
+  Y:=1;
+  sl:=TStringList.Create;
+  try
+    sl.Text:=Src;
+    for i:=0 to sl.Count-1 do
+    begin
+      p:=Pos('{caret}', sl[i]);
+      if p>0 then
+      begin
+        X:=p;
+        Y:=i+1;
+        break;
+      end;
+    end;
+  finally
+    sl.Free;
+  end;
+end;
+
 function TProjectSimpleProgramDescriptor.InitProject(AProject: TLazProject): TModalResult;
 var
   NewSource: String;
   MainFile: TLazProjectFile;
+  AppName, MainProc, ModeRepl: string;
 begin
   Result:=inherited InitProject(AProject);
 
@@ -224,20 +254,34 @@ begin
   AProject.AddFile(MainFile,false);
   AProject.MainFileID:=0;
 
+  AppName:=EnvironmentOptions.SimpleProgramAppName;
+  MainProc:=EnvironmentOptions.SimpleProgramMainProc;
+  // {mode} carries its own trailing blank line, so omitting it leaves no orphan line
+  if EnvironmentOptions.SimpleProgramModeUnleashed then
+    ModeRepl:='{$mode unleashed}'+LineEnding+LineEnding
+  else
+    ModeRepl:='';
+
   // create program source
-  NewSource:='program app;'+LineEnding
+  NewSource:='program {programname};'+LineEnding
     +LineEnding
-    +'{$mode unleashed}'+LineEnding
-    +LineEnding
-    +'procedure main;'+LineEnding
+    +'{mode}'
+    +'procedure {mainproc};'+LineEnding
     +'begin'+LineEnding
-    +LineEnding
+    +'  {caret}'+LineEnding
     +'end;'+LineEnding
     +LineEnding
     +'begin'+LineEnding
-    +'  main;'+LineEnding
+    +'  {mainproc};'+LineEnding
     +'end.'+LineEnding
     +LineEnding;
+  NewSource:=StringReplace(NewSource,'{programname}',AppName,[]);
+  NewSource:=StringReplace(NewSource,'{mode}',ModeRepl,[]);
+  NewSource:=StringReplace(NewSource,'{mainproc}',MainProc,[rfReplaceAll]);
+
+  FindCaretMarker(NewSource,FCaretX,FCaretY);
+  NewSource:=StringReplace(NewSource,'{caret}','',[]);
+
   AProject.MainFile.SetSourceText(NewSource,true);
 
   AProject.LazCompilerOptions.UnitOutputDirectory:='lib'+PathDelim+'$(TargetCPU)-$(TargetOS)';
@@ -248,7 +292,7 @@ function TProjectSimpleProgramDescriptor.CreateStartFiles(AProject: TLazProject)
 begin
   Result:=LazarusIDE.DoOpenEditorFile(AProject.MainFile.Filename,-1,-1,
                                       [ofProjectLoading,ofRegularFile]);
-  SetCaretPosInActiveEditor(Point(3,7));
+  SetCaretPosInActiveEditor(Point(FCaretX,FCaretY));
 end;
 
 { TProjectProgramDescriptor }

@@ -1,9 +1,9 @@
 object IdeStartupFrame: TIdeStartupFrame
   Left = 0
-  Height = 470
+  Height = 600
   Top = 0
   Width = 589
-  ClientHeight = 470
+  ClientHeight = 600
   ClientWidth = 589
   LCLVersion = '4.99.0.0'
   TabOrder = 0
@@ -110,6 +110,99 @@ object IdeStartupFrame: TIdeStartupFrame
     Caption = 'New Project Type'
     ParentColor = False
   end
+  object divSimpleProgram: TDividerBevel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = ProjectTypeCB
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    Left = 0
+    Height = 18
+    Top = 166
+    Width = 589
+    Caption = 'divSimpleProgram'
+    Anchors = [akTop, akLeft, akRight]
+    BorderSpacing.Top = 15
+    Font.Style = [fsBold]
+    ParentColor = False
+    ParentFont = False
+  end
+  object SimpleAppNameEdit: TEdit
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = divSimpleProgram
+    AnchorSideTop.Side = asrBottom
+    Left = 120
+    Height = 23
+    Top = 190
+    Width = 200
+    BorderSpacing.Left = 120
+    BorderSpacing.Top = 6
+    TabOrder = 3
+  end
+  object SimpleAppNameLabel: TLabel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = SimpleAppNameEdit
+    AnchorSideTop.Side = asrCenter
+    Left = 6
+    Height = 18
+    Top = 192
+    Width = 100
+    BorderSpacing.Left = 6
+    Caption = 'SimpleAppNameLabel'
+    ParentColor = False
+  end
+  object SimpleMainProcEdit: TEdit
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = SimpleAppNameEdit
+    AnchorSideTop.Side = asrBottom
+    Left = 120
+    Height = 23
+    Top = 219
+    Width = 200
+    BorderSpacing.Left = 120
+    BorderSpacing.Top = 6
+    TabOrder = 4
+  end
+  object SimpleMainProcLabel: TLabel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = SimpleMainProcEdit
+    AnchorSideTop.Side = asrCenter
+    Left = 6
+    Height = 18
+    Top = 221
+    Width = 100
+    BorderSpacing.Left = 6
+    Caption = 'SimpleMainProcLabel'
+    ParentColor = False
+  end
+  object SimpleModeUnleashedCheckBox: TCheckBox
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = SimpleMainProcEdit
+    AnchorSideTop.Side = asrBottom
+    Left = 6
+    Height = 23
+    Top = 248
+    Width = 200
+    BorderSpacing.Left = 6
+    BorderSpacing.Top = 6
+    Caption = 'SimpleModeUnleashedCheckBox'
+    TabOrder = 5
+  end
+  object SimpleResetButton: TButton
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = SimpleModeUnleashedCheckBox
+    AnchorSideTop.Side = asrBottom
+    Left = 6
+    Height = 25
+    Top = 277
+    Width = 120
+    BorderSpacing.Left = 6
+    BorderSpacing.Top = 6
+    AutoSize = True
+    Caption = 'SimpleResetButton'
+    TabOrder = 6
+    OnClick = SimpleResetButtonClick
+  end
   object CheckFPPkgCheckBox: TCheckBox
     AnchorSideLeft.Control = Owner
     AnchorSideTop.Control = divInitialChecks
@@ -121,10 +214,10 @@ object IdeStartupFrame: TIdeStartupFrame
     BorderSpacing.Left = 6
     BorderSpacing.Top = 6
     Caption = 'CheckFPPkgCheckBox'
-    TabOrder = 3
+    TabOrder = 7
   end
   object divInitialChecks: TDividerBevel
-    AnchorSideTop.Control = ProjectTypeCB
+    AnchorSideTop.Control = SimpleResetButton
     AnchorSideTop.Side = asrBottom
     Left = 0
     Height = 18
