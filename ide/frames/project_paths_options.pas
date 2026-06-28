@@ -205,6 +205,16 @@ begin
   end;
 end;
 
+// first non-header index from FromIdx moving by Dir (+1/-1), or -1 if out of range
+function SkipHeaders(const Presets: array of TVerPreset; FromIdx, Dir: integer): integer;
+begin
+  Result := FromIdx;
+  while (Result >= Low(Presets)) and (Result <= High(Presets))
+  and (Presets[Result].Kind = vkHeader) do
+    Inc(Result, Dir);
+  if (Result < Low(Presets)) or (Result > High(Presets)) then Result := -1;
+end;
+
 // called only for a non-empty stored version: match a preset, else (user-specified)
 procedure SelectVerPreset(Combo: TComboBox; const Presets: array of TVerPreset;
   const Version: string);
@@ -398,8 +408,13 @@ begin
   if idx < 0 then exit;
   if LinkerPresets[idx].Kind = vkHeader then
   begin
-    LinkerPresetCombo.ItemIndex := FLinkerPrevIndex;
-    exit;
+    // a header is not selectable: skip to the next item in the scroll direction
+    if idx >= FLinkerPrevIndex then idx := SkipHeaders(LinkerPresets, idx, 1)
+    else idx := SkipHeaders(LinkerPresets, idx, -1);
+    if idx < 0 then idx := FLinkerPrevIndex; // no item that way, stay put
+    FUpdating := True;
+    LinkerPresetCombo.ItemIndex := idx;
+    FUpdating := False;
   end;
   FLinkerPrevIndex := idx;
   if LinkerPresets[idx].Kind = vkUser then exit; // keep the current edits

@@ -5644,6 +5644,11 @@ begin
   if FProject=nil then exit;
   Data:=FProject.CustomData;
 
+  // FPC source dir override (key 'FPCSrcDir', also consumed by codetools) is
+  // passed to the compiler as --rtl=<path>
+  s:=Data.Values['FPCSrcDir'];
+  if s<>'' then Params.Add('--rtl='+s);
+
   // empty form drops the .fpc.version section; otherwise emit the literal value.
   // a value with spaces stays a single param because AppendExtraOptions is called
   // after the custom-options split
