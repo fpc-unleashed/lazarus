@@ -644,6 +644,7 @@ var
   Refs, OldRefs: TSrcNameRefs;
   AUnitInfo: TEditableUnitInfo;
   IsAutoProp: Boolean;
+  FieldPrefix: string;
 begin
   Result:=mrCancel;
   if not LazarusIDE.BeginCodeTools then exit(mrCancel);
@@ -920,8 +921,10 @@ begin
               and not DeclTool.PropertyHasSpecifier(DeclNode,'READ',false)
               and not DeclTool.PropertyHasSpecifier(DeclNode,'WRITE',false);
             FieldTree:=nil;
-            if IsAutoProp then
-              DeclTool.GatherIdentifierReferences('F'+Identifier,FieldTree);
+            if IsAutoProp then begin
+              FieldPrefix:=DeclTool.GetAutoPropertyFieldPrefix(DeclNode.StartPos);
+              DeclTool.GatherIdentifierReferences(FieldPrefix+Identifier,FieldTree);
+            end;
             if FieldTree<>nil then begin
               // rename the property and its backing field together, so a single
               // undo reverts both
@@ -930,7 +933,7 @@ begin
                 if (not CodeToolBoss.RenameIdentifier(TreeOfPCodeXYPosition,
                         Identifier,Options.RenameTo,DeclCodeXY.Code,@DeclXY,false))
                 or (not CodeToolBoss.RenameIdentifier(FieldTree,
-                        'F'+Identifier,'F'+Options.RenameTo,DeclCodeXY.Code,@DeclXY,false))
+                        FieldPrefix+Identifier,FieldPrefix+Options.RenameTo,DeclCodeXY.Code,@DeclXY,false))
                 or (not CodeToolBoss.SourceChangeCache.Apply) then
                   Result:=mrCancel;
               finally
