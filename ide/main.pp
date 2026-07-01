@@ -687,7 +687,6 @@ type
     FWaitForClose: Boolean;
     FFixingGlobalComponentLock: integer;
     OldCompilerFilename, OldLanguage: String;
-    FFPCSrcDirFromCmdLine: Boolean; // --fpcsrcdir= given; the CLI wins over the per-project setting
     OIChangedTimer: TIdleTimer;
     FEnvOptsCfgExisted: boolean; // tracks if a local or user specific environment options configuration file existed
     FHintWatchData: record
@@ -1286,13 +1285,6 @@ begin
     debugln('Hint: (lazarus) [TMainIDE.LoadGlobalOptions] overriding Lazarusdir with command line: ',s);
     EnvironmentOptions.Lazarusdirectory:= s;
   end;
-  if GetParamOptionPlusValue('--fpcsrcdir=',s) then
-  begin
-    debugln('Hint: (lazarus) [TMainIDE.LoadGlobalOptions] overriding FPCSrcDir with command line: ',s);
-    EnvironmentOptions.SetFPCSrcDirOverride(s);
-    FFPCSrcDirFromCmdLine:=true;
-  end;
-
   // translate IDE resourcestrings
   Application.BidiMode := Application.Direction(EnvironmentOptions.LanguageID);
   TranslateResourceStrings(EnvironmentOptions.GetParsedLazarusDirectory,
@@ -5410,15 +5402,14 @@ begin
 end;
 
 procedure TMainIDE.UpdateProjectFPCSrcDir;
-// Apply the active project's per-project FPC source directory (stored in the
-// .lpi CustomData) to the effective FPCSrcDir used by CodeTools. Behaves like
-// the --fpcsrcdir= command line option; the command line wins if it was given.
+// Apply the active project's RTL path (stored in the .lpi CustomData under
+// the RTLPath key, edited in Project Options -> Overrides) to the effective
+// FPCSrcDir used by CodeTools, so completion resolves against that RTL tree.
 var
   NewDir, OldParsed: string;
 begin
-  if FFPCSrcDirFromCmdLine then exit;
   if Project1<>nil then
-    NewDir:=Project1.CustomData.Values['FPCSrcDir']
+    NewDir:=Project1.CustomData.Values['RTLPath']
   else
     NewDir:='';
   OldParsed:=EnvironmentOptions.GetParsedFPCSourceDirectory;

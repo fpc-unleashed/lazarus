@@ -284,8 +284,6 @@ type
     procedure SetOutputDirectoryOverride(const AValue: string); virtual;
     procedure SetSrcPath(const AValue: string); override;
     procedure SetDebugPath(const AValue: string); override;
-    function GetRTLPath: string;
-    procedure SetRTLPath(const AValue: string);
     procedure SetTargetCPU(const AValue: string); override;
     procedure SetTargetProc(const AValue: string); override;
     procedure SetTargetOS(const AValue: string); override;
@@ -406,8 +404,6 @@ type
     property OutputDirectoryOverride: string read FOutputDirectoryOverride write SetOutputDirectoryOverride;
     // stored properties
     property StorePathDelim: TPathDelimSwitch read FStorePathDelim write FStorePathDelim;
-    // per-build-mode RTL path, passed to the compiler as --rtl=<path> (parsed for macros)
-    property RTLPath: string read GetRTLPath write SetRTLPath;
     property OtherDefines: TStrings read FOtherDefines;
     // compilation
     property ExecuteBefore: TCompilationToolOptions read GetExecuteBefore;
@@ -966,13 +962,6 @@ begin
   IncreaseChangeStamp;
 end;
 
-procedure TBaseCompilerOptions.SetRTLPath(const AValue: string);
-begin
-  if RTLPath=AValue then exit;
-  ParsedOpts.SetUnparsedValue(pcosRTLPath,AValue);
-  IncreaseChangeStamp;
-end;
-
 procedure TBaseCompilerOptions.SetTargetCPU(const AValue: string);
 var
   NewValue: String;
@@ -1078,11 +1067,6 @@ end;
 function TBaseCompilerOptions.GetDebugPath: string;
 begin
   Result:=ParsedOpts.Values[pcosDebugPath].UnparsedValue;
-end;
-
-function TBaseCompilerOptions.GetRTLPath: string;
-begin
-  Result:=ParsedOpts.Values[pcosRTLPath].UnparsedValue;
 end;
 
 function TBaseCompilerOptions.GetIncludePaths: String;
@@ -1344,7 +1328,6 @@ begin
   UnitOutputDirectory := sp(aXMLConfig.GetValue(p+'UnitOutputDirectory/Value', ''));
   ObjectPath := sp(aXMLConfig.GetValue(p+'ObjectPath/Value', ''));
   SrcPath := sp(aXMLConfig.GetValue(p+'SrcPath/Value', ''));
-  RTLPath := sp(aXMLConfig.GetValue(p+'RTLPath/Value', ''));
 
   { Conditionals }
   FConditionals:=LineBreaksToSystemLineBreaks(UTF8Trim(
@@ -1588,7 +1571,6 @@ begin
   aXMLConfig.SetDeleteValue(p+'UnitOutputDirectory/Value', f(UnitOutputDirectory),'');
   aXMLConfig.SetDeleteValue(p+'ObjectPath/Value', f(ObjectPath),'');
   aXMLConfig.SetDeleteValue(p+'SrcPath/Value', f(SrcPath),'');
-  aXMLConfig.SetDeleteValue(p+'RTLPath/Value', f(RTLPath),'');
 
   { Conditionals }
   s:=Conditionals;
@@ -2360,7 +2342,6 @@ var
   CurObjectPath: String;
   CurMainSrcFile: String;
   CurCustomOptions: String;
-  CurRTLPath: String;
   OptimizeSwitches: String;
   Vars: TCTCfgScriptVariables;
   CurTargetOS: String;
@@ -2778,14 +2759,6 @@ begin
         FixExeExtForEmbeddedCompiler(CurTargetFilename));
   end;
 
-  // per-build-mode RTL path -> --rtl=<path>, macros expanded
-  if not (ccloNoMacroParams in Flags) then
-  begin
-    CurRTLPath:=ParsedOpts.GetParsedValue(pcosRTLPath);
-    if CurRTLPath<>'' then
-      Result.Add('--rtl='+CurRTLPath);
-  end;
-
   // append custom options as last, so they can override
   if not (ccloNoMacroParams in Flags) then
   begin
@@ -2873,7 +2846,6 @@ begin
   ObjectPath:='';
   SrcPath:='';
   DebugPath:='';
-  RTLPath:='';
 
   // parsing
   FSyntaxMode:='ObjFPC';
@@ -2978,7 +2950,6 @@ begin
   ObjectPath := CompOpts.ObjectPath;
   SrcPath := CompOpts.SrcPath;
   DebugPath := CompOpts.DebugPath;
-  RTLPath := CompOpts.RTLPath;
 
   // conditionals
   Conditionals:=CompOpts.Conditionals;
@@ -3129,7 +3100,6 @@ begin
   if Done(Tool.AddPathsDiff('ObjectPath',ObjectPath,CompOpts.ObjectPath)) then exit;
   if Done(Tool.AddPathsDiff('SrcPath',SrcPath,CompOpts.SrcPath)) then exit;
   if Done(Tool.AddPathsDiff('DebugPath',DebugPath,CompOpts.DebugPath)) then exit;
-  if Done(Tool.AddDiff('RTLPath',RTLPath,CompOpts.RTLPath)) then exit;
 
   // conditionals
   if Done(Tool.AddPathsDiff('Conditionals',FConditionals,CompOpts.FConditionals)) then exit;

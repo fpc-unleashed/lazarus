@@ -88,8 +88,7 @@ type
     pcosDebugPath,    // additional debug search path
     pcosMsgFile,       // fpc message file (errore.msg)
     pcosCustomConfigFilePath, // additional custom config file
-    pcosWriteConfigFilePath, // auto generated cfg file
-    pcosRTLPath        // RTL path, passed to the compiler as --rtl=
+    pcosWriteConfigFilePath // auto generated cfg file
     );
   TParsedCompilerOptStrings = set of TParsedCompilerOptString;
 
@@ -133,8 +132,7 @@ const
     'DebugPath',
     'MsgFile',
     'CustomConfigFile',
-    'WriteCfgFile',
-    '' // pcosRTLPath
+    'WriteCfgFile'
     );
   ParsedCompilerOptsUsageVars: array[TParsedCompilerOptString] of string = (
     '', // pcosNone
@@ -152,8 +150,7 @@ const
     'UsageDebugPath', // pcosDebugPath
     '', // pcosMsgFile
     '',
-    '', // pcosWriteConfigFilePath
-    ''  // pcosRTLPath
+    ''  // pcosWriteConfigFilePath
     );
 
 type

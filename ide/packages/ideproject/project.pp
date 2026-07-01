@@ -5644,9 +5644,9 @@ begin
   if FProject=nil then exit;
   Data:=FProject.CustomData;
 
-  // FPC source dir override (key 'FPCSrcDir', also consumed by codetools) is
-  // passed to the compiler as --rtl=<path>
-  s:=Data.Values['FPCSrcDir'];
+  // RTL path (key 'RTLPath', also drives CodeTools completion) is passed to
+  // the compiler as --rtl=<path>
+  s:=Data.Values['RTLPath'];
   if s<>'' then Params.Add('--rtl='+s);
 
   // empty form drops the .fpc.version section; otherwise emit the literal value.

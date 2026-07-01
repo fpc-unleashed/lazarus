@@ -21,7 +21,7 @@ uses
 
 const
   // key stored in the project .lpi under ProjectOptions/CustomData/
-  ProjectFPCSrcDirKey = 'FPCSrcDir';
+  ProjectRTLPathKey = 'RTLPath';
 
   BinaryMetadataDocsURL =
     'https://github.com/fpc-unleashed/freepascal/blob/main/unleashed/docs/binary-metadata.md';
@@ -295,13 +295,11 @@ end;
 
 procedure TProjectPathsOptionsFrame.Setup(ADialog: TAbstractOptionsEditorDialog);
 begin
-  divSrcDir.Caption := 'Override FPC source directory';
+  divSrcDir.Caption := 'RTL path (--rtl)';
   RescanInfoLabel.Caption :=
-    'Overrides the global FPC source directory used for code completion in this project.'
+    'Folder with the RTL sources for this project: passed to the compiler as --rtl=<path> and used by the IDE for code completion.'
     + LineEnding +
-    'A rescan may be required after changing it: main menu -> Tools -> Rescan FPC Source Directory.'
-    + LineEnding +
-    'The command line option --fpcsrcdir= takes precedence over this setting.';
+    'A rescan may be required after changing it: main menu -> Tools -> Rescan FPC Source Directory.';
 
   divSignature.Caption := 'FPC signature';
   SignatureDocsPrefix.Caption := 'docs:';
@@ -476,7 +474,7 @@ begin
   Data := (AOptions as TProjectIDEOptions).Project.CustomData;
   FUpdating := True;
   try
-    FPCSrcDirEdit.Text := Data.Values[ProjectFPCSrcDirKey];
+    FPCSrcDirEdit.Text := Data.Values[ProjectRTLPathKey];
 
     FPCSignatureEdit.Text := Data.Values[ProjFPCSignatureKey];
     SignatureEmptyCheckBox.Checked := Data.Values[ProjFPCSignatureEmptyKey] = '1';
@@ -557,7 +555,7 @@ begin
   Data := Prj.CustomData;
   DataChanged := False;
 
-  PutVal(ProjectFPCSrcDirKey, Trim(FPCSrcDirEdit.Text));
+  PutVal(ProjectRTLPathKey, Trim(FPCSrcDirEdit.Text));
   PutVal(ProjFPCSignatureKey, FPCSignatureEdit.Text);
   PutVal(ProjFPCSignatureEmptyKey, BoolVal(SignatureEmptyCheckBox.Checked));
   PutVal(ProjLinkerVersionKey, VersionVal(LinkerMajorEdit, LinkerMinorEdit));

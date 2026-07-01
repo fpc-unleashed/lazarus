@@ -256,7 +256,7 @@ type
     FFileAge: int64;
     FFileVersion: integer;
     FFileHasChangedOnDisk: boolean;
-    // FPCSrcDir override (--fpcsrcdir= or per-project setting): active value,
+    // FPCSrcDir override (the active project's RTL path): active value,
     // captured original and a flag. The override drives the running IDE but is
     // never written back to the config, so the genuine value stays preserved.
     FFPCSrcDirOverride: string;

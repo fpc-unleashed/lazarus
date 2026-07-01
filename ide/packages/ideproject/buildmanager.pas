@@ -563,7 +563,7 @@ procedure TBuildManager.RescanCompilerDefines(ResetBuildTarget,
   // output dir, not the compiler unit dirs, so FoundSystemPPU misses it
   begin
     Result:=(FBuildTarget<>nil)
-        and (TProjectCompilerOptions(FBuildTarget.LazCompilerOptions).RTLPath<>'');
+        and (FBuildTarget.CustomData.Values['RTLPath']<>'');
   end;
 
   function PPUFilesAndCompilerMatch: boolean;
