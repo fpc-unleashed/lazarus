@@ -2820,6 +2820,15 @@ begin
     DoAfterOperator;
   end
   else
+  if KeyCompU('CHUNK') and (FTokenState = tsInForHeaderAfterValue) and
+     (FRangeCompilerMode = pcmUnleashed)
+  then
+    { contextual keyword: in a for-header right after a value-completing
+      token, and only in Unleashed mode. In `for parallel ... chunk N do`
+      it sets how many iterations a worker claims per grab; anywhere else
+      "chunk" stays an identifier, like "step". }
+    Result := tkKey
+  else
     Result := tkIdentifier;
 end;
 
