@@ -1878,6 +1878,9 @@ begin
     Add('WIDESTRING' ,{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('WORD'       ,{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('WORDBOOL'   ,{$ifdef FPC}@{$endif}AllwaysTrue);
+    // implicit worker-locals of unleashed `for parallel` bodies
+    Add('WORKERINDEX',{$ifdef FPC}@{$endif}AllwaysTrue);
+    Add('WORKERCOUNT',{$ifdef FPC}@{$endif}AllwaysTrue);
   end;
   // add functions
   WordIsPredefinedFPCIdentifier.Add(IsWordBuiltInFunc);

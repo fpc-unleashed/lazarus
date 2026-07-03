@@ -1931,6 +1931,11 @@ begin
     AddCompilerProcedure('WriteLn','Args:Arguments');
     AddCompilerProcedure('WriteStr','var S:String;Args:Arguments');
     AddCompilerProcedure('SwapValues','var A,B:T');
+    if cmsParallelFor in Scanner.CompilerModeSwitches then begin
+      // implicit worker-locals of `for parallel` bodies
+      AddBaseConstant('WorkerIndex');
+      AddBaseConstant('WorkerCount');
+    end;
     if Scanner.PascalCompiler=pcPas2js then begin
       AddCompilerFunction('Str','const X[:Width[:Decimals]]','string');
       AddCompilerFunction('AWait','const Expr: T','T');

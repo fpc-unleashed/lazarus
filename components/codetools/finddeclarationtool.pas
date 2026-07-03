@@ -1498,6 +1498,10 @@ begin
     Result:=xtByte
   else if CompareIdentifiers(Identifier,'PCHAR')=0 then
     Result:=xtPChar
+  else if (CompareIdentifiers(Identifier,'WORKERINDEX')=0)
+  or (CompareIdentifiers(Identifier,'WORKERCOUNT')=0) then
+    // implicit worker-locals of unleashed `for parallel` bodies
+    Result:=xtLongint
   else if IsWordBuiltInFunc.DoItCaseInsensitive(Identifier) then
     Result:=xtCompilerFunc
   else begin
@@ -4447,6 +4451,17 @@ begin
     Node:=ContextNode;
     while (Node<>nil) do begin
       if NodeIsFunction(Node) then
+        exit(true);
+      Node:=Node.Parent;
+    end;
+  end;
+  if (cmsParallelFor in FLastCompilerModeSwitches)
+  and ((CompareIdentifiers(Identifier,'WorkerIndex')=0)
+    or (CompareIdentifiers(Identifier,'WorkerCount')=0)) then begin
+    // implicit worker-locals of `for parallel` bodies
+    Node:=ContextNode;
+    while (Node<>nil) do begin
+      if Node.Desc=ctnBeginBlock then
         exit(true);
       Node:=Node.Parent;
     end;
