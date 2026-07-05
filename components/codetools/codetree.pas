@@ -168,6 +168,8 @@ const
   ctnTypeOfExpr         =125; // unleashed `Type(expr)` intrinsic; node range covers
                               // the entire `Type(...)` construct, the parenthesised
                               // expression is recovered from Src between `(` and `)`
+  ctnFutureType         =126; // `future of T` thread-handle type;
+                              // optional 1st child = element type
 
   ctnUser               =1000; // user constants start here
 
@@ -208,7 +210,7 @@ const
       ctnSetType,ctnRangeType,ctnEnumerationType,
       ctnLabel,ctnTypeType,ctnFileType,ctnPointerType,
       ctnClassOfType,ctnVariantType,
-      ctnTypeOfExpr];
+      ctnTypeOfExpr,ctnFutureType];
   AllPascalTypeParts = AllPascalTypes
      +[ctnEnumIdentifier,ctnConstant,ctnRecordCase,ctnRecordVariant];
   AllProcTypes = [ctnProcedureType,ctnReferenceTo];
@@ -219,7 +221,8 @@ const
      [ctnProcedure];
   AllPointContexts = AllClasses+AllSourceTypes+
     [ctnEnumerationType,ctnInterface,ctnImplementation,ctnTypeType,
-     ctnUseUnitNamespace,ctnUseUnitClearName,ctnRangedArrayType,ctnOpenArrayType];
+     ctnUseUnitNamespace,ctnUseUnitClearName,ctnRangedArrayType,ctnOpenArrayType,
+     ctnFutureType];
 
   // CodeTreeNodeSubDescriptors
   ctnsNone                = 0;
@@ -566,6 +569,7 @@ begin
   ctnAttribute: Result:='Attribute';
   ctnAttribParam: Result:='Attribute Param';
   ctnTypeOfExpr: Result:='Type Of Expression';
+  ctnFutureType: Result:='Future Type';
   else
     Result:='invalid descriptor ('+IntToStr(Desc)+')';
   end;

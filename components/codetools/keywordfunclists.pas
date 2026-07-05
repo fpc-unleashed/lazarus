@@ -1881,6 +1881,9 @@ begin
     // implicit worker-locals of unleashed `for parallel` bodies
     Add('WORKERINDEX',{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('WORKERCOUNT',{$ifdef FPC}@{$endif}AllwaysTrue);
+    // `future of T` handles and the `async begin..end` cancel flag
+    Add('FUTURE'     ,{$ifdef FPC}@{$endif}AllwaysTrue);
+    Add('CANCELLED'  ,{$ifdef FPC}@{$endif}AllwaysTrue);
   end;
   // add functions
   WordIsPredefinedFPCIdentifier.Add(IsWordBuiltInFunc);

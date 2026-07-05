@@ -206,6 +206,7 @@ type
     function KeyWordFuncTypeProc: boolean;
     function KeyWordFuncTypeReferenceTo: boolean;
     function KeyWordFuncTypeSet: boolean;
+    function KeyWordFuncTypeFuture: boolean;
     function KeyWordFuncTypeLabel: boolean;
     function KeyWordFuncTypeType: boolean;
     function KeyWordFuncTypeFile: boolean;
@@ -498,7 +499,10 @@ begin
   'F':
     case UpChars[p[1]] of
     'I': if CompareSrcIdentifiers('FILE',p) then exit(KeyWordFuncTypeFile);
-    'U': if CompareSrcIdentifiers('FUNCTION',p) then exit(KeyWordFuncTypeProc);
+    'U': if CompareSrcIdentifiers('FUNCTION',p) then exit(KeyWordFuncTypeProc)
+         else if CompareSrcIdentifiers('FUTURE',p)
+         and (cmsAsyncAwait in Scanner.CompilerModeSwitches) then
+           exit(KeyWordFuncTypeFuture);
     end;
   'I':
     if CompareSrcIdentifiers('INTERFACE',p) then exit(KeyWordFuncTypeClassInterface(ctnClassInterface));
@@ -4065,6 +4069,12 @@ begin
         KeyWordFuncTypeDefault;
         UndoReadNextAtom;
       end else
+      if (cmsAsyncAwait in Scanner.CompilerModeSwitches)
+      and UpAtomIs('FUTURE') then begin
+        // `future of T` thread-handle type
+        ParseType(CurPos.StartPos);
+        UndoReadNextAtom;
+      end else
       if AtomIsIdentifier then begin
         // Simple / qualified / generic identifier type: 'TMyType', 'Unit.TMyType'
         ReadTypeReference(true); // creates ctnIdentifier child; CurPos on atom after type
@@ -6228,6 +6238,27 @@ begin
   ReadNextAtom;
   Result:=KeyWordFuncTypeDefault;
   CurNode.EndPos:=CurPos.EndPos;
+  EndChildNode;
+  Result:=true;
+end;
+
+function TPascalParserTool.KeyWordFuncTypeFuture: boolean;
+{
+  examples:
+    future
+    future of Identifier
+}
+begin
+  CreateChildNode;
+  CurNode.Desc:=ctnFutureType;
+  CurNode.EndPos:=CurPos.EndPos;
+  if ReadNextUpAtomIs('OF') then begin
+    ReadNextAtom;
+    KeyWordFuncTypeDefault;
+    CurNode.EndPos:=CurPos.EndPos;
+  end;
+  // on a bare `future` the cursor is already on the atom behind, matching the
+  // trailing ReadNextAtom of the other single-keyword type handlers
   EndChildNode;
   Result:=true;
 end;
