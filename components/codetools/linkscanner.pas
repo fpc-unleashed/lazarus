@@ -245,7 +245,8 @@ type
     cmsOmitRTTI,           { pas2js: treat class section 'published' as 'public' and typeinfo does not work on symbols declared with this switch }
     cmsMultiLineStrings,   { pas2js: Multiline strings }
     cmsInterpolatedStrings,{ Unleashed: $'text {expr} text' interpolated string literals }
-    cmsAutoProperties      { Unleashed: accessor-less property synthesizes a backing field }
+    cmsAutoProperties,     { Unleashed: accessor-less property synthesizes a backing field }
+    cmsParallelFor         { Unleashed: `for parallel` worker-pool loop, WorkerIndex/WorkerCount in the body }
     );
   TCompilerModeSwitches = set of TCompilerModeSwitch;
 const
@@ -294,7 +295,8 @@ const
      cmsFunctionReferences,cmsAnonymousFunctions,cmsImplicitGenerics,
      cmsStatementExpressions,cmsArrayEquality,cmsInlineVars,cmsTuples,
      cmsComposableRecords,cmsMultiLineStrings,cmsStaticSection,cmsInlineStatic,
-     cmsThreadStatic,cmsInterpolatedStrings,cmsLock,cmsAutoProperties]
+     cmsThreadStatic,cmsInterpolatedStrings,cmsLock,cmsAutoProperties,
+     cmsParallelFor]
     );
   cmAllModesWithGeneric = [cmDELPHI,cmDELPHIUNICODE,cmOBJFPC,cmUnleashed];
   Pas2jsFixedModeswitches = [cmsArray2dynarray,cmsArrayOperators,
@@ -362,7 +364,8 @@ const
     'OMITRTTI',
     'MULTILINESTRINGS',
     'INTERPOLATEDSTRINGS',
-    'AUTOPROPERTIES'
+    'AUTOPROPERTIES',
+    'PARALLELFOR'
     );
 
 type
