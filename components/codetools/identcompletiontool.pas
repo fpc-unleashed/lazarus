@@ -434,6 +434,7 @@ type
     procedure AddCompilerProcedure(const AProcName, AParameterList: PChar);
     procedure AddKeyWord(aKeyWord: string);
     procedure AddAutoPropertyBackingFields(ClassNode: TCodeTreeNode);
+    procedure AddFutureControlMembers;
   protected
     CurrentIdentifierList: TIdentifierList;
     CurrentIdentifierContexts: TCodeContextInfo;
@@ -1345,6 +1346,15 @@ begin
   CurrentIdentifierList.Add(NewItem);
 end;
 
+// synthetic control members of a `future of T` thread handle
+procedure TIdentCompletionTool.AddFutureControlMembers;
+begin
+  AddCompilerProcedure('Cancel','');
+  AddCompilerFunction('Cancelled','','Boolean');
+  AddCompilerFunction('Done','','Boolean');
+  AddCompilerFunction('ThreadID','','TThreadID');
+end;
+
 function TIdentCompletionTool.CollectAllIdentifiers(
   Params: TFindDeclarationParams; const FoundContext: TFindContext
   ): TIdentifierFoundResult;
@@ -1936,6 +1946,9 @@ begin
       AddBaseConstant('WorkerIndex');
       AddBaseConstant('WorkerCount');
     end;
+    if cmsAsyncAwait in Scanner.CompilerModeSwitches then
+      // implicit read-only cancel flag of `async begin..end` blocks
+      AddBaseConstant('Cancelled');
     if Scanner.PascalCompiler=pcPas2js then begin
       AddCompilerFunction('Str','const X[:Width[:Decimals]]','string');
       AddCompilerFunction('AWait','const Expr: T','T');
@@ -3774,6 +3787,9 @@ begin
                 end;
                 TupleChild:=TupleChild.NextBrother;
               end;
+            end else if GatherContext.Node.Desc=ctnFutureType then begin
+              // future handle: only the synthetic control members
+              AddFutureControlMembers;
             end else begin
               if GatherContext.Node.Desc=ctnIdentifier then
                 Params.Flags:=Params.Flags+[fdfIgnoreCurContextNode];
@@ -3781,6 +3797,10 @@ begin
             end;
 
           end else
+          if ExprType.Desc=xtFuture then
+            // future handle resolved from an `async ...` initializer
+            AddFutureControlMembers
+          else
           if ExprType.Desc in xtAllTypeHelperTypes then
           begin
             // gather all identifiers in cursor context for basic types (strings etc.)

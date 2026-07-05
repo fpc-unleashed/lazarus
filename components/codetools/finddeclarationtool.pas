@@ -288,7 +288,8 @@ type
     xtOleVariant,  // OleVariant
     xtJSValue,     // jsvalue only in Pas2JS, similar to variant
     xtNil,         // nil  = pointer, class, procedure, method, ...
-    xtSizeInt      // SizeInt for Length intrinsic
+    xtSizeInt,     // SizeInt for Length intrinsic
+    xtFuture       // `future of T` thread handle
     );
   // Do not define: TExpressionTypeDescs = set of TExpressionTypeDesc;
   // There are too many enums, so the set would be big and slow
@@ -346,7 +347,8 @@ var
     'OleVariant',
     'JSValue',
     'Nil',
-    'SizeInt'
+    'SizeInt',
+    'Future'
   );
 
 const
@@ -368,7 +370,7 @@ const
   xtAllWideStringTypes = [xtConstString, xtWideString, xtUnicodeString];
   xtAllPointerTypes = [xtPointer, xtNil];
   xtAllTypeHelperTypes = xtAllPredefinedTypes-[xtCompilerFunc,xtVariant,xtOleVariant,
-                                               xtJSValue,xtNil];
+                                               xtJSValue,xtNil,xtFuture];
   xtAllStringCompatibleTypes = xtAllStringTypes+[xtChar,xtAnsiChar,xtJSValue];
   xtAllWideStringCompatibleTypes = xtAllWideStringTypes+[xtWideChar,xtChar];
 
@@ -1502,6 +1504,12 @@ begin
   or (CompareIdentifiers(Identifier,'WORKERCOUNT')=0) then
     // implicit worker-locals of unleashed `for parallel` bodies
     Result:=xtLongint
+  else if CompareIdentifiers(Identifier,'FUTURE')=0 then
+    // `future of T` thread handle
+    Result:=xtFuture
+  else if CompareIdentifiers(Identifier,'CANCELLED')=0 then
+    // implicit read-only cancel flag of `async begin..end` blocks
+    Result:=xtBoolean
   else if IsWordBuiltInFunc.DoItCaseInsensitive(Identifier) then
     Result:=xtCompilerFunc
   else begin
@@ -4459,6 +4467,16 @@ begin
   and ((CompareIdentifiers(Identifier,'WorkerIndex')=0)
     or (CompareIdentifiers(Identifier,'WorkerCount')=0)) then begin
     // implicit worker-locals of `for parallel` bodies
+    Node:=ContextNode;
+    while (Node<>nil) do begin
+      if Node.Desc=ctnBeginBlock then
+        exit(true);
+      Node:=Node.Parent;
+    end;
+  end;
+  if (cmsAsyncAwait in FLastCompilerModeSwitches)
+  and (CompareIdentifiers(Identifier,'Cancelled')=0) then begin
+    // implicit read-only cancel flag of `async begin..end` blocks
     Node:=ContextNode;
     while (Node<>nil) do begin
       if Node.Desc=ctnBeginBlock then
@@ -11725,6 +11743,19 @@ var
     Params.Load(OldInput,false);
   end;
 
+  procedure ResolveFutureMember;
+  begin
+    // synthetic control members of a `future of T` handle: `await` reads the
+    // value, these probe/steer the worker
+    ExprType:=CleanExpressionType;
+    if CompareSrcIdentifiers(CurAtom.StartPos,'DONE')
+    or CompareSrcIdentifiers(CurAtom.StartPos,'CANCELLED') then
+      ExprType.Desc:=xtBoolean
+    else if CompareSrcIdentifiers(CurAtom.StartPos,'THREADID') then
+      ExprType.Desc:=xtNativeUInt;
+    // `Cancel` (a procedure) and unknown members stay xtNone
+  end;
+
   procedure ResolveIdentifier;
   var
     ProcNode: TCodeTreeNode;
@@ -11826,6 +11857,10 @@ var
     if not IdentFound then begin
       if not (ExprType.Desc in [xtContext,xtNone]) then
       begin
+        if ExprType.Desc=xtFuture then begin
+          ResolveFutureMember;
+          exit;
+        end;
         // find special sub identifier
         if (ExprType.Desc in xtAllTypeHelperTypes) then
         begin
@@ -11874,6 +11909,12 @@ var
           Context:=ExprType.Context
         else
           Context:=CreateFindContext(Self,StartNode);
+        if (ExprType.Desc=xtContext) and (Context.Node<>nil)
+        and (Context.Node.Desc=ctnFutureType) then begin
+          // member of an explicitly typed future variable
+          ResolveFutureMember;
+          exit;
+        end;
         Params.Save(OldInput);
         // build new param flags for sub identifiers
         Params.Flags:=[fdfSearchInAncestors,fdfExceptionOnNotFound,fdfSearchInHelpers]
@@ -12163,8 +12204,8 @@ var
 
     ResolveChildren;
 
-    if ExprType.Desc in xtAllTypeHelperTypes then begin
-      // helper type
+    if (ExprType.Desc in xtAllTypeHelperTypes) or (ExprType.Desc=xtFuture) then begin
+      // helper type or future handle
     end else if (ExprType.Context.Node=nil) then begin
       MoveCursorToCleanPos(CurAtom.StartPos);
       ReadNextAtom;
@@ -12867,6 +12908,14 @@ begin
   // read unary operators which have no effect on the type: +, -, not, autofree
   while AtomIsChar('+') or AtomIsChar('-') or UpAtomIs('NOT') or UpAtomIs('AUTOFREE') do
     ReadNextAtom;
+  // `async <call>` / `async begin..end` always yields a future - the rest of
+  // the operand cannot change the type, so skip it wholesale
+  if UpAtomIs('ASYNC') and (cmsAsyncAwait in Scanner.CompilerModeSwitches) then begin
+    Result.Desc:=xtFuture;
+    MoveCursorToCleanPos(MaxEndPos);
+    ReadNextAtom;
+    exit;
+  end;
   {$IFDEF ShowExprEval}
   DebugLn('[TFindDeclarationTool.ReadOperandTypeAtCursor] A Atom=',GetAtom);
   debugln(['TFindDeclarationTool.ReadOperandTypeAtCursor StartContext=',Params.ContextNode.DescAsString,'="',dbgstr(Src,Params.ContextNode.StartPos,15),'"']);
