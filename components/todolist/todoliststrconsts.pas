@@ -42,10 +42,13 @@ resourcestring
   lisToDoLDescription = 'Description';
   lisToDoLPriority = 'Priority';
   lisToDoLFile  = 'Module';
+  lisToDoLFilePath  = 'Path';
   lisToDoLLine  = 'Line';
   lisToDoLOwner = 'Owner';
   lisToDoLIssue = 'Issue ID';
-  listToDoLCategory = 'Category';
+  lisToDoLCategory = 'Category';
+  lisToDoLProject = '(Project)';
+  lisToDoLPackage = '(Package)';
   lisEdit = 'Edit';
   lisToDoGoto = 'Goto';
   lisToDoExport = 'Export';
@@ -66,6 +69,7 @@ resourcestring
   lisTDDEditToDoDlgCaption = 'Edit the ToDo item';
   lisViewToDoList = 'View ToDo List';
   lisToDoList = 'ToDo List';
+  lisToDoListOfProject = 'ToDo List of Project';
   lisToDoListforNewProject = 'ToDo List for new Project';
   lisToDoListforProject = 'ToDo List for Project "%s"';
   lisToDoListForPackage = 'ToDo List for Package "%s"';

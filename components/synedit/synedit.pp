@@ -75,7 +75,7 @@ unit SynEdit;
      To reproduce, the editor must have a visible gutter; and must not have "current line" highlight.
      * The conditions to cause this:
      - Caret must be in part of editor that is outside the screen.
-     - Carte must be destroyed (maybe only hidden?), or ScrollWindowEx must affect caret
+     - Caret must be destroyed (maybe only hidden?), or ScrollWindowEx must affect caret
      - Caret must be in a part of the editor for which NO call to "invalidate" was made,
        but which will be repainted.
        E.g. the gutter, but not the line area received an invalidate, and another line above/below was invalidated
@@ -84,7 +84,7 @@ unit SynEdit;
      If this happens, while the caret is on screen (even if hidden behind another window/taskbar) then all works ok.
      But if the caret was off screen, a permanent image of the caret will remain (once scrolled/moved into the screen area).
      It seem that in this case windows does not update the information, that the caret became "invisible" when paint did paint
-     over it. So if the already overpainted caret, is later (by Windows) attempted to be hidden by a final "xor", then it actually
+     over it. So if the already over-painted caret, is later (by Windows) attempted to be hidden by a final "xor", then it actually
      is made permanently visible.
 
      As a solution, in the above conditions, the full line (actually the text part with the caret) must be invalidated too.
@@ -220,7 +220,7 @@ type
     sfRecalculateScrollOnEdit,
     sfPreventScrollAfterSelect,
     sfIgnoreNextChar, sfPainting, sfHasPainted, sfHasScrolled,
-    sfScrollbarChanged, sfHorizScrollbarVisible, sfVertScrollbarVisible,
+    sfScrollBarChanged, sfHorizScrollBarVisible, sfVertScrollBarVisible,
     sfGutterResized,
     sfAfterLoadFromFileNeeded,
     sfAfterHandleCreatedNeeded,
@@ -464,7 +464,7 @@ type
     TSynDecPaintLockState = (
       dplNoNewPaintLock,
       dplNoAfterLoadFromFile,
-      dplNoUpdateScrollBar, dplNoScrollAfterTopline,
+      dplNoUpdateScrollBar, dplNoScrollAfterTopLine,
       dplNoEnsureCursorPos, dplNoUpdateCaret,
       dplNoStatusChange, dplNoSelAvailChange,
       dplNoResetScrollRange
@@ -585,6 +585,7 @@ type
     fOverwriteCaret: TSynEditCaretType;
     fInsertCaret: TSynEditCaretType;
     FKeyStrokes: TSynEditKeyStrokes;
+    FKeyStrokesDefault: Boolean;
     FCurrentComboKeyStrokes: TSynEditKeyStrokes; // Holding info about the keystroke(s) already received for a mult-stroke-combo
     FMouseActions, FMouseSelActions, FMouseTextActions: TSynEditMouseInternalActions;
     FMouseActionSearchHandlerList: TSynEditMouseActionSearchList;
@@ -640,6 +641,8 @@ type
     procedure DoTopViewChanged(Sender: TObject);
     function GetIsStickySelecting: Boolean;
     function GetOnSpecialLineMarkupEx: TSpecialLineMarkupExEvent;
+    function IsKeyStrokesStored: Boolean;
+    procedure SetKeyStrokesDefault(const ADefaultKeyStrokes: Boolean);
     procedure SetOnSpecialLineMarkupEx(AValue: TSpecialLineMarkupExEvent);
     procedure SetScrollOnEditLeftOptions(AValue: TSynScrollOnEditOptions);
     procedure SetScrollOnEditRightOptions(AValue: TSynScrollOnEditOptions);
@@ -716,7 +719,7 @@ type
     function  TextRightPixelOffset: Integer;
     function IsPointInSelection(Value: TPoint; AnIgnoreAtSelectionBound: Boolean = False): boolean;
     procedure LockUndo;
-    procedure MoveCaretHorz(DX: integer);
+    procedure MoveCaretHoriz(DX: integer);
     procedure MoveCaretVert(DY: integer; UseScreenLine: Boolean = False);
     procedure PrimarySelectionRequest(const RequestedFormatID: TClipboardFormat;
       Data: TStream);
@@ -737,7 +740,7 @@ type
     procedure RemoveHooksFromHighlighter;
     procedure SetInsertCaret(const Value: TSynEditCaretType);
     procedure SetInsertMode(const Value: boolean);
-    procedure SetKeystrokes(const Value: TSynEditKeyStrokes);
+    procedure SetKeyStrokes(const Value: TSynEditKeyStrokes);
     procedure SetLastMouseCaret(const AValue: TPoint);
     function  CurrentMaxLeftChar(AIncludeCharsInWin: Boolean = False): Integer;
 
@@ -845,7 +848,7 @@ type
     function DoHandleMouseAction(AnActionList: TSynEditMouseActions;
                                  var AnInfo: TSynEditMouseActionInfo): Boolean;
     procedure DoHandleMouseActionResult(AnActionResult: TSynEditMouseActionResult);
-    function CheckDragDropAccecpt(ANewCaret: TPoint; ASource: TObject; out ADropMove: boolean): boolean;
+    function CheckDragDropAccept(ANewCaret: TPoint; ASource: TObject; out ADropMove: boolean): boolean;
 
   protected
     function GetBlockBegin: TPoint; override;
@@ -873,8 +876,11 @@ type
     procedure SetLogicalCaretXY(const NewLogCaretXY: TPoint); override;
 
     function GetMouseActions: TSynEditMouseActions; override;
+    function IsMouseActionsStored: Boolean;
     function GetMouseSelActions: TSynEditMouseActions; override;
+    function IsMouseSelActionsStored: Boolean;
     function GetMouseTextActions: TSynEditMouseActions; override;
+    function IsMouseTextActionsStored: Boolean;
     procedure SetMouseActions(const AValue: TSynEditMouseActions); override;
     procedure SetMouseSelActions(const AValue: TSynEditMouseActions); override;
     procedure SetMouseTextActions(AValue: TSynEditMouseActions); override;
@@ -882,6 +888,7 @@ type
     procedure SetExtraCharSpacing(const Value: integer); override;
     procedure SetExtraLineSpacing(const Value: integer); override;
 
+    procedure KeyStrokesChanged(Sender: TObject);
     procedure SetHighlighter(const Value: TLazEditCustomHighlighter); virtual;
     procedure UpdateShowing; override;
     procedure SetColor(Value: TColor); override;
@@ -956,7 +963,7 @@ type
     property TextView : TSynEditStringsLinked read FTheLinesView;
     function PasteFromClipboardEx(ClipHelper: TSynClipboardStream; AForceColumnMode: Boolean = False): Boolean;
     function FindNextUnfoldedLine(iLine: integer; Down: boolean): Integer;
-    // Todo: Reduce the argument list of Creategutter
+    // Todo: Reduce the argument list of CreateGutter
     function CreateGutter(AOwner : TSynEditBase; ASide: TSynGutterSide;
                           ATextDrawer: TLazEditTextGridPainter): TSynGutter; virtual;
   public
@@ -1087,9 +1094,9 @@ type
                                   Index, PhysicalPos: integer): integer; override;
     function PhysicalLineLength(Line: String; Index: integer): integer; override;
 
-    (* from SynMemo - NOT recommended to use - Extremly slow code
-       SynEdit (and SynMemo) is a Linebased Editor and not meant to be accessed as a contineous text
-       Warning: This ignoces trailing spaces (same as in SynMemo). Result may be incorrect.
+    (* from SynMemo - NOT recommended to use - Extremely slow code
+       SynEdit (and SynMemo) is a Line-based Editor and not meant to be accessed as a continuous text
+       Warning: This ignores trailing spaces (same as in SynMemo). Result may be incorrect.
        If the caret must be adjusted use      SetTextBetweenPoints()
     *)
     function CharIndexToRowCol(Index: integer): TPoint;   experimental; deprecated 'SynMemo compatibility - very slow / SynEdit operates on x/y';
@@ -1248,16 +1255,24 @@ type
     property Gutter: TSynGutter read FLeftGutter write SetGutter;
     property RightGutter: TSynGutter read FRightGutter write SetRightGutter;
     property InsertMode: boolean read fInserting write SetInsertMode default true;
-    property Keystrokes: TSynEditKeyStrokes read FKeystrokes write SetKeystrokes;
+    property KeyStrokes: TSynEditKeyStrokes read FKeyStrokes write SetKeyStrokes stored IsKeyStrokesStored;
+    // we do not have to store "DefaultKeyStrokes" because it is determined by the existence/absence of the KeyStrokes entry in the LFM
+    // this is also better for forwards-compatibility, since no new property is defined that old Lazarus version don't know
+    // DefaultKeyStrokes is needed so that the user can reset KeyStrokes to default in design-time
+    property DefaultKeyStrokes: Boolean read FKeyStrokesDefault write SetKeyStrokesDefault stored False;
     property MaxUndo: Integer read GetMaxUndo write SetMaxUndo default 1024;
+    property MouseActions stored IsMouseActionsStored;
+    property MouseSelActions stored IsMouseSelActionsStored;
+    property MouseTextActions stored IsMouseTextActionsStored;
     property ShareOptions: TSynEditorShareOptions read FShareOptions write SetShareOptions
       default SYNEDIT_DEFAULT_SHARE_OPTIONS; experimental;
-    property VisibleSpecialChars: TSynVisibleSpecialChars read FVisibleSpecialChars write SetVisibleSpecialChars;
+    property VisibleSpecialChars: TSynVisibleSpecialChars read FVisibleSpecialChars write SetVisibleSpecialChars
+      default SYNEDIT_DEFAULT_VISIBLESPECIALCHARS;
     property RightEdge: Integer read GetRightEdge write SetRightEdge default 80;
     property RightEdgeColor: TColor read GetRightEdgeColor write SetRightEdgeColor default clSilver;
     property ScrollBars: TScrollStyle read FScrollBars write SetScrollBars default ssBoth;
     property BracketHighlightStyle: TSynEditBracketHighlightStyle
-      read GetBracketHighlightStyle write SetBracketHighlightStyle;
+      read GetBracketHighlightStyle write SetBracketHighlightStyle default sbhsBoth;
     property TabWidth: integer read fTabWidth write SetTabWidth default 8;
     property WantTabs: boolean read fWantTabs write SetWantTabs default True;
     property TabViewClass: TSynEditStringTabExpanderClass write SetTabViewClass;
@@ -1304,8 +1319,8 @@ type
     property Font;
     property Height;
     property Name;
-    property ParentColor;
-    property ParentFont;
+    property ParentColor default false;
+    property ParentFont default false;
     property ParentShowHint;
     property PopupMenu;
     property ShowHint;
@@ -1355,7 +1370,8 @@ type
     property Highlighter;
     property InsertCaret;
     property InsertMode;
-    property Keystrokes;
+    property DefaultKeyStrokes;
+    property KeyStrokes;
     property MouseActions;
     property MouseTextActions;
     property MouseSelActions;
@@ -1682,7 +1698,7 @@ begin
   Result := False;
 end;
 
-function Roundoff(X: Extended): Longint;
+function RoundOff(X: Extended): Longint;
 begin
   if (x >= 0) then begin
     Result := TruncToInt(x + 0.5)
@@ -2174,7 +2190,7 @@ begin
   Result := ToPos(FTheLinesView.ViewToTextIndex(ToIdx(TopView + ScreenRow)));
   if LimitToLines and (Result >= Lines.Count) then
     Result := Lines.Count;
-//  DebugLn(['=== SrceenRow TO Row   In:',ScreenRow,'  out:',Result, ' topline=',TopLine, '  view topline=',FFoldedLinesView.TopLine]);
+//  DebugLn(['=== ScreenRow TO Row   In:',ScreenRow,'  out:',Result, ' topline=',TopLine, '  view topline=',FFoldedLinesView.TopLine]);
 end;
 
 function TCustomSynEdit.RowToScreenRow(PhysicalRow: integer): integer;
@@ -2242,7 +2258,7 @@ begin
   ClipHelper := TSynClipboardStream.Create;
   try
     ClipHelper.Text := SText;
-    ClipHelper.SelectionMode := PMode; // TODO if scaPlainText and smNormal, then avoid synedits own clipboard format
+    ClipHelper.SelectionMode := PMode; // TODO if scaPlainText and smNormal, then avoid SynEdits own clipboard format
 
     if PasteAction = scaContinue then begin
       // Fold
@@ -2517,6 +2533,7 @@ begin
   fMarkupSpecialChar := TSynEditMarkupSpecialChar.Create(self);
 
   fMarkupSelection.MarkupInfoSelection.SetAllPriorities(50);
+  fMarkupSelection.MarkupInfoSelection.InternalSaveDefaultValues;
 
   fMarkupManager := TSynEditMarkupManager.Create(self);
   fMarkupManager.AddMarkUp(fMarkupSpecialChar);
@@ -2555,6 +2572,7 @@ begin
   fFontDummy.Height := SynDefaultFontHeight;
   fFontDummy.Pitch := SynDefaultFontPitch;
   fFontDummy.Quality := SynDefaultFontQuality;
+  fFontDummy.Style := [];
   FLastSetFontSize := fFontDummy.Height;
   FLastMouseLocation.LastMouseCaret := Point(-1,-1);
   FLastMouseLocation.LastMousePoint := Point(-1,-1);
@@ -2584,7 +2602,6 @@ begin
   FPaintArea.DisplayView := FTheLinesView.DisplayView;
 
   Color := clWhite;
-  Font.OnChange := @FontChanged; // already set by inherited
   Font.Assign(fFontDummy);
   ParentFont := False;
   ParentColor := False;
@@ -2595,11 +2612,10 @@ begin
   BorderStyle := bsSingle;
   fInsertCaret := ctVerticalLine;
   fOverwriteCaret := ctBlock;
-  FKeystrokes := TSynEditKeyStrokes.Create(Self);
+  FKeyStrokes := TSynEditKeyStrokes.Create(Self);
+  FKeyStrokes.OnChanged := @KeyStrokesChanged;
   FCurrentComboKeyStrokes := nil;
-  if assigned(Owner) and not (csLoading in Owner.ComponentState) then begin
-    SetDefaultKeystrokes;
-  end;
+  SetDefaultKeystrokes;
 
   fWantTabs := True;
   fTabWidth := 8;
@@ -2810,14 +2826,14 @@ begin
     *)
     if (FPaintLock = 0) then begin
       if (not WaitingForInitialSize) then begin
-        if sfScrollbarChanged in fStateFlags then begin
+        if sfScrollBarChanged in fStateFlags then begin
           Exclude(FInDecPaintLockState, dplNoUpdateScrollBar);
-          UpdateScrollbars;
+          UpdateScrollBars;
           Include(FInDecPaintLockState, dplNoUpdateScrollBar);
           {$IFOPT C+} Exclude(FAssertInDecPaintLockDone, dplNoUpdateScrollBar); {$ENDIF}
         end;
 
-        (* EnsureCursorPosVisible must be past UpdateScrollbars; but before UpdateCaret (for ScrollBar-Auto-show)
+        (* EnsureCursorPosVisible must be past UpdateScrollBars; but before UpdateCaret (for ScrollBar-Auto-show)
            - May Change TopView and LeftChar
         *)
         Exclude(FInDecPaintLockState, dplNoEnsureCursorPos);
@@ -2837,23 +2853,23 @@ begin
 
       if (not WaitingForInitialSize) then begin
         (* EnsureCursorPosVisible or StatusChanged-events: may have scrolled
-           This should not change the visibility of either scrollbar,
+           This should not change the visibility of either ScrollBar,
            so no further update of the Caret needed.
         *)
         Exclude(FInDecPaintLockState, dplNoUpdateScrollBar);
-        if sfScrollbarChanged in fStateFlags then
-          UpdateScrollbars;
+        if sfScrollBarChanged in fStateFlags then
+          UpdateScrollBars;
         Exclude(FInDecPaintLockState, dplNoResetScrollRange);
         ResetScrollAfterRecalcCharsAndLinesInWin;
 
         if FInvalidateRect.Bottom >= FInvalidateRect.Top then begin
           InvalidateRect(Handle, @FInvalidateRect, False);
           {$IFDEF SynCheckPaintLock}
-          debugln('Returning from Paintlock, wich had Paint called while active');
+          debugln('Returning from Paintlock, which had Paint called while active');
           DumpStack;
           {$ENDIF}
         end;
-        Exclude(FInDecPaintLockState, dplNoScrollAfterTopline);
+        Exclude(FInDecPaintLockState, dplNoScrollAfterTopLine);
         ScrollAfterTopLineChanged;
         (* After ScrollAfterTopLineChanged InvalidateLines now longer must adjust for
            "pretend not to have scrolled".
@@ -2872,7 +2888,7 @@ begin
            it must be after ScrollAfterTopLineChanged
          - This may also change the state of any part of the edit. In this case
            a new round of work must be started.
-           If this changes Topline, then there will be 2 Scrolls
+           If this changes TopLine, then there will be 2 Scrolls
       *)
       FInDecPaintLockState := OrigIsInDecPaintLock + [dplNoSelAvailChange] - [dplNoStatusChange];
       if fStatusChanges <> [] then
@@ -2956,7 +2972,7 @@ begin
   FreeAndNil(fTSearch);
   FreeAndNil(FImeHandler);
   FreeAndNil(fMarkupManager);
-  FreeAndNil(fKeyStrokes);
+  FreeAndNil(FKeyStrokes);
   FreeAndNil(FMouseActionSearchHandlerList);
   FreeAndNil(FMouseActionExecHandlerList);
   FreeAndNil(FMouseLastCaretHandlerList);
@@ -3268,7 +3284,7 @@ begin
         SwapInt(FirstLine, LastLine);
 
       offs := 0;
-      if (FPaintLock > 0) or (dplNoScrollAfterTopline in FInDecPaintLockState) then begin
+      if (FPaintLock > 0) or (dplNoScrollAfterTopLine in FInDecPaintLockState) then begin
         // pretend we haven't scrolled
         offs := - (FOldTopView - TopView);
       end;
@@ -3297,7 +3313,7 @@ begin
         SwapInt(FirstLine, LastLine);
 
       offs := 0;
-      if (FPaintLock > 0) or (dplNoScrollAfterTopline in FInDecPaintLockState) then begin
+      if (FPaintLock > 0) or (dplNoScrollAfterTopLine in FInDecPaintLockState) then begin
         // pretend we haven't scrolled
         offs := - (FOldTopView - TopView);
       end;
@@ -3519,6 +3535,11 @@ begin
   end;
 end;
 
+procedure TCustomSynEdit.KeyStrokesChanged(Sender: TObject);
+begin
+  FKeyStrokesDefault := False;
+end;
+
 function TCustomSynEdit.DoHandleMouseAction(AnActionList: TSynEditMouseActions;
   var AnInfo: TSynEditMouseActionInfo): Boolean;
 var
@@ -3722,16 +3743,16 @@ begin
 
     if (ACommand = emcWheelScrollDown)
     then begin
-      // sroll dependant on visible scrollbar / or not at all
-      if  (fStateFlags * [sfVertScrollbarVisible, sfHorizScrollbarVisible] = [sfHorizScrollbarVisible])
+      // scroll dependant on visible ScrollBar / or not at all
+      if  (fStateFlags * [sfVertScrollBarVisible, sfHorizScrollBarVisible] = [sfHorizScrollBarVisible])
       then ACommand := emcWheelHorizScrollDown
       else ACommand := emcWheelVertScrollDown;
     end;
 
     if (ACommand = emcWheelScrollUp)
     then begin
-      // sroll dependant on visible scrollbar / or not at all
-      if  (fStateFlags * [sfVertScrollbarVisible, sfHorizScrollbarVisible] = [sfHorizScrollbarVisible])
+      // scroll dependant on visible ScrollBar / or not at all
+      if  (fStateFlags * [sfVertScrollBarVisible, sfHorizScrollBarVisible] = [sfHorizScrollBarVisible])
       then ACommand := emcWheelHorizScrollUp
       else ACommand := emcWheelVertScrollUp;
     end;
@@ -4532,7 +4553,7 @@ begin
   // Get the invalidated rect. Compute the invalid area in lines / columns.
   rcClip := Canvas.ClipRect;
 
-  If (FPaintLock > 0) or (dplNoScrollAfterTopline in FInDecPaintLockState) then begin
+  If (FPaintLock > 0) or (dplNoScrollAfterTopLine in FInDecPaintLockState) then begin
     debugln(['Warning: SynEdit.Paint called during PaintLock']);
     {$IFDEF SynCheckPaintLock}
     DumpStack;
@@ -5278,7 +5299,7 @@ var
 begin
   Exclude(fStateFlags, sfAfterHandleCreatedNeeded);
   GlobalASyncRunner.RemoveTask(@IdleScanRanges, Self);
-  fStateFlags := fStateFlags - [sfHorizScrollbarVisible, sfVertScrollbarVisible];
+  fStateFlags := fStateFlags - [sfHorizScrollBarVisible, sfVertScrollBarVisible];
 
   IncStatusChangeLock;
   inc(FDoingResizeLock);
@@ -5292,7 +5313,7 @@ begin
       FPaintLock := p;
     end;
 
-    UpdateScrollBars; // just set sfScrollbarChanged
+    UpdateScrollBars; // just set sfScrollBarChanged
     FLeftGutter.RecalcBounds;
     FRightGutter.RecalcBounds;
   finally
@@ -5305,12 +5326,15 @@ begin
       UpdateScrollBars;
     end
     else
-    if sfScrollbarChanged in fStateFlags then
+    if sfScrollBarChanged in fStateFlags then
       UpdateScrollBars;
     DecStatusChangeLock;
   end;
 
   if (sfMarkupMgrWaitingForHandle in fStateFlags) then begin
+    ScanRanges;
+    if sfAfterLoadFromFileNeeded in fStateFlags then
+      AfterLoadFromFile;
     FMarkupManager.DecPaintLock;
     Exclude(fStateFlags, sfMarkupMgrWaitingForHandle);
   end;
@@ -5436,12 +5460,12 @@ var
   srect: TRect;
 begin
   if (sfPainting in fStateFlags) or
-     (fPaintLock <> 0) or (dplNoScrollAfterTopline in FInDecPaintLockState) or
+     (fPaintLock <> 0) or (dplNoScrollAfterTopLine in FInDecPaintLockState) or
      WaitingForInitialSize
   then
     exit;
 
-  {$IFOPT C+} assert(not(dplNoScrollAfterTopline in FInDecPaintLockState) or not(dplNoScrollAfterTopline in FAssertInDecPaintLockDone), 'ScrollAfterTopLineChanged called twice in one DecPaintLock'); Include(FAssertInDecPaintLockDone, dplNoScrollAfterTopline); {$ENDIF}
+  {$IFOPT C+} assert(not(dplNoScrollAfterTopLine in FInDecPaintLockState) or not(dplNoScrollAfterTopLine in FAssertInDecPaintLockDone), 'ScrollAfterTopLineChanged called twice in one DecPaintLock'); Include(FAssertInDecPaintLockDone, dplNoScrollAfterTopLine); {$ENDIF}
   Delta := FOldTopView - TopView;
   {$IFDEF SYNSCROLLDEBUG}
   if (sfHasScrolled in fStateFlags) then debugln(['ScrollAfterTopLineChanged with sfHasScrolled Delta=',Delta,' topline=',TopLine, '  FOldTopView=',FOldTopView ]);
@@ -5450,7 +5474,7 @@ begin
     // TODO: SW_SMOOTHSCROLL --> can't get it work
     if (Abs(Delta) >= LinesInWindow) or (sfHasScrolled in FStateFlags) then begin
       {$IFDEF SYNSCROLLDEBUG}
-      debugln(['ScrollAfterTopLineChanged does invalidet Delta=',Delta]);
+      debugln(['ScrollAfterTopLineChanged does invalidate Delta=',Delta]);
       {$ENDIF}
       Invalidate;
     end else
@@ -5477,7 +5501,7 @@ begin
           0, LineHeight * Delta, srect, srect);
         Invalidate;    // scrollwindow failed, invalidate all
         {$IFDEF SYNSCROLLDEBUG}
-        debugln(['ScrollAfterTopLineChanged does invalidet (scroll failed) Delta=',Delta]);
+        debugln(['ScrollAfterTopLineChanged does invalidate (scroll failed) Delta=',Delta]);
         {$ENDIF}
       end;
     end;
@@ -5560,10 +5584,10 @@ begin
      (PaintLock <> 0) or (dplNoUpdateScrollBar in FInDecPaintLockState) or
      (FDoingResizeLock <> 0)
   then
-    Include(fStateFlags, sfScrollbarChanged)
+    Include(fStateFlags, sfScrollBarChanged)
   else begin
     //{$IFOPT C+} assert(not(dplNoNewPaintLock in FInDecPaintLockState) or not(dplNoUpdateScrollBar in FAssertInDecPaintLockDone), 'UpdateScrollBars called twice in one DecPaintLock'); Include(FAssertInDecPaintLockDone, dplNoUpdateScrollBar); {$ENDIF}
-    Exclude(fStateFlags, sfScrollbarChanged);
+    Exclude(fStateFlags, sfScrollBarChanged);
     ScrollInfo.cbSize := SizeOf(ScrollInfo);
     ScrollInfo.fMask := SIF_ALL or SIF_DISABLENOSCROLL and not SIF_TRACKPOS;
     ScrollInfo.nMin := 1;
@@ -5573,18 +5597,18 @@ begin
     ScrollInfo.nMax := CurrentMaxLeftChar(True);
     if ((fScrollBars in [ssBoth, ssHorizontal]) or
         ((fScrollBars in [ssAutoBoth, ssAutoHorizontal]) and (ScrollInfo.nMax - 1 > CharsInWindow))
-       ) xor (sfHorizScrollbarVisible in fStateFlags)
+       ) xor (sfHorizScrollBarVisible in fStateFlags)
     then begin
-      if (sfHorizScrollbarVisible in fStateFlags)
-        then exclude(fStateFlags, sfHorizScrollbarVisible)
-        else include(fStateFlags, sfHorizScrollbarVisible);
+      if (sfHorizScrollBarVisible in fStateFlags)
+        then exclude(fStateFlags, sfHorizScrollBarVisible)
+        else include(fStateFlags, sfHorizScrollBarVisible);
       if fStateFlags * [sfEnsureCursorPos, sfEnsureCursorPosAtResize] <> [] then
         include(fStateFlags, sfEnsureCursorPosAtResize);
 
       {$IFDEF LCLWin32}
-      // Some bug in Windows? ShowScrollBar will not always remove the scrollbar
-      // This will make the scrollbar un-scrollable, after that it can be hidden
-      if not (sfHorizScrollbarVisible in fStateFlags) then begin
+      // Some bug in Windows? ShowScrollBar will not always remove the ScrollBar
+      // This will make the ScrollBar un-scrollable, after that it can be hidden
+      if not (sfHorizScrollBarVisible in fStateFlags) then begin
         ScrollInfo.nMax  := 99;
         ScrollInfo.nPage := ScrollInfo.nMax-1;
         ScrollInfo.nPos  := 1;
@@ -5594,19 +5618,19 @@ begin
 
       (* ShowScrollBar may send a resize message and trigger
          DoOnResize > SizeOrFontChanged > RecalcCharsAndLinesInWin > UpdateScrollBars *)
-      ShowScrollBar(Handle, SB_Horz, sfHorizScrollbarVisible in fStateFlags);
+      ShowScrollBar(Handle, SB_Horz, sfHorizScrollBarVisible in fStateFlags);
       RecalcCharsAndLinesInWin(True);
     end;
-    if (sfHorizScrollbarVisible in fStateFlags) then begin
+    if (sfHorizScrollBarVisible in fStateFlags) then begin
       ScrollInfo.nPage := CharsInWindow;
       ScrollInfo.nPos := LeftChar;
       SetScrollInfo(Handle, SB_HORZ, ScrollInfo, True);
       {$IFNDEF LCLWin32} {$IFnDEF SynScrollBarWorkaround}
-      if not (sfHorizScrollbarVisible in fStateFlags) then
+      if not (sfHorizScrollBarVisible in fStateFlags) then
         ShowScrollBar(Handle, SB_Horz, False);
       {$ENDIF} {$ENDIF}
     end;
-    //DebugLn('[TCustomSynEdit.UpdateScrollbars] nMin=',ScrollInfo.nMin,' nMax=',ScrollInfo.nMax,
+    //DebugLn('[TCustomSynEdit.UpdateScrollBars] nMin=',ScrollInfo.nMin,' nMax=',ScrollInfo.nMax,
     //' nPage=',ScrollInfo.nPage,' nPos=',ScrollInfo.nPos,' ClientW=',ClientWidth);
 
     // Vertical
@@ -5615,18 +5639,18 @@ begin
       Inc(ScrollInfo.nMax, LinesInWindow - 1);
     if ((fScrollBars in [ssBoth, ssVertical]) or
         ((fScrollBars in [ssAutoBoth, ssAutoVertical]) and (ScrollInfo.nMax - 1 > LinesInWindow))
-       ) xor (sfVertScrollbarVisible in fStateFlags)
+       ) xor (sfVertScrollBarVisible in fStateFlags)
     then begin
-      if (sfVertScrollbarVisible in fStateFlags)
-        then exclude(fStateFlags, sfVertScrollbarVisible)
-        else include(fStateFlags, sfVertScrollbarVisible);
+      if (sfVertScrollBarVisible in fStateFlags)
+        then exclude(fStateFlags, sfVertScrollBarVisible)
+        else include(fStateFlags, sfVertScrollBarVisible);
       if fStateFlags * [sfEnsureCursorPos, sfEnsureCursorPosAtResize] <> [] then
         include(fStateFlags, sfEnsureCursorPosAtResize);
 
       {$IFDEF LCLWin32}
-      // Some bug in Windows? ShowScrollBar will not always remove the scrollbar
-      // This will make the scrollbar un-scrollable, after that it can be hidden
-      if not (sfVertScrollbarVisible in fStateFlags) then begin
+      // Some bug in Windows? ShowScrollBar will not always remove the ScrollBar
+      // This will make the ScrollBar un-scrollable, after that it can be hidden
+      if not (sfVertScrollBarVisible in fStateFlags) then begin
         ScrollInfo.nMax  := 99;
         ScrollInfo.nPage := ScrollInfo.nMax-1;
         ScrollInfo.nPos  := 1;
@@ -5636,15 +5660,15 @@ begin
 
       (* ShowScrollBar may send a resize message and trigger
          DoOnResize > SizeOrFontChanged > RecalcCharsAndLinesInWin > UpdateScrollBars *)
-      ShowScrollBar(Handle, SB_Vert, sfVertScrollbarVisible in fStateFlags);
+      ShowScrollBar(Handle, SB_Vert, sfVertScrollBarVisible in fStateFlags);
       RecalcCharsAndLinesInWin(True);
     end;
-      if (sfVertScrollbarVisible in fStateFlags) then begin
+      if (sfVertScrollBarVisible in fStateFlags) then begin
       ScrollInfo.nPage := LinesInWindow;
       ScrollInfo.nPos := TopView;
       SetScrollInfo(Handle, SB_VERT, ScrollInfo, True);
       {$IFNDEF LCLWin32} {$IFnDEF SynScrollBarWorkaround}
-      if not (sfVertScrollbarVisible in fStateFlags) then
+      if not (sfVertScrollBarVisible in fStateFlags) then
         ShowScrollBar(Handle, SB_Vert, False);
       {$ENDIF} {$ENDIF}
     end;
@@ -6022,7 +6046,7 @@ begin
     if (FChangedLinesStart<1) or (FChangedLinesStart>StartLine) then
       FChangedLinesStart:=StartLine;
     FChangedLinesEnd := -1; // Invalidate the rest of lines
-    // TODO: review FChangedLinesDiff // Do not allow to reset (accumulate) to zero / just an indicator that theline count changed
+    // TODO: review FChangedLinesDiff // Do not allow to reset (accumulate) to zero / just an indicator that the line count changed
     FChangedLinesDiff := FChangedLinesDiff + ACount;
   end else begin
     ScanChangedLines(StartLine, -1, ACount, True);
@@ -6120,7 +6144,7 @@ var
   i: Integer;
 begin
   {$IFDEF SynFoldDebug}debugln(['FOLD-- FoldChanged; Index=', aIndex, ' TopView=', TopView, '  PartialBottomLine=', PartialBottomLine]);{$ENDIF}
-  // TODO: TopView may only need to be (re-)set if aIndex <= current topline
+  // TODO: TopView may only need to be (re-)set if aIndex <= current TopLine
   TopView := TopView;
   if (not FTheLinesView.IsTextIdxVisible(ToIdx(CaretY))) and (FTheLinesView.ViewedCount > 0) then begin
     i := Max(0, FTheLinesView.TextToViewIndex(ToIdx(CaretY)));
@@ -6165,13 +6189,13 @@ begin
   FFoldedLinesView.TopViewPos := AValue;
 
   if FTextArea.TopViewedLine <> AValue then begin
-    if (FPaintLock = 0) and not (dplNoScrollAfterTopline in FInDecPaintLockState) then
+    if (FPaintLock = 0) and not (dplNoScrollAfterTopLine in FInDecPaintLockState) then
       FOldTopView := TopView;
     FTextArea.TopViewedLine := AValue;
     UpdateScrollBars;
     // call MarkupMgr before ScrollAfterTopLineChanged, in case we aren't in a PaintLock
     fMarkupManager.TopLine := TopLine;
-    if (sfPainting in fStateFlags) then debugln('SetTopline inside paint');
+    if (sfPainting in fStateFlags) then debugln('SetTopLine inside paint');
     ScrollAfterTopLineChanged;
     StatusChanged([scTopLine]);
   end
@@ -6179,7 +6203,7 @@ begin
     fMarkupManager.TopLine := TopLine;
 
   {$IFDEF SYNSCROLLDEBUG}
-  if (fPaintLock = 0) and (FInDecPaintLockState = []) then debugln('SetTopline outside Paintlock EXIT');
+  if (fPaintLock = 0) and (FInDecPaintLockState = []) then debugln('SetTopLine outside Paintlock EXIT');
   {$ENDIF}
 end;
 
@@ -6294,7 +6318,7 @@ var
   Group: TSynEditUndoGroup;
 begin
   Group := fRedoList.PopItem;
-  if Group <> nil then begin;
+  if Group <> nil then begin
     {$IFDEF SynUndoDebugCalls}
     DebugLnEnter(['>> TCustomSynEdit.Redo ',DbgSName(self), ' ', dbgs(Self), ' Group', dbgs(Group), ' cnt=', Group.Count]);
     {$ENDIF}
@@ -6350,7 +6374,7 @@ begin
     end
     else
     if Item.ClassType = TSynEditUndoUnIndent then
-    begin // re-delete the (raggered) column
+    begin // re-delete the (ragged) column
       // add to undo list
       fUndoList.AddChange(TSynEditUndoUnIndent.Create(TSynEditUndoUnIndent(Item).FPosY1,
          TSynEditUndoUnIndent(Item).FPosY2, TSynEditUndoUnIndent(Item).FText));
@@ -6419,7 +6443,7 @@ begin
           Item := Group.Pop;
         until (Item = nil);
       finally
-        // Todo: Decide what do to, If there are any trimable spaces.
+        // Todo: Decide what do to, If there are any trim-able spaces.
         FTrimmedLinesView.ForceTrim;
         fUndoList.UnLock;
         InternalEndUndoBlock(fRedoList);
@@ -6452,7 +6476,7 @@ begin
       // add to redo list
       fRedoList.AddChange(TSynEditUndoIndent.Create(TSynEditUndoIndent(Item).FPosY1,
          TSynEditUndoIndent(Item).FPosY2, TSynEditUndoIndent(Item).FCnt, TSynEditUndoIndent(Item).FTabCnt));
-      // quick unintend (must all be spaces, as inserted...)
+      // quick unindent (must all be spaces, as inserted...)
       fRedoList.Lock;
       Len2 := TSynEditUndoIndent(Item).FCnt;
       LenT := TSynEditUndoIndent(Item).FTabCnt;
@@ -6652,6 +6676,21 @@ begin
     dec(i);
   end;
   Result := j > 1;
+end;
+
+function TCustomSynEdit.IsMouseActionsStored: Boolean;
+begin
+  Result := MouseActions.Count>0;
+end;
+
+function TCustomSynEdit.IsMouseSelActionsStored: Boolean;
+begin
+  Result := MouseSelActions.Count>0;
+end;
+
+function TCustomSynEdit.IsMouseTextActionsStored: Boolean;
+begin
+  Result := MouseTextActions.Count>0;
 end;
 
 procedure TCustomSynEdit.RecreateMarkList;
@@ -6945,7 +6984,7 @@ begin
   TextBetweenPointsEx[FCaret.LineBytePos, FCaret.LineBytePos, aCaretMode] := aText;
 end;
 
-function TCustomSynEdit.CheckDragDropAccecpt(ANewCaret: TPoint; ASource: TObject; out ADropMove: boolean): boolean;
+function TCustomSynEdit.CheckDragDropAccept(ANewCaret: TPoint; ASource: TObject; out ADropMove: boolean): boolean;
 begin
   // if from other control then move when SHIFT, else copy
   // if from Self then copy when CTRL, else move
@@ -6994,7 +7033,7 @@ begin
       FInternalCaret.AssignFrom(FCaret);
       FInternalCaret.Invalidate;
       FInternalCaret.LineCharPos := PixelsToRowColumn(Point(X,Y));
-      Accept := CheckDragDropAccecpt(FInternalCaret.LineBytePos, Source, DropMove);
+      Accept := CheckDragDropAccept(FInternalCaret.LineBytePos, Source, DropMove);
 
       if Accept then begin
         FBlockSelection.IncPersistentLock;
@@ -7035,7 +7074,7 @@ begin
       inherited;
       ComputeCaret(X, Y);
       NewCaret := LogicalCaretXY;
-      if CheckDragDropAccecpt(NewCaret, Source, DropMove) then begin
+      if CheckDragDropAccept(NewCaret, Source, DropMove) then begin
         InternalBeginUndoBlock;                                                         //mh 2000-11-20
         try
           DragDropText := TCustomSynEdit(Source).SelText;
@@ -7341,12 +7380,20 @@ begin
   end;
 end;
 
-procedure TCustomSynEdit.SetKeystrokes(const Value: TSynEditKeyStrokes);
+procedure TCustomSynEdit.SetKeyStrokes(const Value: TSynEditKeyStrokes);
 begin
   if Value = nil then
-    FKeystrokes.Clear
+    FKeyStrokes.Clear
   else
-    FKeystrokes.Assign(Value);
+    FKeyStrokes.Assign(Value);
+end;
+
+procedure TCustomSynEdit.SetKeyStrokesDefault(const ADefaultKeyStrokes: Boolean);
+begin
+  if FKeyStrokesDefault = ADefaultKeyStrokes then Exit;
+  FKeyStrokesDefault := ADefaultKeyStrokes;
+  if FKeyStrokesDefault then
+    SetDefaultKeystrokes;
 end;
 
 procedure TCustomSynEdit.SetExtraCharSpacing(const Value: integer);
@@ -7368,7 +7415,8 @@ end;
 
 procedure TCustomSynEdit.SetDefaultKeystrokes;
 begin
-  FKeystrokes.ResetDefaults;
+  FKeyStrokes.ResetDefaults;
+  FKeyStrokesDefault := True;
 end;
 
 procedure TCustomSynEdit.ResetMouseActions;
@@ -7428,7 +7476,7 @@ begin
           DoOnCommandProcessed(Command, AChar, Data);
 
         if assigned(BeautifyWorker) then begin
-          tsyneditstringlist(FLines).FlushNotificationCache;
+          TSynEditStringList(FLines).FlushNotificationCache;
           BeautifyWorker.AutoIndent := (eoAutoIndent in FOptions);
           BeautifyWorker.AfterCommand(self, FTheLinesView, FCaret, Command, InitialCmd,
                                    FBeautifyStartLineIdx+1, FBeautifyEndLineIdx+1);
@@ -7505,7 +7553,7 @@ begin
           if (eoCaretMoveEndsSelection in Options2) and SelAvail then
             FBlockSelection.Clear
           else
-            MoveCaretHorz(-1);
+            MoveCaretHoriz(-1);
         end;
       ecRight, ecSelRight, ecColSelRight:
         begin
@@ -7519,7 +7567,7 @@ begin
           if (eoCaretMoveEndsSelection in Options2) and SelAvail then
             FBlockSelection.Clear
           else
-            MoveCaretHorz(1);
+            MoveCaretHoriz(1);
         end;
       ecPageLeft, ecSelPageLeft, ecColSelPageLeft:
         begin
@@ -8306,7 +8354,7 @@ procedure TCustomSynEdit.AddKey(Command: TSynEditorCommand;
 var
   Key: TSynEditKeyStroke;
 begin
-  Key := Keystrokes.Add;
+  Key := KeyStrokes.Add;
   Key.Command := Command;
   Key.Key := Key1;
   Key.Shift := SS1;
@@ -8616,10 +8664,10 @@ var
   AnActionResult: TSynEditMouseActionResult;
   Info: TSynEditMouseActionInfo;
 begin
-  if ((sfHorizScrollbarVisible in fStateFlags) and (Message.Y > ClientHeight)) or
-     ((sfVertScrollbarVisible in fStateFlags) and (Message.X > ClientWidth))
+  if ((sfHorizScrollBarVisible in fStateFlags) and (Message.Y > ClientHeight)) or
+     ((sfVertScrollBarVisible in fStateFlags) and (Message.X > ClientWidth))
    then begin
-     // mouse is over scrollbar
+     // mouse is over ScrollBar
      inherited; // include OnMouseWheel...;
      exit;
    end;
@@ -8640,7 +8688,7 @@ begin
       FindAndHandleMouseAction(Info, AnActionResult);
     end
     else begin
-      // send megative delta
+      // send negative delta
       Info := GetMouseActionInfo(mbXWheelDown, lState, Message.X, Message.Y, ccSingle, cdDown, Message.WheelDelta);
       FindAndHandleMouseAction(Info, AnActionResult);
     end;
@@ -8660,10 +8708,10 @@ var
   AnActionResult: TSynEditMouseActionResult;
   Info: TSynEditMouseActionInfo;
 begin
-  if ((sfHorizScrollbarVisible in fStateFlags) and (Message.Y > ClientHeight)) or
-     ((sfVertScrollbarVisible in fStateFlags) and (Message.X > ClientWidth))
+  if ((sfHorizScrollBarVisible in fStateFlags) and (Message.Y > ClientHeight)) or
+     ((sfVertScrollBarVisible in fStateFlags) and (Message.X > ClientWidth))
    then begin
-     // mouse is over scrollbar
+     // mouse is over ScrollBar
      inherited; // include OnMouseWheel...;
      exit;
    end;
@@ -8684,7 +8732,7 @@ begin
       FindAndHandleMouseAction(Info, AnActionResult);
     end
     else begin
-      // send megative delta
+      // send negative delta
       Info := GetMouseActionInfo(mbXWheelRight, lState, Message.X, Message.Y, ccSingle, cdDown, Message.WheelDelta);
       FindAndHandleMouseAction(Info, AnActionResult);
     end;
@@ -8992,10 +9040,10 @@ begin
   UpdateOptions;
 
   if eoScrollPastEol in ChangedOptions then begin
-    Include(fStateFlags, sfScrollbarChanged);
+    Include(fStateFlags, sfScrollBarChanged);
     LeftChar := LeftChar;
-    if sfScrollbarChanged in fStateFlags then
-      UpdateScrollbars;
+    if sfScrollBarChanged in fStateFlags then
+      UpdateScrollBars;
   end;
   if (eoScrollPastEof in ChangedOptions) then begin
     UpdateScrollBars;
@@ -9068,10 +9116,10 @@ begin
     if (eoPersistentCaretStopBlink in ChangedOptions) then
       UpdateScreenCaret;
     if ChangedOptions * [eoScrollPastEolAddPage, eoScrollPastEolAutoCaret] <> [] then begin
-      Include(fStateFlags, sfScrollbarChanged);
+      Include(fStateFlags, sfScrollBarChanged);
       LeftChar := LeftChar;
-      if sfScrollbarChanged in fStateFlags then
-        UpdateScrollbars;
+      if sfScrollBarChanged in fStateFlags then
+        UpdateScrollBars;
     end;
     StatusChanged([scOptions]);
   end;
@@ -9136,10 +9184,10 @@ begin
     if bFont then
       Invalidate;
 
-    Include(fStateFlags, sfScrollbarChanged);
+    Include(fStateFlags, sfScrollBarChanged);
     RecalcCharsAndLinesInWin(True);
-    if sfScrollbarChanged in fStateFlags then
-      UpdateScrollbars;
+    if sfScrollBarChanged in fStateFlags then
+      UpdateScrollBars;
   end;
 end;
 
@@ -9246,12 +9294,12 @@ begin
     RecalcScrollOnEdit(nil);
 end;
 
-procedure TCustomSynEdit.MoveCaretHorz(DX: integer);
+procedure TCustomSynEdit.MoveCaretHoriz(DX: integer);
 var
   NewCaret: TPoint;
   s: String;
 begin
-  // char or halfchar left/right
+  // char or half-char left/right
 
   DoIncPaintLock(Self);  // No editing is taking place
   try
@@ -9340,7 +9388,7 @@ begin
                     ));
     end
     else begin
-      // Caret alreayd visible, check block
+      // Caret already visible, check block
       if l1 < TopLine then
         TopLine := Max(LCaretLast,
                    Min(LCaretFirst,
@@ -10422,6 +10470,11 @@ begin
   Result:=(length(c)=1) and (c[1] in IdentChars);
 end;
 
+function TCustomSynEdit.IsKeyStrokesStored: Boolean;
+begin
+  Result := not FKeyStrokesDefault;
+end;
+
 procedure TCustomSynEdit.GetWordBoundsAtRowCol(const XY: TPoint; out StartX,
   EndX: integer); // all params are logical (byte) positions
 var
@@ -10835,7 +10888,7 @@ begin
 end;
 
 (* from SynMemo - NOT recommended to use - Extremly slow code
-   SynEdit (and SynMemo) is a Linebased Editor and not meant to be accessed as a contineous text
+   SynEdit (and SynMemo) is a Line-based Editor and not meant to be accessed as a continuous text
 *)
 function TCustomSynEdit.CharIndexToRowCol(Index: integer): TPoint;
 var
@@ -10862,7 +10915,7 @@ begin
 end;
 
 (* from SynMemo - NOT recommended to use - Extremly slow code
-   SynEdit (and SynMemo) is a Linebased Editor and not meant to be accessed as a contineous text
+   SynEdit (and SynMemo) is a Line-based Editor and not meant to be accessed as a continuous text
 *)
 function TCustomSynEdit.RowColToCharIndex(RowCol: TPoint): integer;
 var

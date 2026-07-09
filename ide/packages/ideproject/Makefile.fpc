@@ -2,15 +2,15 @@
 #
 #   Makefile.fpc for IdeProject 1.0
 #
-#   This file was generated on 25-4-26
+#   This file was generated on 05/01/2026
 
 [package]
 name=ideproject
 version=1.0
 
 [compiler]
-unittargetdir=lib/$(CPU_TARGET)-$(OS_TARGET)/$(LCL_PLATFORM)
-unitdir=. ../../../packager/units/$(CPU_TARGET)-$(OS_TARGET) ../../../components/lazutils/lib/$(CPU_TARGET)-$(OS_TARGET) ../../../components/buildintf/units/$(CPU_TARGET)-$(OS_TARGET) ../../../components/codetools/units/$(CPU_TARGET)-$(OS_TARGET) ../../../components/lazdebuggers/lazdebuggerintf/lib/$(CPU_TARGET)-$(OS_TARGET) ../../../components/debuggerintf/lib/$(CPU_TARGET)-$(OS_TARGET) ../ideconfig/lib/$(CPU_TARGET)-$(OS_TARGET)/$(LCL_PLATFORM) ../idepackager/lib/$(CPU_TARGET)-$(OS_TARGET)/$(LCL_PLATFORM)
+unittargetdir=lib/$(CPU_TARGET)-$(OS_TARGET)
+unitdir=. ../../../packager/units/$(CPU_TARGET)-$(OS_TARGET) ../../../components/lazutils/lib/$(CPU_TARGET)-$(OS_TARGET) ../../../components/buildintf/units/$(CPU_TARGET)-$(OS_TARGET) ../../../components/codetools/units/$(CPU_TARGET)-$(OS_TARGET) ../../../components/lazdebuggers/lazdebuggerintf/lib/$(CPU_TARGET)-$(OS_TARGET) ../../../components/debuggerintf/lib/$(CPU_TARGET)-$(OS_TARGET) ../ideconfig/lib/$(CPU_TARGET)-$(OS_TARGET) ../idepackager/lib/$(CPU_TARGET)-$(OS_TARGET)
 options=-MObjFPC -Scghi -O1 -g -gl -l -vewnhibq $(DBG_OPTIONS)
 
 [target]

@@ -1071,6 +1071,14 @@ msgstr "选择代码模板文件 (*.dci)"
 msgid "Show close buttons in notebook"
 msgstr "在 notebook 中显示关闭按钮"
 
+#: lazarusidestrconsts.dlgcloseotherpagesmod
+msgid "Close all other tabs"
+msgstr ""
+
+#: lazarusidestrconsts.dlgcloserightpagesmod
+msgid "Close tabs on the right"
+msgstr ""
+
 #: lazarusidestrconsts.dlgclrscheme
 msgid "Color Scheme"
 msgstr "颜色方案"
@@ -1411,8 +1419,18 @@ msgid "Dwarf 2 with sets"
 msgstr "带集合的 Dwarf 2"
 
 #: lazarusidestrconsts.dlgcosymboltypedwarf3
-msgid "Dwarf 3 (beta)"
+#, fuzzy
+#| msgid "Dwarf 3 (beta)"
+msgid "Dwarf 3"
 msgstr "Dwarf 3（测试）"
+
+#: lazarusidestrconsts.dlgcosymboltypedwarf4
+msgid "Dwarf 4"
+msgstr ""
+
+#: lazarusidestrconsts.dlgcosymboltypedwarf5
+msgid "Dwarf 5 (FPC 3.3.1)"
+msgstr ""
 
 #: lazarusidestrconsts.dlgcosymboltypestabs
 msgid "Stabs"
@@ -1858,10 +1876,6 @@ msgctxt "lazarusidestrconsts.dlgenvtype"
 msgid "Type"
 msgstr "类型"
 
-#: lazarusidestrconsts.dlgeofocusmessagesatcompilation
-msgid "Focus messages at compilation"
-msgstr "编译时的重点信息"
-
 #: lazarusidestrconsts.dlgextracharspacing
 msgid "Extra character spacing"
 msgstr "附加字符间距"
@@ -2085,6 +2099,10 @@ msgstr "注释：{ }"
 msgid "Case"
 msgstr "Case"
 
+#: lazarusidestrconsts.dlgfoldpascaseelse
+msgid "Otherwise/Else (Case)"
+msgstr ""
+
 #: lazarusidestrconsts.dlgfoldpasclass
 msgid "Class/Object"
 msgstr "Class/Object"
@@ -2267,6 +2285,12 @@ msgstr "从开始部分(&E)"
 #: lazarusidestrconsts.dlgfromcursor
 msgid "From c&ursor"
 msgstr "从光标(&U)"
+
+#: lazarusidestrconsts.dlggeneral
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlggeneral"
+msgid "General"
+msgstr "常规"
 
 #: lazarusidestrconsts.dlgglobal
 msgid "&Global"
@@ -2763,10 +2787,6 @@ msgstr "\"Make\" 可执行程序"
 msgid "Manage desktops"
 msgstr "管理桌面"
 
-#: lazarusidestrconsts.dlgmargingutter
-msgid "Margin and gutter"
-msgstr "边界和边栏"
-
 #: lazarusidestrconsts.dlgmarkercolor
 msgid "Marker color"
 msgstr "标记颜色"
@@ -2959,14 +2979,6 @@ msgstr "值0意味着无限制."
 #: lazarusidestrconsts.dlgmaxrecentprojs
 msgid "Max recent project files"
 msgstr "最近项目数的最大值"
-
-#: lazarusidestrconsts.dlgmiddletabcloseotherpagesmod
-msgid "Middle-click-modifier to close all other tabs"
-msgstr "鼠标中键关闭其他所有标签页"
-
-#: lazarusidestrconsts.dlgmiddletabcloserightpagesmod
-msgid "Middle-click-modifier to close tabs on the right"
-msgstr "鼠标中键关闭右侧的标签页"
 
 #: lazarusidestrconsts.dlgmixmethodsandproperties
 msgid "Mix methods and properties"
@@ -4314,10 +4326,6 @@ msgstr "显示窗口"
 msgctxt "lazarusidestrconsts.dlgshowlinenumbers"
 msgid "Show line numbers"
 msgstr "显示行号"
-
-#: lazarusidestrconsts.dlgshowmessagesicons
-msgid "Show Messages Icons"
-msgstr "显示信息图标"
 
 #: lazarusidestrconsts.dlgshownotes
 msgid "Show notes"
@@ -6488,6 +6496,11 @@ msgstr "更改编码"
 msgid "Change file"
 msgstr "改变文件"
 
+#: lazarusidestrconsts.lischangemethodvisibilityto
+#, object-pascal-format
+msgid "Change method visibility to \"%s\""
+msgstr ""
+
 #: lazarusidestrconsts.lischangeparent
 msgid "Change Parent"
 msgstr "更改父控件(&U)"
@@ -8592,7 +8605,9 @@ msgid "Additional search path"
 msgstr "附加的搜索路径"
 
 #: lazarusidestrconsts.lisdebugoptionsfrmallowfunctioncalls
-msgid "BETA: Allow function calls in watches (if supported by backend)"
+#, fuzzy
+#| msgid "BETA: Allow function calls in watches (if supported by backend)"
+msgid "Allow function calls in watches (if supported by backend)"
 msgstr "BETA: 允许在监视器中调用函数（如果后端支持）"
 
 #: lazarusidestrconsts.lisdebugoptionsfrmautocloseasm
@@ -8851,10 +8866,6 @@ msgstr "分隔符分号."
 #: lazarusidestrconsts.lisdelphicompatibleresources
 msgid "Delphi compatible resources. Recommended."
 msgstr "Delphi兼容资源.推荐."
-
-#: lazarusidestrconsts.lisdesignerhasunsavedchanges
-msgid "Designer has unsaved changes"
-msgstr ""
 
 #: lazarusidestrconsts.lisdesigntimeonlypkg
 msgid "Designtime-only package"
@@ -9429,6 +9440,14 @@ msgstr "启用带集合的 Dwarf 2"
 #: lazarusidestrconsts.lisenableoptiondwarf3
 msgid "Enable Dwarf 3 (-gw3)"
 msgstr "启用 Dwarf 3 (-gw3)"
+
+#: lazarusidestrconsts.lisenableoptiondwarf4
+msgid "Enable Dwarf 4 (-gw4)"
+msgstr ""
+
+#: lazarusidestrconsts.lisenableoptiondwarf5
+msgid "Enable Dwarf 5 [FPC 3.3.1] (-gw5)"
+msgstr ""
 
 #: lazarusidestrconsts.lisenableoptionxg
 msgid "Enable Option -Xg?"
@@ -10079,6 +10098,10 @@ msgstr "首先测试(&F)"
 msgid "Fix LFM file"
 msgstr "修复LFM文件"
 
+#: lazarusidestrconsts.lisfocusatcompilation
+msgid "Focus at compilation"
+msgstr ""
+
 #: lazarusidestrconsts.lisfocushint
 msgid "Focus hint"
 msgstr "聚焦提示"
@@ -10293,9 +10316,17 @@ msgstr "标识符:%s"
 msgid "in all open packages and projects"
 msgstr "在所有打开的软件包和项目"
 
+#: lazarusidestrconsts.lisfriincurrentmethod
+msgid "in current method"
+msgstr ""
+
 #: lazarusidestrconsts.lisfriincurrentunit
 msgid "in current unit"
 msgstr "在当前单元"
+
+#: lazarusidestrconsts.lisfriinlocalfunction
+msgid "in local function"
+msgstr ""
 
 #: lazarusidestrconsts.lisfriinmainproject
 msgid "in main project"
@@ -10304,10 +10335,6 @@ msgstr "在主项目"
 #: lazarusidestrconsts.lisfriinprojectpackageowningcurrentunit
 msgid "in project/package owning current unit"
 msgstr "在项目/软件包拥有的当前单元"
-
-#: lazarusidestrconsts.lisfriinvalididentifier
-msgid "Invalid Identifier"
-msgstr "无效的标识符"
 
 #: lazarusidestrconsts.lisfrirenameallreferences
 msgid "Rename all References"
@@ -13468,6 +13495,10 @@ msgstr "信息窗口"
 msgid "Method class not found"
 msgstr "方法类未找到"
 
+#: lazarusidestrconsts.lismiddleclickmodifiers
+msgid "Middle-click-modifiers"
+msgstr ""
+
 #: lazarusidestrconsts.lismissingevents
 msgid "Missing Events"
 msgstr "缺少事件"
@@ -13849,6 +13880,10 @@ msgstr "信息颜色"
 #: lazarusidestrconsts.lismultipledirectoriesareseparatedwithsemicolons
 msgid "Multiple directories are separated with semicolons"
 msgstr "多个目录被使用分号分开"
+
+#: lazarusidestrconsts.lismustbeopenedmanually
+msgid "Must be opened manually from View -> Messages."
+msgstr ""
 
 #: lazarusidestrconsts.lismvsavemessagestofiletxt
 msgid "Save messages to file (*.txt)"
@@ -14442,11 +14477,6 @@ msgstr "覆盖项目子目标。"
 #, object-pascal-format
 msgid "Override the project widgetset. For example: %s. Default: %s."
 msgstr "覆盖项目的小部件集。例如：%s。默认：%s。"
-
-#: lazarusidestrconsts.lisoverwritedesignerchangesanyway
-#, object-pascal-format
-msgid "Unsaved designer changes for file \"%s\" will be lost. Overwrite anyway?"
-msgstr ""
 
 #: lazarusidestrconsts.lisownerisalreadyusedbytreadertwriterpleasechooseanot
 msgid "'Owner' is already used by TReader/TWriter. Please choose another name."
@@ -16860,6 +16890,24 @@ msgstr "显示"
 msgid "Show abstract methods of \"%s\""
 msgstr "显示\"%s\"的抽象方法"
 
+#: lazarusidestrconsts.lisshowautomatically
+msgid "Show automatically"
+msgstr ""
+
+#: lazarusidestrconsts.lisshowautonever
+#, fuzzy
+msgctxt "lazarusidestrconsts.lisshowautonever"
+msgid "Never"
+msgstr "从不"
+
+#: lazarusidestrconsts.lisshowautoonlywhenerrorsoccur
+msgid "Only when errors occur"
+msgstr ""
+
+#: lazarusidestrconsts.lisshowautowhencompiling
+msgid "When compiling"
+msgstr ""
+
 #: lazarusidestrconsts.lisshowcomponenttreeinobjectinspector
 msgid "Show component tree"
 msgstr "显示组件树"
@@ -16900,6 +16948,10 @@ msgstr "显示帮助"
 msgctxt "lazarusidestrconsts.lisshowhintsinobjectinspector"
 msgid "Show hints"
 msgstr "显示提示"
+
+#: lazarusidestrconsts.lisshowicons
+msgid "Show Icons"
+msgstr ""
 
 #: lazarusidestrconsts.lisshowidentifiers
 msgid "Show identifiers"
@@ -17189,6 +17241,10 @@ msgstr "从一个新的项目开始"
 #: lazarusidestrconsts.lisstatusbarshowspropertysnameandclass
 msgid "Statusbar shows the property's name and the class where it is published."
 msgstr "状态栏显示属性名称和发布该属性的类。"
+
+#: lazarusidestrconsts.lisstayontop
+msgid "Stay on top"
+msgstr ""
 
 #: lazarusidestrconsts.lisstop
 msgctxt "lazarusidestrconsts.lisstop"
@@ -18473,6 +18529,11 @@ msgstr "无法从源码中删除项目的比例，%s%s"
 msgid "Unable to remove project title from source.%s%s"
 msgstr "无法从源码中删除项目的标题，%s%s"
 
+#: lazarusidestrconsts.lisunabletorenamefileto
+#, object-pascal-format
+msgid "Unable to rename file \"%s\" to \"%s\"."
+msgstr ""
+
 #: lazarusidestrconsts.lisunabletorenameforminsource
 msgid "Unable to rename form in source."
 msgstr "无法在源码中重命名窗体。"
@@ -18908,10 +18969,6 @@ msgstr "窗口菜单显示设计窗体的名称而不是标题"
 #: lazarusidestrconsts.liswindowmenuwithnamefordesignedformhint
 msgid "Useful especially if the caption is left empty."
 msgstr "特别是在标题留空的情况下很有用。"
-
-#: lazarusidestrconsts.liswindowstaysontop
-msgid "Window stays on top"
-msgstr "窗口保持在顶部"
 
 #: lazarusidestrconsts.liswithincludes2
 msgid ", with includes "

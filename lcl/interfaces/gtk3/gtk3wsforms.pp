@@ -38,11 +38,11 @@ uses
 // To get as little as posible circles,
 // uncomment only when needed for registration
 ////////////////////////////////////////////////////
-  Classes, Graphics, Controls, Forms, LCLType, LCLProc, LMessages,
+  Classes, SysUtils, Math, Graphics, Controls, Forms, LCLType, LCLProc, LMessages,
 ////////////////////////////////////////////////////
   WSLCLClasses, WSControls, WSForms, WSProc,
-  LazGtk3, LazGdk3, LazGLib2, gtk3widgets, gtk3int, gtk3objects,
-  gtk3wscontrols;
+  LazGtk3, LazGdk3, LazGLib2, LazGObject2, gtk3widgets, gtk3int, gtk3objects,
+  gtk3wscontrols, gtk3mdiemulator;
 
 type
   { TWSScrollingWinControl }
@@ -55,6 +55,7 @@ type
   published
     class function CreateHandle(const AWinControl: TWinControl;
       const AParams: TCreateParams): TLCLHandle; override;
+    class procedure ScrollBy(const AWinControl: TWinControl; DeltaX, DeltaY: integer); override;
   end;
 
   { TWSScrollBox }
@@ -88,6 +89,8 @@ type
     class procedure SetBounds(const AWinControl: TWinControl; const ALeft, ATop, AWidth, AHeight: Integer); override;
     class procedure ShowHide(const AWinControl: TWinControl); override;
 
+    class procedure ScrollBy(const AWinControl: TWinControl; DeltaX, DeltaY: integer); override;
+
     class procedure CloseModal(const ACustomForm: TCustomForm); override;
     class procedure SetAllowDropFiles(const AForm: TCustomForm; AValue: Boolean); override;
     class procedure SetAlphaBlend(const ACustomForm: TCustomForm; const AlphaBlend: Boolean;
@@ -114,6 +117,7 @@ type
     class function Previous(const AForm: TCustomForm): Boolean; override;
     class function Tile(const AForm: TCustomForm): Boolean; override;
     class function MDIChildCount(const AForm: TCustomForm): Integer; override;
+    class function ArrangeIcons(const AForm: TCustomForm): Boolean; override;
   end;
   TGtk3WSCustomFormClass = class of TGtk3WSCustomForm;
 
@@ -147,7 +151,7 @@ type
   end;
 
 implementation
-uses SysUtils, gtk3procs, LazLogger;
+uses gtk3procs, LazLogger;
 
 
 { TGtk3WSScrollingWinControl }
@@ -158,7 +162,101 @@ begin
   Result := TLCLHandle(TGtk3ScrollingWinControl.Create(AWinControl, AParams));
 end;
 
+class procedure TGtk3WSScrollingWinControl.ScrollBy(const AWinControl: TWinControl;
+  DeltaX, DeltaY: integer);
+var
+  ACtl: TGtk3ScrollingWinControl;
+  Scrolled: PGtkScrolledWindow;
+  HAdj, VAdj: PGtkAdjustment;
+  NewH, NewV, MaxH, MaxV: Double;
+  ASBAlloc: TGtkAllocation;
+  ASBar: PGtkWidget;
+begin
+  if not AWinControl.HandleAllocated then
+    exit;
+  ACtl := TGtk3ScrollingWinControl(AWinControl.Handle);
+  Scrolled := ACtl.GetScrolledWindow;
+
+  if not Gtk3IsScrolledWindow(Scrolled) then
+    exit;
+
+  if ACtl.InUpdate then
+    exit;
+
+  HAdj := gtk_scrolled_window_get_hadjustment(Scrolled);
+  VAdj := gtk_scrolled_window_get_vadjustment(Scrolled);
+
+  ACtl.BeginUpdate;
+  try
+
+    if (DeltaX <> 0) and (HAdj <> nil) then
+    begin
+      MaxH := HAdj^.upper - HAdj^.page_size;
+      if MaxH < HAdj^.lower then
+        MaxH := HAdj^.lower;
+      NewH := HAdj^.value - DeltaX;
+      if NewH < HAdj^.lower then
+        NewH := HAdj^.lower;
+      if NewH > MaxH then
+        NewH := MaxH;
+      gtk_adjustment_set_value(HAdj, NewH);
+    end;
+
+    if (DeltaY <> 0) and (VAdj <> nil) then
+    begin
+      MaxV := VAdj^.upper - VAdj^.page_size;
+      if MaxV < VAdj^.lower then
+        MaxV := VAdj^.lower;
+      NewV := VAdj^.value - DeltaY;
+      if NewV < VAdj^.lower then
+        NewV := VAdj^.lower;
+      if NewV > MaxV then
+        NewV := MaxV;
+      gtk_adjustment_set_value(VAdj, NewV);
+    end;
+
+  finally
+    ACtl.EndUpdate;
+  end;
+
+
+  if (wtWindow in ACtl.WidgetType) and
+     Assigned(ACtl.LCLObject) and
+     (ACtl.LCLObject is TCustomForm) and
+     TCustomForm(ACtl.LCLObject).AutoScroll then
+  begin
+
+    if (DeltaX <> 0) and (HAdj <> nil) then
+    begin
+      ASBar := PGtkWidget(Scrolled^.get_hscrollbar);
+      if ASBar^.get_realized and ASBar^.get_mapped then
+      begin
+        ASBar^.get_allocation(@ASBAlloc);
+        ASBar^.size_allocate(@ASBAlloc);
+      end;
+    end;
+
+    if (DeltaY <> 0) and (VAdj <> nil) then
+    begin
+      ASBar := PGtkWidget(Scrolled^.get_vscrollbar);
+      if ASBar^.get_realized and ASBar^.get_mapped then
+      begin
+        ASBar^.get_allocation(@ASBAlloc);
+        ASBar^.size_allocate(@ASBAlloc);
+      end;
+    end;
+
+  end;
+
+end;
+
 { TGtk3WSCustomForm }
+
+class procedure TGtk3WSCustomForm.ScrollBy(const AWinControl: TWinControl;
+  DeltaX, DeltaY: integer);
+begin
+  TGtk3WSScrollingWinControl.ScrollBy(AWinControl, DeltaX, DeltaY);
+end;
 
 class function TGtk3WSCustomForm.GetDefaultClientRect(
   const AWinControl: TWinControl; const aLeft, aTop, aWidth, aHeight: integer;
@@ -204,6 +302,9 @@ begin
   if IsFormDesign(AWinControl) or (csDesigning in AWinControl.ComponentState) then
     AWindow := TGtk3DesignWidget.Create(AWinControl, AParams)
   else
+  if (AWinControl is TCustomForm) and (TCustomForm(AWinControl).FormStyle = fsMDIChild) then
+    AWindow := TGtk3MDIChildWindow.Create(AWinControl, AParams)
+  else
     AWindow := TGtk3Window.Create(AWinControl, AParams);
 
   //debugln(['TGtk3WSCustomForm.CreateHandle AWindow.Widget=',Get3WidgetClassName(AWindow.Widget)]);
@@ -242,7 +343,7 @@ class procedure TGtk3WSCustomForm.SetBounds(const AWinControl: TWinControl;
 begin
   if not WSCheckHandleAllocated(AWinControl, 'SetBounds') then
     Exit;
-  {$IFDEF GTK3DEBUGCORE}
+  {$IF DEFINED(GTK3DEBUGCORE) OR DEFINED(GTK3DEBUGSIZE)}
   DebugLn('TGtk3WSCustomForm.SetBounds ',dbgsName(AWinControl),Format(' ALeft %d ATop %d AWidth %d AHeight %d InUpdate %s',[ALeft, ATop, AWidth, AHeight, BoolToStr(TGtk3Widget(AWinControl.Handle).InUpdate, True)]));
   {$ENDIF}
   TGtk3Widget(AWinControl.Handle).SetBounds(ALeft,ATop,AWidth,AHeight);
@@ -263,21 +364,36 @@ begin
 end;
 
 function ModalFilter(xevent: PGdkXEvent; event: PGdkEvent; data: gpointer): TGdkFilterReturn;
+const
+  X11_ButtonPress = 4;
+  X11_ButtonRelease = 5;
+var
+  AXType: Integer;
 begin
-  Result := GDK_FILTER_REMOVE;
+  AXType := PInteger(xevent)^;
+  if (AXType = X11_ButtonPress) or (AXType = X11_ButtonRelease) then
+    Result := GDK_FILTER_REMOVE
+  else
+    Result := GDK_FILTER_CONTINUE;
 end;
 
 class procedure TGtk3WSCustomForm.ShowHide(const AWinControl: TWinControl);
+const
+  SplashPaintTimeoutMs = 120;
 var
   AForm, OtherForm: TCustomForm;
   AWindow, ATransient: PGtkWindow;
   i: Integer;
-  AGeom: TGdkGeometry;
-  AGeomMask: TGdkWindowHints;
+  SavedH: PtrInt;
   ShouldBeVisible: Boolean;
   AGtk3Widget: TGtk3Widget;
   OtherGtk3Window: TGtk3Window;
   LCLCanFocus: boolean;
+  ATime: guint32;
+  NeedSizeProtect: boolean;
+  SplashClock: PGdkFrameClock;
+  SplashFrame: gint64;
+  SplashDeadline: QWord;
 
   procedure CheckAndFixGeometry;
   const
@@ -288,9 +404,14 @@ var
     TargetOpacity: Double;
     GdkDisplay: PGdkDisplay;
     IsX11: Boolean;
+    MenuHFix: gint;
   begin
     GdkDisplay := gdk_window_get_display(AWindow^.window);
     IsX11 := not Gtk3WidgetSet.IsWayland;
+    MenuHFix := 0;
+    if (AGtk3Widget is TGtk3Window) and
+       not Assigned(AForm.Parent) and (AForm.FormStyle <> fsMDIChild) then
+      MenuHFix := TGtk3Window(AGtk3Widget).GetMenuBarHeight;
     IsBorderLess := (AForm.BorderStyle = bsNone) or (not AWindow^.get_decorated);
 
     if not IsX11 then
@@ -341,7 +462,7 @@ var
     end;
 
     with AWinControl do
-      AWindow^.window^.move_resize(Left, Top, Width, Height);
+      AWindow^.window^.move_resize(Left, Top, Width, Height + MenuHFix);
 
     gdk_display_flush(GdkDisplay);
 
@@ -365,8 +486,11 @@ var
 
 
 begin
-  {$IFDEF GTK3DEBUGCORE}
-  DebugLn('TGtk3WSCustomForm.ShowHide handleAllocated=',dbgs(AWinControl.HandleAllocated));
+  {$IF DEFINED(GTK3DEBUGCORE) OR DEFINED(GTK3DEBUGSIZE)}
+  DebugLn('TGtk3WSCustomForm.ShowHide ', dbgsName(AWinControl),
+    ' handleAllocated=', dbgs(AWinControl.HandleAllocated),
+    ' shouldBeVisible=', dbgs(AWinControl.HandleObjectShouldBeVisible),
+    ' bounds=', dbgs(AWinControl.BoundsRect));
   {$ENDIF}
   if not WSCheckHandleAllocated(AWinControl, 'ShowHide') then
     Exit;
@@ -384,6 +508,48 @@ begin
 
   ShouldBeVisible:=AForm.HandleObjectShouldBeVisible;
 
+  NeedSizeProtect :=
+    Assigned(AWindow) and (AForm.Parent = nil) and not IsFormDesign(AForm) and
+    ((AForm.BorderStyle <> bsNone) or
+     (Gtk3WidgetSet.IsMarcoWM and
+      (AForm.BorderStyle = bsNone) and
+      not (csNoFocus in AForm.ControlStyle)));
+  if NeedSizeProtect then
+  begin
+    if ShouldBeVisible then
+    begin
+      i := PtrInt(g_object_get_data(PGObject(AGtk3Widget.Widget), 'lcl-form-last-w'));
+      if i > 1 then
+      begin
+        SavedH := PtrInt(g_object_get_data(PGObject(AGtk3Widget.Widget), 'lcl-form-last-h'));
+        {$IF DEFINED(GTK3DEBUGCORE) OR DEFINED(GTK3DEBUGSIZE)}
+        DebugLn('TGtk3WSCustomForm.ShowHide ', dbgsName(AWinControl),
+          ' RESTORE bounds from saved (', IntToStr(i), 'x', IntToStr(SavedH),
+          ') - LCL was ', IntToStr(AWinControl.Width), 'x', IntToStr(AWinControl.Height));
+        {$ENDIF}
+        AWinControl.SetBounds(AWinControl.Left, AWinControl.Top, i, SavedH);
+        //lcl-form-last-w/h is cleared by WindowSizeAllocate on the first WSA
+        //after show. KDE Plasma Wayland needs it kept armed as kwin-override
+        //protect target. We add a 100ms time bound for that.
+        //TODO: heavy test with 50ms timeout.
+        if Gtk3WidgetSet.IsKDEPlasmaWaylandSession then
+          g_object_set_data(PGObject(AGtk3Widget.Widget), 'lcl-kwin-protect-until',
+            Pointer(PtrUInt(GetTickCount64 + 100)));
+      end;
+    end else
+    if (AWinControl.Width > 1) and (AWinControl.Height > 1) then
+    begin
+      g_object_set_data(PGObject(AGtk3Widget.Widget), 'lcl-form-last-w', Pointer(PtrInt(AWinControl.Width)));
+      g_object_set_data(PGObject(AGtk3Widget.Widget), 'lcl-form-last-h', Pointer(PtrInt(AWinControl.Height)));
+      g_object_set_data(PGObject(AGtk3Widget.Widget), 'lcl-kwin-protect-until', nil);
+      {$IF DEFINED(GTK3DEBUGCORE) OR DEFINED(GTK3DEBUGSIZE)}
+      DebugLn('TGtk3WSCustomForm.ShowHide ', dbgsName(AWinControl),
+        ' SAVE bounds (', IntToStr(AWinControl.Width), 'x',
+        IntToStr(AWinControl.Height), ') for next show');
+      {$ENDIF}
+    end;
+  end;
+
   {$IFDEF GTK3DEBUGCORE}
   //use this if pure SetCapture(0) does not work under wayland.
   ReleaseInputGrab;
@@ -392,7 +558,8 @@ begin
   if AForm.BorderStyle <> bsNone then
     Gtk3WidgetSet.SetCapture(0);
 
-  if ShouldBeVisible and not IsFormDesign(AForm) and (AForm.Parent = nil) then
+  if ShouldBeVisible and not IsFormDesign(AForm) and (AForm.Parent = nil)
+    and (not (wtMDIChild in AGtk3Widget.WidgetType)) then
   begin
     {note that gtk3 docs says that GDK_WINDOW_TYPE_HINT_UTILITY is for fsStayOnTop,
      and set_keep_above() is for fsSystemStayOnTop, but it does not work, so
@@ -418,6 +585,10 @@ begin
     end;
 
     AWindow^.realize;
+
+    if Assigned(AForm.Menu) then
+      TGtk3Window(AGtk3Widget).SetBounds(AWinControl.Left, AWinControl.Top,
+        AWinControl.Width, AWinControl.Height);
 
     if (AForm.BorderStyle = bsNone) then
     begin
@@ -451,6 +622,12 @@ begin
   end;
   AGtk3Widget.BeginUpdate;
   AGtk3Widget.Visible := ShouldBeVisible;
+
+  if wtMDIChild in AGtk3Widget.WidgetType then
+  begin
+    AGtk3Widget.EndUpdate;
+    exit;
+  end;
 
   if AGtk3Widget.Visible then
   begin
@@ -491,7 +668,13 @@ begin
     begin
       //If LM_NCHITTEST=true, do not attack WM
       if not AWindow^.window^.get_pass_through and (AForm.BorderStyle <> bsNone) then
-        AWindow^.present_with_time(Gtk3WidgetSet.LastUserEventTime);
+      begin
+        ATime := gtk_get_current_event_time;
+        if ATime = 0 then
+          ATime := Gtk3WidgetSet.LastUserEventTime;
+        if ATime <> 0 then
+          AWindow^.present_with_time(ATime);
+      end;
 
       if Gtk3WidgetSet.IsWayland and (AWindow^.get_window_type = GTK_WINDOW_POPUP) and AWindow^.get_accept_focus
         and not AWindow^.window^.get_pass_through and LCLCanFocus then
@@ -525,12 +708,36 @@ begin
   end;
   AGtk3Widget.EndUpdate;
 
+  if (not ShouldBeVisible) and (fsModal in AForm.FormState) and (AWindow <> nil)
+  and Gtk3IsGdkWindow(AWindow^.window) then
+    gdk_display_flush(gdk_window_get_display(AWindow^.window));
+
   if ShouldBeVisible and Gtk3WidgetSet.IsWayland and (AWindow <> nil) and
      (AForm.BorderStyle in [bsDialog, bsSingle, bsToolWindow]) then
   begin
     while gtk_events_pending do
       gtk_main_iteration;
     TGtk3WSWinControl.ConstraintsChange(AWinControl);
+  end;
+
+  if ShouldBeVisible and (AForm.FormStyle = fsSplash) and (AWindow <> nil)
+  and Gtk3IsGdkWindow(AWindow^.window) then
+  begin
+    AGtk3Widget.Update(nil);
+    SplashClock := AWindow^.window^.get_frame_clock;
+    if Assigned(SplashClock) then
+    begin
+      SplashFrame := SplashClock^.get_frame_counter;
+      SplashClock^.request_phase([GDK_FRAME_CLOCK_PHASE_PAINT]);
+      SplashDeadline := GetTickCount64 + SplashPaintTimeoutMs;
+      while (SplashClock^.get_frame_counter = SplashFrame) and (GetTickCount64 < SplashDeadline) do
+        gtk_main_iteration_do(True);
+    end else
+    begin
+      while gtk_events_pending do
+        gtk_main_iteration_do(False);
+    end;
+    gdk_display_flush(gdk_window_get_display(AWindow^.window));
   end;
 
   {$IFDEF GTK3DEBUGCORE}
@@ -551,6 +758,9 @@ begin
   {$IFDEF GTK3DEBUGCORE}
   DebugLn('TGtk3WSCustomForm.SetAllowDropFiles');
   {$ENDIF}
+  if not WSCheckHandleAllocated(AForm, 'SetAllowDropFiles') then
+    Exit;
+
   if AValue then
     gtk_drag_dest_set(TGtk3Widget(AForm.Handle).Widget, GTK_DEST_DEFAULT_ALL,
       @FileDragTarget, 3, [GDK_ACTION_COPY, GDK_ACTION_MOVE])
@@ -568,10 +778,21 @@ end;
 
 class procedure TGtk3WSCustomForm.SetFormBorderStyle(const AForm: TCustomForm;
   const AFormBorderStyle: TFormBorderStyle);
+var
+  ChildWin: TGtk3MDIChildWindow;
 begin
   if not WSCheckHandleAllocated(AForm, 'SetFormBorderStyle') then
     Exit;
-  // will be done in interface override
+  if (AForm.FormStyle = fsMDIChild) and (not (csDesigning in AForm.ComponentState))
+    and (TObject(AForm.Handle) is TGtk3MDIChildWindow) then
+  begin
+    ChildWin := TGtk3MDIChildWindow(AForm.Handle);
+    if ChildWin.MDIFrame <> nil then
+    begin
+      ChildWin.MDIFrame.SetBorderStyle(AFormBorderStyle);
+      exit;
+    end;
+  end;
   {$IFDEF GTK3DEBUGCORE}
   DebugLn('TGtk3WSCustomForm.SetFormBorderStyle');
   {$ENDIF}
@@ -680,46 +901,260 @@ end;
 
 { mdi support }
 
-class function TGtk3WSCustomForm.ActiveMDIChild(const AForm: TCustomForm
-  ): TCustomForm;
+function MDIWorkspaceForForm(AForm: TCustomForm): TGtk3MDIWorkspace;
+var
+  i: Integer;
+  F: TCustomForm;
+  Win: TGtk3Window;
 begin
   Result := nil;
+  if AForm = nil then
+    exit;
+  if AForm.FormStyle = fsMDIForm then
+  begin
+    if AForm.HandleAllocated and (TObject(AForm.Handle) is TGtk3Window) then
+      Result := TGtk3Window(AForm.Handle).MDIWorkspace;
+    exit;
+  end;
+  if AForm.FormStyle <> fsMDIChild then
+    exit;
+
+  if (Application <> nil) and (Application.MainForm <> nil)
+    and (Application.MainForm.FormStyle = fsMDIForm)
+    and Application.MainForm.HandleAllocated then
+  begin
+    Win := TGtk3Window(Application.MainForm.Handle);
+    if (Win <> nil) and (Win.MDIWorkspace <> nil) then
+      exit(Win.MDIWorkspace);
+  end;
+  if Screen = nil then
+    exit;
+  for i := 0 to Screen.CustomFormCount - 1 do
+  begin
+    F := Screen.CustomForms[i];
+    if (F.FormStyle = fsMDIForm) and F.HandleAllocated then
+    begin
+      Win := TGtk3Window(F.Handle);
+      if (Win <> nil) and (Win.MDIWorkspace <> nil) then
+        exit(Win.MDIWorkspace);
+    end;
+  end;
+end;
+
+function MDILCLFormFromFrame(AFrame: TGtk3MDIChildFrame): TCustomForm;
+var
+  Win: TGtk3MDIChildWindow;
+begin
+  Result := nil;
+  if (AFrame = nil) or (AFrame.UserData = nil) then
+    exit;
+  Win := TGtk3MDIChildWindow(AFrame.UserData);
+  if (Win <> nil) and (Win.LCLObject is TCustomForm) then
+    Result := TCustomForm(Win.LCLObject);
+end;
+
+class function TGtk3WSCustomForm.ActiveMDIChild(const AForm: TCustomForm
+  ): TCustomForm;
+var
+  WS: TGtk3MDIWorkspace;
+begin
+  Result := nil;
+  if not WSCheckHandleAllocated(AForm, 'ActiveMDIChild') then
+    exit;
+  WS := MDIWorkspaceForForm(AForm);
+  if (WS = nil) or (WS.ActiveChild = nil) then
+    exit;
+  Result := MDILCLFormFromFrame(WS.ActiveChild);
 end;
 
 class function TGtk3WSCustomForm.Cascade(const AForm: TCustomForm): Boolean;
+var
+  WS: TGtk3MDIWorkspace;
+  i, X, Y, ChildW, ChildH: Integer;
+  F: TGtk3MDIChildFrame;
+  Alloc: TGtkAllocation;
 begin
   Result := False;
+  if not WSCheckHandleAllocated(AForm, 'Cascade') then
+    exit;
+  if AForm.FormStyle <> fsMDIForm then
+    exit;
+  WS := MDIWorkspaceForForm(AForm);
+  if (WS = nil) or (WS.Children.Count = 0) then
+    exit(True);
+  PGtkWidget(WS.Widget)^.get_allocation(@Alloc);
+
+  ChildW := Alloc.width  * 7 div 10;
+  ChildH := Alloc.height * 7 div 10;
+  if ChildW < 200 then
+    ChildW := 200;
+  if ChildH < 150 then
+    ChildH := 150;
+
+  X := 0; Y := 0;
+  for i := 0 to WS.Children.Count - 1 do
+  begin
+    F := TGtk3MDIChildFrame(WS.Children[i]);
+    if F.State <> mwsNormal then F.Restore;
+    F.SetBounds(X, Y, ChildW, ChildH);
+    F.BringToFront;
+    Inc(X, F.TitleBarH);
+    Inc(Y, F.TitleBarH);
+  end;
+  Result := True;
 end;
 
 class function TGtk3WSCustomForm.GetClientHandle(const AForm: TCustomForm): HWND;
+var
+  Win: TGtk3Window;
 begin
   Result := 0;
+  if not WSCheckHandleAllocated(AForm, 'GetClientHandle') then
+    exit;
+  if (AForm.HandleAllocated) and (TGtk3Widget(AForm.Handle) is TGtk3Window) then
+  begin
+    Win := TGtk3Window(AForm.Handle);
+    if Win.MDIArea <> nil then
+      exit(HWND(Win.MDIArea));
+  end;
+  Result := AForm.Handle;
 end;
 
 class function TGtk3WSCustomForm.GetMDIChildren(const AForm: TCustomForm;
   AIndex: Integer): TCustomForm;
+var
+  WS: TGtk3MDIWorkspace;
 begin
   Result := nil;
+  if not WSCheckHandleAllocated(AForm, 'GetMDIChildren') then
+    exit;
+  WS := MDIWorkspaceForForm(AForm);
+  if (WS = nil) or (AIndex < 0) or (AIndex >= WS.Children.Count) then
+    exit;
+  Result := MDILCLFormFromFrame(TGtk3MDIChildFrame(WS.Children[AIndex]));
 end;
 
 class function TGtk3WSCustomForm.MDIChildCount(const AForm: TCustomForm): Integer;
+var
+  WS: TGtk3MDIWorkspace;
 begin
   Result := 0;
+  if not WSCheckHandleAllocated(AForm, 'MDIChildCount') then
+    exit;
+  WS := MDIWorkspaceForForm(AForm);
+  if WS <> nil then
+    Result := WS.Children.Count;
 end;
 
 class function TGtk3WSCustomForm.Next(const AForm: TCustomForm): Boolean;
+var
+  WS: TGtk3MDIWorkspace;
+  Idx: Integer;
+  F: TGtk3MDIChildFrame;
 begin
   Result := False;
+  if not WSCheckHandleAllocated(AForm, 'Next') then
+    exit;
+  if AForm.FormStyle <> fsMDIForm then
+    exit;
+  WS := MDIWorkspaceForForm(AForm);
+
+  if (WS = nil) or (WS.Children.Count = 0) then
+    exit;
+
+  Idx := WS.Children.IndexOf(WS.ActiveChild);
+  if Idx < 0 then
+    Idx := 0
+  else
+    Idx := (Idx + 1) mod WS.Children.Count;
+
+  F := TGtk3MDIChildFrame(WS.Children[Idx]);
+  F.BringToFront;
+  Result := True;
 end;
 
 class function TGtk3WSCustomForm.Previous(const AForm: TCustomForm): Boolean;
+var
+  WS: TGtk3MDIWorkspace;
+  Idx, N: Integer;
+  F: TGtk3MDIChildFrame;
 begin
   Result := False;
+  if not WSCheckHandleAllocated(AForm, 'Previous') then
+    exit;
+  if AForm.FormStyle <> fsMDIForm then
+    exit;
+  WS := MDIWorkspaceForForm(AForm);
+  if (WS = nil) or (WS.Children.Count = 0) then
+    exit;
+  N := WS.Children.Count;
+  Idx := WS.Children.IndexOf(WS.ActiveChild);
+  if Idx < 0 then
+    Idx := 0
+  else
+    Idx := (Idx - 1 + N) mod N;
+  F := TGtk3MDIChildFrame(WS.Children[Idx]);
+  F.BringToFront;
+  Result := True;
 end;
 
 class function TGtk3WSCustomForm.Tile(const AForm: TCustomForm): Boolean;
+var
+  WS: TGtk3MDIWorkspace;
+  Alloc: TGtkAllocation;
+  N, Cols, Rows, ColW, RowH, i, R, C: Integer;
+  F: TGtk3MDIChildFrame;
 begin
   Result := False;
+  if not WSCheckHandleAllocated(AForm, 'Tile') then
+    exit;
+  if AForm.FormStyle <> fsMDIForm then
+    exit;
+  WS := MDIWorkspaceForForm(AForm);
+  if WS = nil then
+    exit;
+  N := WS.Children.Count;
+  if N = 0 then
+    exit(True);
+
+  PGtkWidget(WS.Widget)^.get_allocation(@Alloc);
+
+  if (Alloc.width <= 0) or (Alloc.height <= 0) then
+    exit(True);
+
+  Cols := Round(Sqrt(N));
+  if Cols < 1 then
+    Cols := 1;
+  Rows := (N + Cols - 1) div Cols;
+  ColW := Alloc.width div Cols;
+  RowH := Alloc.height div Rows;
+
+  for i := 0 to N - 1 do
+  begin
+    F := TGtk3MDIChildFrame(WS.Children[i]);
+    if F.State <> mwsNormal then F.Restore;
+    R := i div Cols;
+    C := i mod Cols;
+    F.SetBounds(C * ColW, R * RowH, ColW, RowH);
+  end;
+  Result := True;
+end;
+
+class function TGtk3WSCustomForm.ArrangeIcons(const AForm: TCustomForm): Boolean;
+var
+  WS: TGtk3MDIWorkspace;
+begin
+  Result := False;
+  if not WSCheckHandleAllocated(AForm, 'ArrangeIcons') then
+    exit;
+  if AForm.FormStyle <> fsMDIForm then
+    exit;
+  WS := MDIWorkspaceForForm(AForm);
+  if WS <> nil then
+  begin
+    WS.RelayoutMinimized;
+    Result := True;
+  end;
 end;
 
 { TGtk3WSHintWindow }

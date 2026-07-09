@@ -938,6 +938,12 @@ function TFpPascalPrettyPrinter.InternalPrintValue(out APrintedValue: String;
     else
       t := AValue.DbgSymbol;
 
+    if (t is TFpSymbolDwarfDataProperty) and
+       (AValue is TFpValueDwarfProperty) and
+       (TFpValueDwarfProperty(AValue).GetterValue <> nil)
+    then
+      t := TFpValueDwarfProperty(AValue).GetterValue.DbgSymbol;
+
     if AFlags * PV_FORWARD_FLAGS <> [] then
       GetTypeName(s, t)
     else
@@ -1215,7 +1221,11 @@ function TFpPascalPrettyPrinter.InternalPrintValue(out APrintedValue: String;
         APrintedValue := '';
       for i := 0 to AValue.MemberCount-1 do begin
         MemberValue := AValue.Member[i];
-        if (MemberValue = nil) or (MemberValue.Kind in [skProcedure, skFunction, skVariantPart]) then begin
+        if (MemberValue = nil) or
+           ( (MemberValue.Kind in [skProcedure, skFunction, skVariantPart]) and
+             (not(vfProperty in MemberValue.Flags))
+           )
+        then begin
           MemberValue.ReleaseReference;
           continue;
         end;

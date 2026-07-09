@@ -27,7 +27,7 @@ interface
 uses
   Classes, SysUtils, types,
   // LCL
-  LCLStrConsts, LCLType, LCLProc, LCLIntf, LMessages, LResources, Graphics,
+  LCLStrConsts, LCLType, LCLProc, LCLIntf, LMessages, LResources, Graphics, GraphUtil,
   ActnList, Controls, Forms, Menus, Themes,
   // LazUtils
   TextStrings, ExtendedStrings, LazUTF8, LazMethodList, LazLoggerBase, LazTracer, LazUtilities;
@@ -38,6 +38,10 @@ type
 
   TEditCharCase = (ecNormal, ecUppercase, ecLowerCase);
   TEchoMode = (emNormal, emNone, emPassword);
+  TEditOption = (
+    teoEnableTextLayout // enable Layout property
+    );
+  TEditOptions = set of TEditOption;
 
   { TScrollBar }
 
@@ -778,6 +782,8 @@ type
   { TCustomEdit }
 
   TCustomEdit = class(TWinControl)
+  private const
+    DefOptions = [];
   private
     FAlignment: TAlignment;
     FAutoSelect: Boolean;
@@ -790,6 +796,7 @@ type
     FMaxLength: Integer;
     FModified: Boolean;
     FOnChangeHandler: TMethodList;
+    FOptions: TEditOptions;
     FPasswordChar: Char;
     FReadOnly: Boolean;
     FNumbersOnly: Boolean;
@@ -799,10 +806,12 @@ type
     FTextChangedByRealSetText: Boolean;
     FTextChangedLock: Boolean;
     FTextHint: TTranslateString;
+    FLayout: TTextLayout;
     procedure ShowEmulatedTextHintIfYouCan;
     procedure ShowEmulatedTextHint;
     procedure HideEmulatedTextHint;
     procedure SetAlignment(const AValue: TAlignment);
+    procedure SetLayout(const AValue: TTextLayout);
     function GetCanUndo: Boolean;
     function GetModified: Boolean;
     procedure SetHideSelection(const AValue: Boolean);
@@ -871,6 +880,7 @@ type
     procedure RemoveHandlerOnChange(const AnOnChangeEvent: TNotifyEvent);
   public
     property Alignment: TAlignment read FAlignment write SetAlignment default taLeftJustify;
+    property Layout: TTextLayout read FLayout write SetLayout default tlCenter;
     property AutoSize default True;
     property BorderStyle default bsSingle;
     property CanUndo: Boolean read GetCanUndo;
@@ -883,6 +893,7 @@ type
     property Modified: Boolean read GetModified write SetModified;
     property NumbersOnly: Boolean read GetNumbersOnly write SetNumbersOnly default false;
     property OnChange: TNotifyEvent read FOnChange write FOnChange;
+    property Options: TEditOptions read FOptions write FOptions default DefOptions;
     property PasswordChar: Char read FPasswordChar write SetPasswordChar default #0;
     property PopupMenu;
     property ReadOnly: Boolean read GetReadOnly write SetReadOnly default false;
@@ -1576,10 +1587,13 @@ type
     FOptimalFill: Boolean;
     FShowAccelChar: Boolean;
     FWordWrap: Boolean;
+    FWordWrapLength: Integer;
     FLayout: TTextLayout;
     FInternalSetBounds: Boolean;
+//    function IsStoredWordWrapLength: Boolean;
     procedure SetAlignment(Value: TAlignment);
     procedure SetOptimalFill(const AValue: Boolean);
+    procedure SetWordWrapLength(Value: Integer);
   protected
     class procedure WSRegisterClass; override;
     function  CanTab: boolean; override;
@@ -1590,6 +1604,9 @@ type
                          WithThemeSpace: Boolean); override;
     procedure CalculateSize(MaxWidth: integer;
                             var NeededWidth, NeededHeight: integer);
+    function  CalcWordWrapLength: Integer;
+    procedure DoAutoAdjustLayout(const AMode: TLayoutAdjustmentPolicy;
+      const AXProportion, AYProportion: Double); override;
     procedure DoAutoSize; override;
     function  DialogChar(var Message: TLMKey): boolean; override;
     procedure TextChanged; override;
@@ -1602,6 +1619,7 @@ type
 
     function  GetLabelText: string; virtual;
     function  GetTransparent: boolean;
+    procedure SetAlign(Value: TAlign); override;
     procedure SetFocusControl(Value: TWinControl);
     procedure SetLayout(Value: TTextLayout);
     procedure SetShowAccelChar(Value: Boolean);
@@ -1616,6 +1634,7 @@ type
     property ShowAccelChar: Boolean read FShowAccelChar write SetShowAccelChar default true;
     property Transparent: boolean read GetTransparent write SetTransparent default true;
     property WordWrap: Boolean read FWordWrap write SetWordWrap default false;
+    property WordWrapLength: Integer read FWordWrapLength write SetWordWrapLength default 0;
     property OptimalFill: Boolean read FOptimalFill write SetOptimalFill default false;
   public
     constructor Create(TheOwner: TComponent); override;
@@ -1661,6 +1680,7 @@ type
     property Transparent;
     property Visible;
     property WordWrap;
+    property WordWrapLength;
     property OnChangeBounds;
     property OnClick;
     property OnContextPopup;

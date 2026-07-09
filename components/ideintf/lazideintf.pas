@@ -22,7 +22,8 @@ uses
   // LazUtils
   LazMethodList, AvgLvlTree,
   // BuildIntf
-  BaseIDEIntf, IDEOptionsIntf, CompOptsIntf, ProjectIntf, IDEExternToolIntf, PackageIntf,
+  BaseIDEIntf, IDEOptionsIntf, CompOptsIntf, IDEExternToolIntf,
+  ProjPackIntf, PackageIntf, ProjectIntf,
   // IdeIntf
   IDEOptEditorIntf, SrcEditorIntf, IDEWindowIntf;
 
@@ -316,7 +317,7 @@ type
     property MainBarSubTitle: string read FMainBarSubTitle write SetMainBarSubTitle;
 
     // find file
-    function FindUnitFile(const AFilename: string; TheOwner: TObject = nil;
+    function FindUnitFile(const AFilename: string; TheOwner: TIDEProjPackBase = nil;
                  IgnoreUninstallPkgs: boolean = false): string; virtual; abstract;
     function FindSourceFile(const AFilename, BaseDirectory: string;
                             Flags: TFindSourceFlags): string; virtual; abstract;
@@ -326,11 +327,16 @@ type
                              NewFilename: string; const NewSource: string;
                              NewFlags: TNewFlags): TModalResult;
     function DoNewFile(NewFileDescriptor: TProjectFileDescriptor;
-                       var NewFilename: string; NewSource: string;
-                       NewFlags: TNewFlags; NewOwner: TObject): TModalResult; virtual; abstract;
+                  var NewFilename: string; NewSource: string; NewFlags: TNewFlags;
+                  NewOwner: TIDEProjPackBase): TModalResult; virtual; abstract;
     function DoSaveEditorFile(AEditor: TSourceEditorInterface;
                               Flags: TSaveFlags): TModalResult; virtual; abstract;
     function DoSaveEditorFile(const Filename: string;
+                              Flags: TSaveFlags): TModalResult; virtual; abstract;
+    function DoSaveEditorFileAs(AEditor: TSourceEditorInterface;
+                              NewFilename: string; // must be an absolute filename
+                              Flags: TSaveFlags): TModalResult; virtual; abstract;
+    function RenameIDEFile(OldFilename, NewFilename: string; // must be absolute filenames
                               Flags: TSaveFlags): TModalResult; virtual; abstract;
     function DoSaveAll(Flags: TSaveFlags): TModalResult; virtual; abstract;
     function DoCloseEditorFile(AEditor: TSourceEditorInterface;
@@ -364,6 +370,8 @@ type
     property ActiveProject: TLazProject read GetActiveProject;
     function DoNewProject(ProjectDesc: TProjectDescriptor): TModalResult; virtual; abstract;
     function DoSaveProject(Flags: TSaveFlags): TModalResult; virtual; abstract;
+    function DoSaveProjectAs(NewFilename: string; // must be an absolute filename, either .lpr, .pas, .pp, or .p
+                             Flags: TSaveFlags): TModalResult; virtual; abstract;
     function DoCloseProject: TModalResult; virtual; abstract;
     function DoOpenProjectFile(AFileName: string;
                                Flags: TOpenFlags): TModalResult; virtual; abstract;
@@ -400,7 +408,7 @@ type
 
     // filenames, paths
     function CreateNewUniqueFilename(const Prefix, Ext: string;
-                          NewOwner: TObject; Flags: TSearchIDEFileFlags;
+                          NewOwner: TIDEProjPackBase; Flags: TSearchIDEFileFlags;
                           TryWithoutNumber: boolean): string; virtual; abstract;
     function GetTestBuildDirectory: string; virtual; abstract;
     function GetCompilerFilename: string; virtual; abstract;
@@ -413,7 +421,7 @@ type
     procedure DoJumpToCodeToolBossError; virtual; abstract;
     function NeedSaveSourceEditorChangesToCodeCache(AEditor: TSourceEditorInterface): boolean; virtual; abstract;
     function SaveSourceEditorChangesToCodeCache(AEditor: TSourceEditorInterface): boolean; virtual; abstract; // true if something was saved
-    function FindUnitsOfOwner(TheOwner: TObject; Flags: TFindUnitsOfOwnerFlags): TStrings; virtual; abstract;
+    function FindUnitsOfOwner(TheOwner: TIDEProjPackBase; Flags: TFindUnitsOfOwnerFlags): TStrings; virtual; abstract;
     property OpenEditorsOnCodeToolChange: boolean read FOpenEditorsOnCodeToolChange
                                              write FOpenEditorsOnCodeToolChange;
     property SaveClosedSourcesOnCodeToolChange: boolean read FSaveClosedSourcesOnCodeToolChange

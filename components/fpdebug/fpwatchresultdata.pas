@@ -9,9 +9,8 @@ uses
   // DbgIntf
   LazDebuggerIntfFloatTypes, DbgIntfBaseTypes, LazDebuggerIntf,
   //
-  FpDbgInfo, FpPascalBuilder, FpdMemoryTools, FpErrorMessages, FpDbgDwarf,
-  FpDbgDwarfDataClasses, LazClasses, {$ifdef FORCE_LAZLOGGER_DUMMY} LazLoggerDummy {$else} LazLoggerBase {$endif}, fgl, Math,
-  SysUtils;
+  FpDbgInfo, FpPascalBuilder, FpdMemoryTools, FpErrorMessages, FpDbgDwarf, FpDbgDwarfDataClasses,
+  FpPascalParser, LazClasses, LazLoggerBase, fgl, Math, SysUtils;
 
 type
 
@@ -28,6 +27,7 @@ type
     FContext: TFpDbgLocationContext;
     FExtraDepth: Boolean;
     FFirstIndexOffs: Integer;
+    FOnResolveProperty: TFpPascalParserResolvePropertyProc;
     FRecurseCnt, FRecurseCntLow,
     FRecursePointerCnt,
     FRecurseInstanceCnt, FRecurseDynArray, FRecurseArray: integer;
@@ -94,6 +94,7 @@ type
     property ExtraDepth: Boolean read FExtraDepth write FExtraDepth;
     property FirstIndexOffs: Integer read FFirstIndexOffs write FFirstIndexOffs;
     //property RepeatCount: Integer read FRepeatCount write SetRepeatCount;
+    property OnResolveProperty: TFpPascalParserResolvePropertyProc read FOnResolveProperty write FOnResolveProperty;
   end;
 
 
@@ -646,6 +647,7 @@ var
   Addr: TDBGPtr;
   Dummy: QWord;
   MLoc: TFpDbgMemLocation;
+  e: TFpError;
 begin
   Result := True;
 
@@ -716,7 +718,11 @@ begin
 
     for i := 0 to AnFpValue.MemberCount-1 do begin
       MemberValue := AnFpValue.Member[i];
-      if (MemberValue = nil) or (MemberValue.Kind in [skProcedure, skFunction]) then begin
+      if (MemberValue = nil) or
+         ( (MemberValue.Kind in [skProcedure, skFunction]) and
+           (not(vfProperty in MemberValue.Flags))
+         )
+      then begin
         MemberValue.ReleaseReference;
         (* Has Field
            - $vmt => Constructor or Destructor
@@ -763,6 +769,16 @@ begin
       end;
 
       ResField := ResAnch.AddField(MbName, MBVis, []);
+
+      if (vfProperty in MemberValue.Flags) and (OnResolveProperty <> nil) then begin
+        OnResolveProperty(MemberValue, AnFpValue, nil, e);
+        if IsError(e) then begin
+          ResField.CreateError(ErrorHandler.ErrorAsString(e));
+          MemberValue.ReleaseReference;
+          continue;
+        end;
+      end;
+
       if not DoWritePointerWatchResultData(MemberValue, ResField, Addr) then
         ResField.CreateError('Unknown');
 
@@ -828,6 +844,12 @@ begin
   end
   else
     t := AnFpValue.DbgSymbol;
+
+  if (t is TFpSymbolDwarfDataProperty) and
+     (AnFpValue is TFpValueDwarfProperty) and
+     (TFpValueDwarfProperty(AnFpValue).GetterValue <> nil)
+  then
+    t := TFpValueDwarfProperty(AnFpValue).GetterValue.DbgSymbol;
 
   GetTypeAsDeclaration(s, t);
 
@@ -1018,6 +1040,7 @@ var
   MemSize: Integer;
   ValSize: TFpDbgValueSize;
   MemDest: RawByteString;
+  i: QWord;
 begin
   Result := True;
 
@@ -1050,10 +1073,18 @@ begin
     exit;
   end;
 
-  if not FContext.ReadMemory(MemAddr, SizeVal(MemSize), @MemDest[1]) then begin
+  if not FContext.ReadMemory(MemAddr, SizeVal(MemSize), @MemDest[1], [mmfPartialRead]) then begin
     AnResData.CreateError(ErrorHandler.ErrorAsString(Context.MemManager.LastError));
     exit;
   end;
+
+  i := FContext.PartialReadResultLenght;
+  if i <= 0 then begin
+    AnResData.CreateError('internal error');
+    exit;
+  end;
+  if i < MemSize then
+    SetLength(MemDest, i);
 
   AnResData.CreateMemDump(MemDest);
   AnResData.SetDataAddress(MemAddr.Address);

@@ -967,7 +967,8 @@ type
       out ParameterIndex: integer): boolean;
     procedure OnFindUsedUnitIdentifier(Sender: TPascalParserTool;
       IdentifierCleanPos: integer; Range: TEPRIRange;
-      Node: TCodeTreeNode; Data: Pointer; var {%H-}Abort: boolean);
+      Node: TCodeTreeNode; Data: Pointer; var {%H-}Abort: boolean;
+      RefsStart: integer);
   public
     constructor Create;
     destructor Destroy; override;
@@ -1123,7 +1124,8 @@ type
       out ListOfPCodeXYPosition: TFPList); // searches all references of unit in uses clause
     procedure FindUsedUnitReferences(TargetTool: TFindDeclarationTool;
       SkipComments: boolean;
-      out ListOfPCodeXYPosition: TFPList); // searches all references of TargetTool
+      out ListOfPCodeXYPosition: TFPList;
+      RefsStart: integer); // searches all references of TargetTool
     function CleanPosIsDeclarationIdentifier(CleanPos: integer;
                                              Node: TCodeTreeNode): boolean;
     procedure FindHelpersInContext(Params: TFindDeclarationParams);
@@ -3855,6 +3857,11 @@ begin
               end else
                 Result += 'enum';
             end;
+          ctnProcedureType:
+            begin
+              Result +=
+                ExtractCode(TypeNode.StartPos, TypeNode.EndPos,[]);
+            end;
           end;
         end else begin
           case Node.Desc of
@@ -5246,6 +5253,8 @@ var
   function IdentifierIsFollowedByColon: boolean;
   begin
     Result:=false;
+    if Params.Identifier=nil then
+      exit;
     Params.IdentifierTool.MoveCursorToCleanPos(Params.Identifier);
     Params.IdentifierTool.ReadNextAtom;
     Params.IdentifierTool.ReadNextAtom;
@@ -7205,6 +7214,7 @@ var
 
   function IsDeclarationNode(Node: TCodeTreeNode): boolean;
   begin
+    Result:=false;
     UseProcHead(Node);
     if (Node=DeclarationNode) or (Node=AliasDeclarationNode) or
     // forward class (ident = class)
@@ -7229,8 +7239,6 @@ var
       if ArrayHasNode(OverrideProcNodes,Node.Parent) then
         exit(true);
     end;
-
-    Result:=false;
   end;
 
   function CheckMethodOverride(Tool: TFindDeclarationTool; ProcNode: TCodeTreeNode): boolean;
@@ -7359,6 +7367,8 @@ var
     Node: TCodeTreeNode;
     IsDotted: boolean;
     dLen: integer;
+    ExprType: TExpressionType;
+    PropName: PChar;
   begin
     if (not IsComment) then
       UnitStartFound:=true;
@@ -7453,12 +7463,6 @@ var
 
         //here we know if it was a dotted ident and its length, put it in Params and exploit ...
         if not IsDotted then dLen:=0;
-
-        Params.Flags:=[fdfSearchInParentNodes,fdfSearchInAncestors,fdfSearchInHelpers,
-                       fdfIgnoreCurContextNode];
-        if PredefinedResult then
-          Include(Params.Flags, fdfPredefinedResult);
-
         //dLen>0  will force searching from units names first
         Params.ContextNode:=CursorNode;
         //debugln(['ReadIdentifier "',copy(Src,IdentStartPos,200),'"']);
@@ -7467,7 +7471,39 @@ var
         // search identifier also in comments -> if not found, this is no bug
         // => silently ignore
         try
-          Found:=FindDeclarationOfIdentAtParam(Params,DefaultResultNode);
+          if DeclarationNode.Desc=ctnProperty then begin // it needs additional checking
+            Params.Flags:=[fdfSearchInAncestors,
+                          fdfExceptionOnNotFound,
+                          fdfSearchInParentNodes,
+                          fdfIgnoreCurContextNode,
+                          fdfExceptionOnPredefinedIdent,
+                          fdfTopLvlResolving];
+            if FindDeclarationOfIdentAtParam(Params, ExprType) then begin
+              Found := ExprType.Context.Node = DeclarationNode;
+              // first ancestor (if property found here) can be not enough
+              if not Found and (ExprType.Context.Node.Desc=ctnProperty) then begin
+                PropName:=ExprType.Context.Tool.GetPropertyNameIdentifier(ExprType.Context.Node);
+                Params.SetIdentifier(ExprType.Context.Tool, PropName,@CheckSrcIdentifier);
+                Params.ContextNode:=ExprType.Context.Node;
+                Params.IdentifierTool:=ExprType.Context.Tool;
+                Params.IdentifierNode:=ExprType.Context.Node;
+                Params.Flags:=[fdfSearchInAncestors,
+                              fdfExceptionOnNotFound,
+                              fdfSearchInParentNodes,
+                              fdfExceptionOnPredefinedIdent];
+                if ExprType.Context.Tool.FindDeclarationOfIdentAtParam(Params, ExprType) then
+                  Found:= ExprType.Context.Node = DeclarationNode;
+              end;
+            end;
+          end else begin
+            Params.Flags:=[fdfSearchInParentNodes,
+                           fdfSearchInAncestors,
+                           fdfSearchInHelpers,
+                           fdfIgnoreCurContextNode];
+            if PredefinedResult then
+              Include(Params.Flags, fdfPredefinedResult);
+            Found:=FindDeclarationOfIdentAtParam(Params,DefaultResultNode);
+          end;
         except
           on E: ECodeToolError do begin
             if E.Sender<>Self then begin
@@ -7879,7 +7915,6 @@ var
   begin
     if DeclarationFound then exit(true);
     Result:=false;
-
     // find the main declaration node and identifier
     DeclarationTool.BuildTreeAndGetCleanPos(CursorPos,CleanDeclCursorPos);
     DeclarationNode:=DeclarationTool.BuildSubTreeAndFindDeepestNodeAtPos(
@@ -7966,7 +8001,6 @@ var
     if AliasDeclarationNode=nil then
       debugln(['FindReferences Has no Alias']);
     {$ENDIF}
-
     if frfMethodOverrides in Flags then begin
       if (DeclarationNode.Desc<>ctnProcedureHead)
           or (not NodeIsMethodDecl(DeclarationNode.Parent)) then
@@ -8854,7 +8888,7 @@ procedure TFindDeclarationTool.FindUsedUnitReferences(
   const CursorPos: TCodeXYPosition; SkipComments: boolean; out
   UsedUnitFilename: string; out ListOfPCodeXYPosition: TFPList);
 var
-  CleanPos: integer;
+  CleanPos, RefsStart: integer;
   Node: TCodeTreeNode;
   UnitInFilename: string;
   AnUnitName: String;
@@ -8877,15 +8911,16 @@ begin
   //debugln(['TFindDeclarationTool.FindUsedUnitReferences Used Unit=',AnUnitName,' in "',UnitInFilename,'"']);
   TargetCode:=FindUnitSource(AnUnitName,UnitInFilename,true,Node.StartPos);
   if TargetCode=nil then exit;
+  RefsStart:= Node.Parent.EndPos; // end of uses section
   UsedUnitFilename:=TargetCode.Filename;
   //debugln(['TFindDeclarationTool.FindUsedUnitReferences TargetCode=',TargetCode.Filename]);
   TargetTool:=FOnGetCodeToolForBuffer(Self,TargetCode,false);
-  FindUsedUnitReferences(TargetTool,SkipComments,ListOfPCodeXYPosition);
+  FindUsedUnitReferences(TargetTool,SkipComments,ListOfPCodeXYPosition,RefsStart);
 end;
 
 procedure TFindDeclarationTool.FindUsedUnitReferences(
   TargetTool: TFindDeclarationTool; SkipComments: boolean; out
-  ListOfPCodeXYPosition: TFPList);
+  ListOfPCodeXYPosition: TFPList; RefsStart: integer);
 var
   refs: TFindUsedUnitReferences;
 begin
@@ -8898,7 +8933,7 @@ begin
     refs.TargetTool:=TargetTool;
     refs.TargetUnitName:=TargetTool.GetSourceName(false);
     refs.ListOfPCodeXYPosition:=ListOfPCodeXYPosition;
-    ForEachIdentifier(SkipComments,@OnFindUsedUnitIdentifier,refs);
+    ForEachIdentifier(SkipComments,@OnFindUsedUnitIdentifier,refs,RefsStart);
   finally
     refs.Free;
   end;
@@ -9102,6 +9137,13 @@ begin
   if TypeNode=nil then exit;
   if TypeNode.Desc in AllClasses then begin
     if (TypeNode.SubDesc and ctnsForwardDeclaration)>0 then begin
+      Result:=true;
+      exit;
+    end;
+  end else
+  if TypeNode.Desc in [ctnProcedure, ctnProcedureHead] then begin
+    if ((TypeNode.SubDesc and ctnsForwardDeclaration)>0) and
+        ((TypeNode.SubDesc and ctnsIsExternal)=0) then begin
       Result:=true;
       exit;
     end;
@@ -11966,6 +12008,8 @@ var
         ExprType.Desc:=xtNone;
         // first search backwards
         if Context.Tool.FindIdentifierInContext(Params,DefaultResultNode) then begin
+          if (DefaultResultNode<>nil) and (Params.ExtractedOperand='') then
+            Params.AddOperandPart(GetIdentifier(Params.Identifier));
           ExprType.Desc:=xtContext;
           if SpecializeNode <> nil then begin
             if Params.NewNode.Desc <> ctnGenericType then
@@ -12001,6 +12045,8 @@ var
           if Params.NewCodeTool.NodeIsConstructor(Params.NewNode) then begin
             // identifier is a constructor
             if (Context.Node.Desc in AllClassObjects) then begin
+              if NextAtomType = vatPoint  then
+                Exclude(StartFlags,fdfFindVariable);
               if (not IsEnd) or (not (fdfFindVariable in StartFlags)) then begin
                 // examples:
                 //   TMyClass.Create.
@@ -12188,6 +12234,7 @@ var
 
   procedure ResolvePoint;
   begin
+    TrueSelf:=false;
     // for example 'A.B'
     if (ExprType.Context.Node=nil) then
       // 'a:array[0. '
@@ -12817,6 +12864,17 @@ begin
       Result:=Tool.ReadOperandTypeAtCursor(Params,Node.EndPos,CurAliasType);
       Params.Load(OldInput,true);
     end;
+  ctnProcedureType:
+    begin
+      // atype = procedure abc();   nil is compatible
+      Result.Desc:=xtContext;
+      Result.SubDesc:=xtNone;
+      Result.Context.Node:=Node;
+      Result.Context.Tool:=Tool;
+    end;
+  //else
+    //debugln(['TFindDeclarationTool.ConvertNodeToExpressionType, not handled type ',
+    //  Node.DescAsString]); // mainly classes caught at codetools tests
   end;
 
   {$IFDEF ShowExprEval}
@@ -14493,7 +14551,7 @@ begin
       Result:=tcCompatible
     else if (TargetType.Desc=xtContext) then begin
       TargetNode:=TargetType.Context.Node;
-      if (TargetNode.Desc in (AllClasses+[ctnProcedure]))
+      if (TargetNode.Desc in (AllClasses+[ctnProcedure]+[ctnProcedureType]))
           and (ExpressionType.Desc=xtNil)
       then
         Result:=tcCompatible
@@ -14766,57 +14824,36 @@ end;
 
 procedure TFindDeclarationTool.OnFindUsedUnitIdentifier(
   Sender: TPascalParserTool; IdentifierCleanPos: integer; Range: TEPRIRange;
-  Node: TCodeTreeNode; Data: Pointer; var Abort: boolean);
+  Node: TCodeTreeNode; Data: Pointer; var Abort: boolean; RefsStart: integer);
 var
-  Identifier: PChar;
-  CacheEntry: PInterfaceIdentCacheEntry;
   Refs: TFindUsedUnitReferences;
-  Found: Boolean;
-  ReferencePos: TCodeXYPosition;
+  ReferencePos, NewPos: TCodeXYPosition;
+  NewTop: integer;
+  SearchFlags: TFindSmartFlags = [fsfFindMainDeclaration];
+  NewTool: TFindDeclarationTool;
+  NewNode: TCodeTreeNode;
 begin
   if Range=epriInDirective then exit;
   if not (Node.Desc in (AllPascalTypeParts+AllPascalStatements)) then exit;
-  Identifier:=@Src[IdentifierCleanPos];
   Refs:=TFindUsedUnitReferences(Data);
-  CacheEntry:=Refs.TargetTool.FInterfaceIdentifierCache.FindIdentifier(Identifier);
-  //debugln(['TFindUsedUnitReferences.OnIdentifier Identifier=',GetIdentifier(Identifier),' Found=',CacheEntry<>nil]);
-  if (CacheEntry=nil)
-  and (CompareIdentifiers(Identifier,PChar(Refs.TargetUnitName))<>0) then
-    exit;
-  Sender.MoveCursorToCleanPos(IdentifierCleanPos);
-  Sender.ReadPriorAtom;
-  if (Sender.CurPos.Flag=cafPoint) or (Sender.UpAtomIs('inherited')) then exit;
-  //debugln(['TFindUsedUnitReferences.OnIdentifier Identifier=',GetIdentifier(Identifier),' at begin of term']);
-  // find declaration
-  Refs.Params.Clear;
-  Refs.Params.Flags:=[fdfSearchInParentNodes,fdfSearchInAncestors,
-                 fdfIgnoreCurContextNode];
-  Refs.Params.ContextNode:=Node;
-  //debugln(copy(Src,Params.ContextNode.StartPos,200));
-  Refs.Params.SetIdentifier(Self,Identifier,@CheckSrcIdentifier);
 
-  if Range=epriInCode then begin
-    // search identifier in code
-    Found:=FindDeclarationOfIdentAtParam(Refs.Params);
-  end else begin
-    // search identifier in comment -> if not found, this is no problem
-    // => silently ignore
+  // skip identifiers which have declarations not in Refs.TargetTool,
+  // save those which are declared in Refs.TargetTool (unit which was chosen
+  // in "Find References Of Used Unit" option)
+  if IdentifierCleanPos < RefsStart then exit; // skip idents before end of uses
+  if CleanPosToCaret(IdentifierCleanPos,ReferencePos) then begin
     try
-      Found:=FindDeclarationOfIdentAtParam(Refs.Params);
-    except
-      on E: ECodeToolError do begin
-        // continue
+      if FindDeclaration(ReferencePos,SearchFlags,NewTool,NewNode,NewPos,NewTop) then
+      begin
+        if CompareDottedIdentifiers(PChar(Refs.TargetTool.ExtractSourceName),
+                                    PChar(NewTool.ExtractSourceName))=0 then
+          AddCodePosition(Refs.ListOfPCodeXYPosition,ReferencePos);
       end;
-      on E: Exception do
-        raise;
+    except
+      on ELinkScannerError do ;
+      on ECodeToolError do ;
     end;
   end;
-  //debugln(['TFindUsedUnitReferences.OnIdentifier Identifier=',GetIdentifier(Identifier),' found=',Found]);
-
-  if not Found then exit;
-
-  if CleanPosToCaret(IdentifierCleanPos,ReferencePos) then
-    AddCodePosition(Refs.ListOfPCodeXYPosition,ReferencePos);
 end;
 
 function TFindDeclarationTool.FindNthParameterNode(Node: TCodeTreeNode;
@@ -16429,7 +16466,8 @@ function TFindDeclarationTool.FindExprTypeAsString(
         Tool.ReadNextAtom;
         Result:=Tool.CurPos.StartPos;
       end;
-      if (Result>0) and (Tool.CurPos.Flag in [cafSemicolon, cafRoundBracketClose])
+      if (Result>0) and (Tool.CurPos.Flag in [cafSemicolon, cafEqual])
+      // don't read variable initialization part e.g. "= (1,2,3);"
       then begin
         stop:= Tool.CurPos.StartPos-1;
         break;

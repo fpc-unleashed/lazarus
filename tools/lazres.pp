@@ -21,7 +21,7 @@
   Author: Mattias Gaertner
 
   Name:
-       lazres - creates an lazarus resource file from files
+       lazres - creates a lazarus resource file from files
 
   Synopsis:
        lazres resourcefilename filename1 [filename2 ... filenameN]

@@ -707,6 +707,7 @@ var
     toolbar:= TCocoaToolBarUtils.createToolBar( config );
     win.setToolbarStyle( config.style );
     win.setToolbar( toolbar );
+    win.autoHideToolBar:= config.autoHideInFullScreen;
     // in win.setToolBar(), macOS may incorrectly calculate the window size
     // (ignoring the original TitleBar size) and need to be reset.
     win.contentView.lclSetFrame( AWinControl.BoundsRect );
@@ -876,7 +877,8 @@ begin
   if IsFormDesign(AWinControl) then begin
     ds:=(TCocoaDesignOverlay.alloc).initWithFrame(cnt.frame);
     ds.callback := cnt.callback;
-    ds.setFrame( NSMakeRect(0,0, cnt.frame.size.width, cnt.frame.size.height));
+    ds.setFrame(doc.frame);
+    doc.addSubview_positioned_relativeTo(ds, NSWindowAbove, nil);
     ds.setAutoresizingMask(
       //NSViewWidthSizable or NSViewHeightSizable
       NSViewMinXMargin
@@ -887,7 +889,6 @@ begin
       or NSViewMaxYMargin
     );
 
-    cnt.addSubview_positioned_relativeTo(ds, NSWindowAbove, nil);
     doc.overlay := ds;
     ds.release;
   end;
@@ -1177,7 +1178,7 @@ begin
   if Assigned(win.parentWindow) then
     win.parentWindow.removeChildWindow(win);
   if Assigned(APopupParent) then begin
-     writeln('SetRealPopupParent ',APopupParent.ClassName);
+//    writeln('SetRealPopupParent ',APopupParent.ClassName);
     NSWindow( NSView(APopupParent.Handle).window).addChildWindow_ordered(win, NSWindowAbove);
   end;
 end;

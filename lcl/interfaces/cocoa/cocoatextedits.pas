@@ -28,7 +28,7 @@ interface
 uses
   Types, Classes, SysUtils,
   Math, // needed for MinDouble, MaxDouble
-  LCLType, Graphics, Controls,
+  LCLType, Graphics, Controls, StdCtrls,
   MacOSAll, CocoaAll, CocoaConfig, CocoaUtils, CocoaGDIObjects,
   CocoaPrivate;
 
@@ -38,6 +38,15 @@ type
 
   NSTextField_LCLExt = objcprotocol
     procedure lclSetMaxLength(amax: integer); message 'lclSetMaxLength:';
+  end;
+
+  { TCocoaVertAlignTextFieldCell }
+
+  TCocoaVertAlignTextFieldCell = objcclass( NSTextFieldCell )
+  public
+    vertAlignment: TTextLayout;
+  public
+    function drawingRectForBounds(theRect: NSRect): NSRect; override;
   end;
 
   { TCocoaTextField }
@@ -198,7 +207,7 @@ type
       const align: TAlignment );
     class procedure setBorderStyle(
       const textField: NSTextField;
-      const borderStyle: TBorderStyle );
+      const lclEdit: TCustomEdit );
     class procedure setTextHint(
       const textField: NSTextField;
       const str: String ); overload;
@@ -629,7 +638,7 @@ begin
   end;
 
   if lclFont.Color <> clDefault then begin
-    cocoaColor:= TCocoaColorUtil.toColor(ColorToRGB(lclFont.Color));
+    cocoaColor:= TCocoaColorUtil.toColor(lclFont.Color);
     textField.setTextColor( cocoaColor );
   end;
 end;
@@ -698,15 +707,22 @@ end;
 
 class procedure TCocoaTextControlUtil.setBorderStyle(
   const textField: NSTextField;
-  const borderStyle: TBorderStyle );
+  const lclEdit: TCustomEdit );
+var
+  bordered: Boolean;
 begin
   if not Assigned(textField) then
     Exit;
   {$ifdef BOOLFIX}
-  textField.setBezeled_(Ord(borderStyle <> bsNone));
+  bordered:= Ord(lclEdit.borderStyle <> bsNone));
   {$else}
-  textField.setBezeled(borderStyle <> bsNone);
+  bordered:= lclEdit.borderStyle <> bsNone;
   {$endif}
+  if teoEnableTextLayout in lclEdit.Options then
+    bordered:= True;
+  textField.setBordered( bordered );
+  textField.setBezeled( bordered );
+  textField.setDrawsBackground( lclEdit.Color <> clNone );
 end;
 
 class procedure TCocoaTextControlUtil.setTextHint(
@@ -732,6 +748,33 @@ begin
   if not Assigned(obj) or not obj.isKindOfClass(NSTextField) then
     Exit;
   TCocoaTextControlUtil.setTextHint( NSTextField(obj), str );
+end;
+
+{ TCocoaVertAlignTextFieldCell }
+
+function TCocoaVertAlignTextFieldCell.drawingRectForBounds(theRect: NSRect): NSRect;
+var
+  newRect: NSRect;
+
+  procedure toCenter; inline;
+  begin
+    newRect.origin.y:= (theRect.size.height-cellSize.height)/2;
+    newRect.size.height:= cellSize.height;
+  end;
+
+  procedure toBottom; inline;
+  begin
+    newRect.origin.y:= theRect.size.height-cellSize.height;
+    newRect.size.height:= cellSize.height;
+  end;
+
+begin
+  newRect:= theRect;
+  case vertAlignment of
+    tlCenter: toCenter;
+    tlBottom: toBottom;
+  end;
+  Result:= inherited drawingRectForBounds( newRect );
 end;
 
 { TCocoaTextField }

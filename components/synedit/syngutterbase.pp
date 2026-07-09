@@ -123,6 +123,7 @@ type
     FOnChangeHandler: TMethodList;
 
     procedure DoColorChanged(Sender: TObject);
+    function IsMouseActionsStored: Boolean;
     procedure UpdateInternalColors;
     function GetColor: TColor;
     function GetMouseActions: TSynEditMouseActions;
@@ -200,7 +201,7 @@ type
     property CurrentLineColor: TSynGutterColorAttributesModifier read FCurrentLineColor write SetCurrentLineColor;
     property OnClick: TSynGutterClickEvent read FOnClick write FOnClick;
     property MouseActions: TSynEditMouseActions
-      read GetMouseActions write SetMouseActions;
+      read GetMouseActions write SetMouseActions stored IsMouseActionsStored;
   end;
 
   { TSynGutterPartListBase }
@@ -688,7 +689,7 @@ end;
 procedure TSynGutterBase.DoChange(Sender: TObject);
 begin
   if FInDoChange then exit;
-  if FChangeLock > 0 then begin;
+  if FChangeLock > 0 then begin
     FNeedOnChange := True;
     exit;
   end;
@@ -708,7 +709,7 @@ end;
 
 procedure TSynGutterBase.DoResize(Sender: TObject);
 begin
-  if FChangeLock > 0 then begin;
+  if FChangeLock > 0 then begin
     FNeedOnResize := True;
     exit;
   end;
@@ -765,6 +766,11 @@ end;
 procedure TSynGutterBase.IncChangeLock;
 begin
   inc(FChangeLock);
+end;
+
+function TSynGutterBase.IsMouseActionsStored: Boolean;
+begin
+  Result := MouseActions.Count>0;
 end;
 
 procedure TSynGutterBase.DecChangeLock;
@@ -1039,11 +1045,13 @@ begin
   FMarkupInfo.Background := clBtnFace;
   FMarkupInfo.Foreground := clNone;
   FMarkupInfo.FrameColor := clNone;
+  FMarkupInfo.InternalSaveDefaultValues;
 
   FMarkupInfoCurrentLine := TSynGutterDefColorAttributesModifier.Create;
   FMarkupInfoCurrentLine.Background := clNone;
   FMarkupInfoCurrentLine.Foreground := clNone;
   FMarkupInfoCurrentLine.FrameColor := clNone;
+  FMarkupInfoCurrentLine.InternalSaveDefaultValues;
 
   FMarkupInfoInternal := TLazEditTextAttributeModifier.Create;
   FMarkupInfoCurLineMerged := TLazEditTextAttributeMergeResult.Create;

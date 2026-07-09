@@ -673,6 +673,10 @@ var
   AParent: QWidgetH;
   R: TRect;
   AQtPoint: TQtPoint;
+  AGrabForm: Boolean;
+  AForm: TCustomForm;
+  AGrabVariant: QVariantH;
+  AGrabber: QWidgetH;
   {$IFNDEF QTUSEFOCUSCHANGEDHOOK}
   OldWidget, NewWidget: TQtWidget;
   Msg: TLMessage;
@@ -889,18 +893,42 @@ begin
           begin
             if QWidget_focusPolicy(QWidgetH(Sender)) <> QtNoFocus then
             begin
-              QWidget_grabMouse(QWidgetH(Sender));
+              AGrabForm := False;
+              if (W.LCLObject is TCustomForm) and (QApplication_activePopupWidget = nil) then
+              begin
+                AForm := TCustomForm(W.LCLObject);
+                AGrabForm := (AForm.Parent = nil) and AForm.HandleAllocated and
+                  not TQtMainWindow(AForm.Handle).IsMDIChild;
+              end;
+              if AGrabForm then
+              begin
+                QWidget_grabMouse(QWidgetH(Sender));
+                AGrabVariant := QVariant_create(Int64(1));
+                QObject_setProperty(Sender, 'lclautograb', AGrabVariant);
+                QVariant_destroy(AGrabVariant);
+              end;
             end;
           end;
         end;
       end;
     QEventMouseButtonRelease:
       begin
-        if QObject_isWidgetType(Sender) then
+        AGrabber := QWidget_mouseGrabber();
+        if AGrabber <> nil then
         begin
-          W := TQtWidget(HwndFromWidgetH(QWidgetH(Sender)));
-          if W <> nil then
-            QWidget_releaseMouse(QWidgetH(Sender));
+          AGrabVariant := QVariant_create();
+          try
+            QObject_property(AGrabber, AGrabVariant, 'lclautograb');
+            if QVariant_isValid(AGrabVariant) then
+            begin
+              QWidget_releaseMouse(AGrabber);
+              QVariant_destroy(AGrabVariant);
+              AGrabVariant := QVariant_create();
+              QObject_setProperty(AGrabber, 'lclautograb', AGrabVariant);
+            end;
+          finally
+            QVariant_destroy(AGrabVariant);
+          end;
         end;
       end;
 
@@ -1458,6 +1486,35 @@ begin
       DC := TQtDeviceContext(CanvasHandle);
     DC.setRenderHint(QPainterAntialiasing, AEnabled);
   end;
+end;
+
+procedure TQtWidgetSet.SetDCOpacity(DC: HDC; AOpacity: Byte);
+var
+  ADC: TQtDeviceContext;
+begin
+  if IsValidDC(DC) then
+  begin
+    if DC = 1 then
+      ADC := QtDefaultContext
+    else
+      ADC := TQtDeviceContext(DC);
+    ADC.Opacity := AOpacity;
+  end;
+end;
+
+function TQtWidgetSet.GetDCOpacity(DC: HDC): Byte;
+var
+  ADC: TQtDeviceContext;
+begin
+  if IsValidDC(DC) then
+  begin
+    if DC = 1 then
+      ADC := QtDefaultContext
+    else
+      ADC := TQtDeviceContext(DC);
+    Result := ADC.Opacity;
+  end else
+    Result := $FF;
 end;
 
 procedure TQtWidgetSet.SetDesigning(AComponent: TComponent);

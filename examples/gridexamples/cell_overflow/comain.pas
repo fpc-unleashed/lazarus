@@ -202,7 +202,7 @@ var
 begin
   Result := CellRect(ACol, ARow);
   ANumColsNeededAtRight := 1;
-  len := Canvas.TextWidth(Cells[ACol, ARow]) + 2*constCellPadding;
+  len := Canvas.TextWidth(Cells[ACol, ARow]) + 2*varCellPadding;
   if len > ColWidths[ACol] then begin
     PrepareCanvas(ACol, ARow, AState);
     ts := Canvas.TextStyle;

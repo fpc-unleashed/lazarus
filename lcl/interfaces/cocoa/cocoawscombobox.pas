@@ -32,7 +32,7 @@ type
   public
     constructor Create(cocoaCmb:NSObject);
   public
-    class procedure SetLastIndex(cocoaCmb:NSObject);
+    class procedure SetLastIndex(const cocoaCmb: NSObject);
   end;
 
   { TLCLComboBoxCallback }
@@ -131,7 +131,7 @@ begin
   end;
 end;
 
-class procedure TComboBoxAsyncHelper.SetLastIndex(cocoaCmb:NSObject);
+class procedure TComboBoxAsyncHelper.SetLastIndex(const cocoaCmb: NSObject);
 var
   helper: TComboBoxAsyncHelper;
 begin

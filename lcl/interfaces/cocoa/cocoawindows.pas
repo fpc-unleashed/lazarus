@@ -122,6 +122,7 @@ type
     orderOutAfterFS : Boolean;
     fsview: TCocoaWindowContent;
 
+    function window_willUseFullScreenPresentationOptions (window: NSWindow; proposedOptions: NSApplicationPresentationOptions): NSApplicationPresentationOptions;
     function windowShouldClose(sender : id): LongBool; message 'windowShouldClose:';
     procedure windowWillClose(notification: NSNotification); message 'windowWillClose:';
     function windowWillReturnFieldEditor_toObject(sender: NSWindow; client: id): id; message 'windowWillReturnFieldEditor:toObject:';
@@ -138,6 +139,7 @@ type
   public
     callback: IWindowCallback;
     keepWinLevel : NSInteger;
+    autoHideToolBar: Boolean;
     //LCLForm: TCustomForm;
     procedure dealloc; override;
     function makeFirstResponder(aResponder: NSResponder): ObjCBOOL; override;
@@ -149,8 +151,8 @@ type
     // mouse
     procedure scrollWheel(event: NSEvent); override;
 
-    // key，it‘s no longer in use, see the description below
-    // procedure keyDown(event: NSEvent); override;
+    // key
+    procedure keyDown(event: NSEvent); override;
 
     // menu support
     procedure lclItemSelected(sender: id); message 'lclItemSelected:';
@@ -264,18 +266,18 @@ begin
 end;
 
 procedure TCocoaWindowContentDocument.didAddSubview(aview: NSView);
-const
-  mustHaveSizing = (NSViewWidthSizable or NSViewHeightSizable);
+var
+  mask: NSAutoresizingMaskOptions;
 begin
   if Assigned(aview) and Assigned(overlay) and (overlay<>aview) then
   begin
+    mask:= overlay.autoresizingMask;
     overlay.retain;
     overlay.removeFromSuperview;
     addSubview_positioned_relativeTo(overlay, NSWindowAbove, nil);
     overlay.release;
     overlay.setFrame(frame);
-    if (overlay.autoresizingMask and mustHaveSizing) <> mustHaveSizing then
-      overlay.setAutoresizingMask(overlay.autoresizingMask or mustHaveSizing);
+    overlay.setAutoresizingMask(mask);
   end;
   inherited didAddSubview(aview);
 end;
@@ -895,8 +897,8 @@ begin
     inherited scrollWheel(event);
 end;
 
-// according to the current key handling logic, TCocoaWindow.keyDown() will
-// no longer be executed.
+// according to the current key handling logic, there is no longer any need
+// to process LCL in TCocoaWindow.keyDown().
 //
 // because TCocoaWindowContentDocument was changed to inherit from
 // TCocoaCustomControlWithBaseInputClient in 2024.
@@ -904,12 +906,8 @@ end;
 // is called, and inherited keyDown() is not called.
 // one reason is that calling inherited keyDown() does not actually prevent beeping.
 //
-// although this results in the loss of shortcut conversion via performKeyEquivalent()
+// only shortcut conversion via performKeyEquivalent()
 // when the Command/Control Modifier Key is not held down.
-// but there is practically no noticeable difference from 2024, as the LCL
-// shortcut does not rely on performKeyEquivalent().
-// if really needed, we can add TCocoaWindowContentDocument.keyDown() to
-// achieve this, but it doesn't seem necessary at the moment.
 //
 // regarding the handling of the Space Key in Buttons and CheckBoxes,
 // TCocoaButton.keyDown() has been added, avoiding the need to execute
@@ -918,36 +916,17 @@ end;
 // Zoë Peterson provides a detailed explanation of the complete logic for
 // Cocoa Key handling:
 // https://gitlab.com/freepascal.org/lazarus/lazarus/-/work_items/35449
-{
 procedure TCocoaWindow.keyDown(event: NSEvent);
 var
   mn : NSMenu;
-  allowcocoa : Boolean;
 begin
-  if CocoaWidgetSetState.CocoaOnlyState then
-  begin
-    inherited keyDown(event);
-    Exit;
-  end;
-
   if performKeyEquivalent(event) then
     Exit;
 
   mn := NSApp.MainMenu;
-  if Assigned(mn) and mn.performKeyEquivalent(event) then
-    Exit;
-
-  if Assigned(_keyEvCallback) then
-  begin
-    allowcocoa := True;
-    _keyEvCallback.KeyEvAfterDown(allowcocoa);
-    if not allowcocoa then
-      Exit;
-  end;
-
-  inherited keyDown(event);
+  if Assigned(mn) then
+    mn.performKeyEquivalent(event);
 end;
-}
 
 // return proper focused responder by kind of class of NSResponder
 function getProperFocusedResponder( const win : NSWindow; const aResponder : NSResponder ): NSResponder;
@@ -1071,6 +1050,15 @@ procedure TCocoaWindow.DoMakeFirstResponder(aResponder: NSResponder);
 begin
   makeFirstResponder( aResponder );
   aResponder.release;
+end;
+
+function TCocoaWindow.window_willUseFullScreenPresentationOptions(
+  window: NSWindow;
+  proposedOptions: NSApplicationPresentationOptions ): NSApplicationPresentationOptions;
+begin
+  Result:= proposedOptions;
+  if self.autoHideToolBar then
+    Result:= Result or NSApplicationPresentationAutoHideToolbar;
 end;
 
 

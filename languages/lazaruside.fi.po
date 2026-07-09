@@ -1082,6 +1082,14 @@ msgstr "Valitse koodimallinetiedosto (*.dci)"
 msgid "Show close buttons in notebook"
 msgstr "Näytä sulje-painike välilehdellä"
 
+#: lazarusidestrconsts.dlgcloseotherpagesmod
+msgid "Close all other tabs"
+msgstr ""
+
+#: lazarusidestrconsts.dlgcloserightpagesmod
+msgid "Close tabs on the right"
+msgstr ""
+
 #: lazarusidestrconsts.dlgclrscheme
 msgid "Color Scheme"
 msgstr "Värikaava"
@@ -1423,7 +1431,15 @@ msgid "Dwarf 2 with sets"
 msgstr ""
 
 #: lazarusidestrconsts.dlgcosymboltypedwarf3
-msgid "Dwarf 3 (beta)"
+msgid "Dwarf 3"
+msgstr ""
+
+#: lazarusidestrconsts.dlgcosymboltypedwarf4
+msgid "Dwarf 4"
+msgstr ""
+
+#: lazarusidestrconsts.dlgcosymboltypedwarf5
+msgid "Dwarf 5 (FPC 3.3.1)"
 msgstr ""
 
 #: lazarusidestrconsts.dlgcosymboltypestabs
@@ -1868,10 +1884,6 @@ msgctxt "lazarusidestrconsts.dlgenvtype"
 msgid "Type"
 msgstr "Tyyppi"
 
-#: lazarusidestrconsts.dlgeofocusmessagesatcompilation
-msgid "Focus messages at compilation"
-msgstr "Fokusoi viesti-ikkuna käännettäessä"
-
 #: lazarusidestrconsts.dlgextracharspacing
 msgid "Extra character spacing"
 msgstr "Merkkien välistys"
@@ -2078,6 +2090,10 @@ msgstr "Kommentti { }"
 msgid "Case"
 msgstr ""
 
+#: lazarusidestrconsts.dlgfoldpascaseelse
+msgid "Otherwise/Else (Case)"
+msgstr ""
+
 #: lazarusidestrconsts.dlgfoldpasclass
 msgid "Class/Object"
 msgstr ""
@@ -2262,6 +2278,12 @@ msgstr "&Alusta"
 #| msgid "&From cursor"
 msgid "From c&ursor"
 msgstr "&Kursorin kohdasta"
+
+#: lazarusidestrconsts.dlggeneral
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlggeneral"
+msgid "General"
+msgstr "Yleistä"
 
 #: lazarusidestrconsts.dlgglobal
 msgid "&Global"
@@ -2775,10 +2797,6 @@ msgstr "\"Make\" ohjelma"
 msgid "Manage desktops"
 msgstr "Hallinnoi työpöytiä"
 
-#: lazarusidestrconsts.dlgmargingutter
-msgid "Margin and gutter"
-msgstr "Marginaali ja reunapalkki"
-
 #: lazarusidestrconsts.dlgmarkercolor
 msgid "Marker color"
 msgstr "Merkattu väri"
@@ -2979,14 +2997,6 @@ msgstr ""
 #: lazarusidestrconsts.dlgmaxrecentprojs
 msgid "Max recent project files"
 msgstr "Projekteja muistetaan"
-
-#: lazarusidestrconsts.dlgmiddletabcloseotherpagesmod
-msgid "Middle-click-modifier to close all other tabs"
-msgstr ""
-
-#: lazarusidestrconsts.dlgmiddletabcloserightpagesmod
-msgid "Middle-click-modifier to close tabs on the right"
-msgstr ""
 
 #: lazarusidestrconsts.dlgmixmethodsandproperties
 msgid "Mix methods and properties"
@@ -4350,10 +4360,6 @@ msgstr "Näytetään ikkunoita"
 msgctxt "lazarusidestrconsts.dlgshowlinenumbers"
 msgid "Show line numbers"
 msgstr "Näytä rivinumerot"
-
-#: lazarusidestrconsts.dlgshowmessagesicons
-msgid "Show Messages Icons"
-msgstr "Näytä viestien kuvakkeet"
 
 #: lazarusidestrconsts.dlgshownotes
 msgid "Show notes"
@@ -6548,6 +6554,11 @@ msgstr "Vaihda merkkikoodaus"
 msgid "Change file"
 msgstr "Muuta tiedosto"
 
+#: lazarusidestrconsts.lischangemethodvisibilityto
+#, object-pascal-format
+msgid "Change method visibility to \"%s\""
+msgstr ""
+
 #: lazarusidestrconsts.lischangeparent
 msgid "Change Parent"
 msgstr "Vaihda emokontrollia"
@@ -8660,7 +8671,7 @@ msgid "Additional search path"
 msgstr "Lisähakupolku"
 
 #: lazarusidestrconsts.lisdebugoptionsfrmallowfunctioncalls
-msgid "BETA: Allow function calls in watches (if supported by backend)"
+msgid "Allow function calls in watches (if supported by backend)"
 msgstr ""
 
 #: lazarusidestrconsts.lisdebugoptionsfrmautocloseasm
@@ -8919,10 +8930,6 @@ msgstr "Erotin on puolipiste."
 #: lazarusidestrconsts.lisdelphicompatibleresources
 msgid "Delphi compatible resources. Recommended."
 msgstr "Delphi yhteensopivat resurssit. Suositus."
-
-#: lazarusidestrconsts.lisdesignerhasunsavedchanges
-msgid "Designer has unsaved changes"
-msgstr ""
 
 #: lazarusidestrconsts.lisdesigntimeonlypkg
 msgid "Designtime-only package"
@@ -9496,6 +9503,14 @@ msgstr ""
 
 #: lazarusidestrconsts.lisenableoptiondwarf3
 msgid "Enable Dwarf 3 (-gw3)"
+msgstr ""
+
+#: lazarusidestrconsts.lisenableoptiondwarf4
+msgid "Enable Dwarf 4 (-gw4)"
+msgstr ""
+
+#: lazarusidestrconsts.lisenableoptiondwarf5
+msgid "Enable Dwarf 5 [FPC 3.3.1] (-gw5)"
 msgstr ""
 
 #: lazarusidestrconsts.lisenableoptionxg
@@ -10164,6 +10179,10 @@ msgstr "&Ensimmäinen testi"
 msgid "Fix LFM file"
 msgstr "LFM-tiedoston korjaus"
 
+#: lazarusidestrconsts.lisfocusatcompilation
+msgid "Focus at compilation"
+msgstr ""
+
 #: lazarusidestrconsts.lisfocushint
 msgid "Focus hint"
 msgstr "Fokusoi vihje"
@@ -10379,9 +10398,17 @@ msgstr "Tunniste: %s"
 msgid "in all open packages and projects"
 msgstr "kaikissa avoimissa paketeissa ja projekteissa"
 
+#: lazarusidestrconsts.lisfriincurrentmethod
+msgid "in current method"
+msgstr ""
+
 #: lazarusidestrconsts.lisfriincurrentunit
 msgid "in current unit"
 msgstr "vain käytössä oleva käännösyksikkö"
+
+#: lazarusidestrconsts.lisfriinlocalfunction
+msgid "in local function"
+msgstr ""
 
 #: lazarusidestrconsts.lisfriinmainproject
 msgid "in main project"
@@ -10390,10 +10417,6 @@ msgstr "kaikista tämän projektin tiedostoista"
 #: lazarusidestrconsts.lisfriinprojectpackageowningcurrentunit
 msgid "in project/package owning current unit"
 msgstr "paketissa/projektissa, mikä omistaa tämän käännösyksikön"
-
-#: lazarusidestrconsts.lisfriinvalididentifier
-msgid "Invalid Identifier"
-msgstr "Kelvoton tunniste"
 
 #: lazarusidestrconsts.lisfrirenameallreferences
 msgid "Rename all References"
@@ -13536,6 +13559,10 @@ msgstr "Viesti-ikkuna"
 msgid "Method class not found"
 msgstr "Metodin luokkaa ei löydy"
 
+#: lazarusidestrconsts.lismiddleclickmodifiers
+msgid "Middle-click-modifiers"
+msgstr ""
+
 #: lazarusidestrconsts.lismissingevents
 msgid "Missing Events"
 msgstr "Puuttuvia tapahtumia"
@@ -13901,6 +13928,10 @@ msgstr "Viestin värit"
 #: lazarusidestrconsts.lismultipledirectoriesareseparatedwithsemicolons
 msgid "Multiple directories are separated with semicolons"
 msgstr "Hakemistot erotetaan puolipisteellä"
+
+#: lazarusidestrconsts.lismustbeopenedmanually
+msgid "Must be opened manually from View -> Messages."
+msgstr ""
 
 #: lazarusidestrconsts.lismvsavemessagestofiletxt
 msgid "Save messages to file (*.txt)"
@@ -14495,11 +14526,6 @@ msgstr ""
 #: lazarusidestrconsts.lisoverridetheprojectwidgetsetegdefault
 #, object-pascal-format
 msgid "Override the project widgetset. For example: %s. Default: %s."
-msgstr ""
-
-#: lazarusidestrconsts.lisoverwritedesignerchangesanyway
-#, object-pascal-format
-msgid "Unsaved designer changes for file \"%s\" will be lost. Overwrite anyway?"
 msgstr ""
 
 #: lazarusidestrconsts.lisownerisalreadyusedbytreadertwriterpleasechooseanot
@@ -16913,6 +16939,24 @@ msgstr "Näytä"
 msgid "Show abstract methods of \"%s\""
 msgstr "Näytä \"%s\":n abstraktit metodit"
 
+#: lazarusidestrconsts.lisshowautomatically
+msgid "Show automatically"
+msgstr ""
+
+#: lazarusidestrconsts.lisshowautonever
+#, fuzzy
+msgctxt "lazarusidestrconsts.lisshowautonever"
+msgid "Never"
+msgstr "Ei koskaan"
+
+#: lazarusidestrconsts.lisshowautoonlywhenerrorsoccur
+msgid "Only when errors occur"
+msgstr ""
+
+#: lazarusidestrconsts.lisshowautowhencompiling
+msgid "When compiling"
+msgstr ""
+
 #: lazarusidestrconsts.lisshowcomponenttreeinobjectinspector
 msgid "Show component tree"
 msgstr "Näytä komponenttipuu"
@@ -16953,6 +16997,10 @@ msgstr "Näytä ohje"
 msgctxt "lazarusidestrconsts.lisshowhintsinobjectinspector"
 msgid "Show hints"
 msgstr "Näytä vihjeet"
+
+#: lazarusidestrconsts.lisshowicons
+msgid "Show Icons"
+msgstr ""
 
 #: lazarusidestrconsts.lisshowidentifiers
 msgid "Show identifiers"
@@ -17248,6 +17296,10 @@ msgstr "Aloita uusi projekti"
 #: lazarusidestrconsts.lisstatusbarshowspropertysnameandclass
 msgid "Statusbar shows the property's name and the class where it is published."
 msgstr "Statuspalkki näyttää ominaisuuden nimen ja luokan missä se julkaistiin."
+
+#: lazarusidestrconsts.lisstayontop
+msgid "Stay on top"
+msgstr ""
 
 #: lazarusidestrconsts.lisstop
 msgid "Stop"
@@ -18535,6 +18587,11 @@ msgstr ""
 msgid "Unable to remove project title from source.%s%s"
 msgstr "Projektin otsikon %s%s poisto ei onnistu!"
 
+#: lazarusidestrconsts.lisunabletorenamefileto
+#, object-pascal-format
+msgid "Unable to rename file \"%s\" to \"%s\"."
+msgstr ""
+
 #: lazarusidestrconsts.lisunabletorenameforminsource
 msgid "Unable to rename form in source."
 msgstr "Lomakkeen nimeäminen lähdekoodissa ei onnistu."
@@ -18969,10 +19026,6 @@ msgstr "Ikkunat-valikko näyttää muokattavan lomakkeen nimen otsikon sijaan"
 #: lazarusidestrconsts.liswindowmenuwithnamefordesignedformhint
 msgid "Useful especially if the caption is left empty."
 msgstr "Hyödyllinen varsinkin jos otsikko jätetään tyhjäksi."
-
-#: lazarusidestrconsts.liswindowstaysontop
-msgid "Window stays on top"
-msgstr "Ikkuna pysyy ylimmäisenä"
 
 #: lazarusidestrconsts.liswithincludes2
 msgid ", with includes "

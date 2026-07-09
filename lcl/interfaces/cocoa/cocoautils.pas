@@ -117,10 +117,14 @@ type
     // extract ColorRef from any NSColor
     class function toColorRefWithAnyColor(const Color: NSColor): TColorRef;
     class procedure toColorAlpha(const Color: NSColor;var lclColor: TColor;var Alpha: Byte);
+    class function toColor(const Color: TColor): NSColor; inline; overload;
     class function toColor(const Color: TColorRef): NSColor; inline; overload;
-    class function toColor(const Color: TColorRef; const Alpha: Byte): NSColor; overload;
+    class function toColor(const Color: TColor; const Alpha: Byte): NSColor; inline; overload;
+    class function toColor(const Color: TColorRef; const Alpha: Byte): NSColor; inline; overload;
     // convert to known NSColor or nil
     class function sysIndexToColor(nIndex: Integer): NSColor;
+
+    class procedure setSystemColorPanelSupportsAlpha(const supportsAlpha: Boolean);
   end;
 
   { TCocoaImageUtil }
@@ -134,6 +138,8 @@ type
     class function copyAndRotateCursor(
       const src: NSCursor;
       const degrees: Double ): NSCursor;
+    class function imageWithSystemSymbolString(
+      const symbolString: NSString ): NSImage;
   end;
 
   { TCocoaThemeUtil }
@@ -154,7 +160,7 @@ type
     class function toLCL(const cocoaRect: NSRect): TRect; overload;
 
     class function primaryScreen: NSScreen;
-    class function primaryScreenFrame: NSRect;
+    class function primaryScreenFrame: NSRect; inline;
     class function globalScreenFrame: NSRect;
     class function globalScreenLCLFrame: NSRect;
     class function globalScreenBottom: CGFloat;
@@ -892,11 +898,19 @@ end;
 
 class procedure TCocoaColorUtil.toColorAlpha(const Color: NSColor; var lclColor: TColor;
   var Alpha: Byte);
+var
+  RGBColor: NSColor;
 begin
-  lclColor:= ((Round(Color.blueComponent*$FF)) shl 16) +
-             ((Round(Color.greenComponent*$FF)) shl 8) +
-             Round(Color.redComponent*$FF);
-  alpha:= Round(Color.alphaComponent*$FF);
+  RGBColor := Color.colorUsingColorSpaceName(NSDeviceRGBColorSpace);
+  lclColor:= ((Round(RGBColor.blueComponent*$FF)) shl 16) +
+             ((Round(RGBColor.greenComponent*$FF)) shl 8) +
+             Round(RGBColor.redComponent*$FF);
+  alpha:= Round(RGBColor.alphaComponent*$FF);
+end;
+
+class function TCocoaColorUtil.toColor(const Color: TColor): NSColor;
+begin
+  Result:= TCocoaColorUtil.toColor( TColorRef(ColorToRGB(Color)) );
 end;
 
 class function TCocoaColorUtil.toColor(const Color: TColorRef): NSColor; inline;
@@ -905,6 +919,11 @@ begin
     (Color and $FF) / $FF,
     ((Color shr 8) and $FF) / $FF,
     ((Color shr 16) and $FF) / $FF, 1);
+end;
+
+class function TCocoaColorUtil.toColor(const Color: TColor; const Alpha: Byte): NSColor;
+begin
+  Result:= TCocoaColorUtil.toColor( TColorRef(ColorToRGB(Color)), Alpha );
 end;
 
 class function TCocoaColorUtil.toColor(const Color: TColorRef; const Alpha: Byte): NSColor;
@@ -1007,6 +1026,12 @@ begin
   else
     Result := nil;
   end;
+end;
+
+class procedure TCocoaColorUtil.setSystemColorPanelSupportsAlpha(
+  const supportsAlpha: Boolean );
+begin
+  NSColorPanel.sharedColorPanel.setShowsAlpha( supportsAlpha );
 end;
 
 { TCocoaImageUtil }
@@ -1112,6 +1137,57 @@ begin
     NSMakePoint(img.size.height / 2, img.size.width / 2)
   );
   img.release;
+end;
+
+class function TCocoaImageUtil.imageWithSystemSymbolString(
+  const symbolString: NSString ): NSImage;
+var
+  imageName: NSString;
+  config: NSImageSymbolConfiguration;
+
+  procedure parseEmphasize;
+  var
+    emphasizeLevel: Integer;
+  begin
+    emphasizeLevel:= 0;
+    imageName:= symbolString;
+    while imageName.hasPrefix( NSSTR_SYSTEM_SYMBOL_EMPHASIZE ) do begin
+      imageName:= imageName.substringFromIndex( 1 );
+      inc( emphasizeLevel );
+    end;
+
+    if emphasizeLevel > 0 then begin
+      config:= NSImageSymbolConfiguration.configurationWithPointSize(
+                 NSFont.systemFontSize + emphasizeLevel - 1,
+                 NSFontWeightBold );
+      // emphasize by alternateSelected color
+      if NSAppKitVersionNumber >= NSAppKitVersionNumber12_0 then begin
+        config:= config.configurationByApplyingConfiguration(
+                   NSImageSymbolConfiguration.configurationWithHierarchicalColor(
+                     NSColor.alternateSelectedControlColor ) );
+      end;
+    end;
+  end;
+
+begin
+  Result:= nil;
+  if symbolString.length <= 0 then
+    Exit;
+
+  config:= nil;
+  parseEmphasize;
+
+  Result:= NSImage.imageWithSystemSymbolName_accessibilityDescription(
+             imageName, nil );
+
+  if NOT Assigned(Result) then
+    Result:= NSImage.imageNamed( imageName );
+
+  if NOT Assigned(Result) then
+    Exit;
+
+  if Assigned(config) then
+    Result:= Result.imageWithSymbolConfiguration( config );
 end;
 
 { TCocoaThemeUtil }

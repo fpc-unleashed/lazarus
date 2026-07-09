@@ -240,7 +240,7 @@ type
     function EndOfSourceExpected: boolean;
     // read functions
     function ReadTilProcedureHeadEnd(ParseAttr: TParseProcHeadAttributes;
-        var HasForwardModifier: boolean): boolean;
+        var HasForwardModifier, IsExternal: boolean): boolean;
     function ReadConstant(ExceptionOnError, Extract: boolean;
         const Attr: TProcHeadAttributes): boolean;
     function ReadParamType(ExceptionOnError, Extract: boolean;
@@ -1379,7 +1379,7 @@ function TPascalParserTool.KeyWordFuncClassMethod: boolean;
    compilerproc[:name]
    }
 var
-  HasForwardModifier, IsGeneric: boolean;
+  HasForwardModifier, IsGeneric, IsExternal: boolean;
   ParseAttr: TParseProcHeadAttributes;
 begin
   if (CurNode.Desc in AllClassSubSections)
@@ -1430,7 +1430,7 @@ begin
     ReadGenericParamList(IsGeneric,true);
   if (CurPos.Flag<>cafPoint) or (pphIsOperator in ParseAttr) then begin
     // read rest
-    ReadTilProcedureHeadEnd(ParseAttr,HasForwardModifier);
+    ReadTilProcedureHeadEnd(ParseAttr,HasForwardModifier,IsExternal);
   end else begin
     // Method resolution clause (e.g. function Intf.Method = Method_Name)
     CurNode.Parent.Desc:=ctnMethodMap;
@@ -1892,7 +1892,7 @@ end;
 
 function TPascalParserTool.ReadTilProcedureHeadEnd(
   ParseAttr: TParseProcHeadAttributes;
-  var HasForwardModifier: boolean): boolean;
+  var HasForwardModifier, IsExternal: boolean): boolean;
 { parse parameter list, result type, of object, method specifiers
 
  examples:
@@ -1946,6 +1946,7 @@ begin
   //'Method=',IsMethod,', Function=',IsFunction,', Type=',IsType);
   Result:=true;
   HasForwardModifier:=false;
+  IsExternal:=false;
 
   if CurPos.Flag=cafRoundBracketOpen then begin
     Attr:=[];
@@ -2063,6 +2064,7 @@ begin
         ReadConstant(true,false,[]);
     end else if UpAtomIs('EXTERNAL') or UpAtomIs('WEAKEXTERNAL') or UpAtomIs('PUBLIC') then begin
       HasForwardModifier:=UpAtomIs('EXTERNAL') or UpAtomIs('WEAKEXTERNAL');
+      IsExternal:=HasForwardModifier;
       ReadNextAtom;
       if CurPos.Flag<>cafSemicolon then begin
         if not UpAtomIs('NAME') then
@@ -3028,7 +3030,7 @@ function TPascalParserTool.KeyWordFuncProc: boolean;
 // class function/procedure
 // generic function/procedure
 var
-  HasForwardModifier, IsClassProc: boolean;
+  HasForwardModifier, IsClassProc, IsExternal: boolean;
   ProcNode: TCodeTreeNode;
   ParseAttr: TParseProcHeadAttributes;
   StartPos: Integer;
@@ -3085,9 +3087,11 @@ begin
   end;
   // read rest of procedure head
   HasForwardModifier:=false;
-  ReadTilProcedureHeadEnd(ParseAttr,HasForwardModifier);
+  ReadTilProcedureHeadEnd(ParseAttr,HasForwardModifier,IsExternal);
   if HasForwardModifier then
     ProcNode.SubDesc:=ctnsForwardDeclaration;
+  if IsExternal then
+    ProcNode.SubDesc:= ProcNode.SubDesc or ctnsIsExternal;
   // close head
   CurNode.EndPos:=CurPos.EndPos;
   EndChildNode;
@@ -4279,10 +4283,20 @@ procedure TPascalParserTool.ReadVariableType;
     procedure c;
     var d:e;
       f:g=h;
+
+    interface/implementation
+
+    var a1: procedure(b:btype; c: ctype) absolute d;
+        a2: function(b:btype; c: ctype): integer absolute d;
+        a3: procedure absolute d;
+        a4: function: integer absolute d;
+
+
 }
 var
   ParentNode: TCodeTreeNode;
   HasSemicolon: Boolean;
+  TypeStart: integer;
 
   function CanExternal: Boolean; inline;
   begin
@@ -4302,6 +4316,8 @@ var
 
 begin
   ReadNextAtom;
+  // type
+  TypeStart:=CurPos.StartPos;
   // C-style bitfield (composablerecords): `name: N` where N is an integer
   // literal in a record body means `name: <default-type> bitsize N`. consume
   // the literal without building a type subtree - the compiler enforces that
@@ -4313,7 +4329,6 @@ begin
                               + AllClassSections) then
     ReadNextAtom
   else
-    // type
     ParseType(CurPos.StartPos);
 
   // optional `count IDENT` clause for flexible array members:
@@ -4365,15 +4380,38 @@ begin
     ReadHintModifiers(false);
 
   if (ParentNode.Desc=ctnVarSection) then begin
-    // optional: initial value
-    if CurPos.Flag=cafEqual then
-      if ParentNode.Parent.Desc in AllCodeSections+[ctnProcedure] then begin
-        ReadConstExpr; // read constant
-        // optional: hint modifier (fpc allows both places: var w:word platform = 1 platform;)
-        if CurPos.Flag=cafWord then
-          ReadHintModifiers(false);
+    // optional: absolute after proc type
+    if CompareSrcIdentifiers(TypeStart,PChar('procedure')) and
+    ((CurPos.Flag=cafRoundBracketClose) or (CurPos.StartPos=TypeStart)) then begin
+      ReadNextAtom; // skip ")" or parameterless "procedure"
+      if UpAtomIs('ABSOLUTE') then begin
+        if ParentNode.Parent.Desc in AllCodeSections+[ctnProcedure] then begin
+          ReadNextAtom;
+          ReadConstant(true,false,[]);
+        end;
       end;
+    end else
+    if CompareSrcIdentifiers(TypeStart,PChar('function')) then begin
+      if CurPos.Flag=cafWord then begin
+        ReadNextAtom; // skip result type
+        if UpAtomIs('ABSOLUTE') then begin
+          if ParentNode.Parent.Desc in AllCodeSections+[ctnProcedure] then begin
+            ReadNextAtom;
+            ReadConstant(true,false,[]);
+          end;
+        end;
+      end;
+    end;
   end;
+
+  // optional: initial value
+  if CurPos.Flag=cafEqual then
+    if ParentNode.Parent.Desc in AllCodeSections+[ctnProcedure] then begin
+      ReadConstExpr; // read constant
+      // optional: hint modifier (fpc allows both places: var w:word platform = 1 platform;)
+      if CurPos.Flag=cafWord then
+        ReadHintModifiers(false);
+    end;
 
   HasSemicolon:=false;
   if CurPos.Flag=cafSemicolon then begin

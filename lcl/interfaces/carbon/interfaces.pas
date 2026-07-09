@@ -19,9 +19,6 @@ unit Interfaces;
  
 {$mode objfpc}{$H+} 
 
-{$IFNDEF CARBON}
-{$ERROR wrong interfaces source}
-{$ENDIF}
 {$IFNDEF cpu32}
 {$ERROR only 32 bit cpu is supported}
 {$ENDIF}

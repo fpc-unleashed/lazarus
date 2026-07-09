@@ -415,6 +415,22 @@ type
     podwNotWritable
     );
 
+  TPkgCompiledStatsKind = (
+    pcskDefault,
+      { No CompilerVersion.
+        CompilerFilename and params are relative to package directory, except
+        when using the fallback directory. }
+    pcskMakefile,
+      { MakefileVersion>0. Using macros.
+        No CompilerVersion.
+        No file dates. }
+    pcskRelease
+      { CompilerVersion is stored.
+        CompilerFilename has no folder and is ignored.
+        CompilerFileDate is stored, but ignored. }
+    );
+  TPkgCompiledStatsKinds = set of TPkgCompiledStatsKind;
+
   { TPkgLastCompileStats }
 
   TPkgLastCompileStats = class
@@ -422,12 +438,13 @@ type
     StateFileLoaded: boolean;
     StateFileName: string; // the .compiled file
     StateFileDate: int64;
+    Kind: TPkgCompiledStatsKind;
     CompilerFilename: string; // path to used compiler
-    CompilerFileDate: int64;
+    CompilerFileDate: int64;  // only for Kind=pcskDefault
+    CompilerVersion: string; // only for Kind=pcskRelease
     Params: TStrings;        // compiler parameters
     Complete: boolean;     // compilation was successful
     MainPPUExists: boolean; // main ppu file was there after compile
-    ViaMakefile: boolean;  // compiled via make
     DirectoryWritable: TPkgOutputDirWritable;
     LazarusVersion: string;
     constructor Create;

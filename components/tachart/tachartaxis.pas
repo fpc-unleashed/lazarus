@@ -132,6 +132,7 @@ type
     FZPosition: TChartDistance;
 
     function GetDrawer: IChartDrawer;
+    function GetIndexOfFirstOrLastVisibleMark(NeedFirst: Boolean): Integer;
     function GetMarks: TChartAxisMarks; inline;
     function GetRealTitle: String;
     function GetValue(AIndex: Integer): TChartValueText; inline;
@@ -813,28 +814,44 @@ begin
   Result := Result + FormatIfNotEmpty(' (%s)', Title.Caption);
 end;
 
-function TChartAxis.GetIndexOfFirstVisibleMark: Integer;
+function TChartAxis.GetIndexOfFirstOrLastVisibleMark(NeedFirst: Boolean): Integer;
 var
-  coord: Integer;
+  Transf: TChartAxisTransformations;
+
+  function IsVisible(AMarkValue: Double): Boolean;
+  var
+    coord: Integer;
+  begin
+    coord := FHelper.GraphToImage(Transf.AxisToGraph(AMarkValue));
+    Result := FHelper.IsInClipRange(coord);
+  end;
+
 begin
-  for Result := 0 to High(FMarkValues) do begin
-    coord := FHelper.GraphToImage(FMarkValues[Result].FValue);
-    if FHelper.IsInClipRange(coord) then
-      exit;
+  if Length(FMarkValues) > 0 then
+  begin
+    Transf := GetTransform;
+    if (FMarkValues[0].FValue > FMarkValues[High(FMarkValues)].FValue) xor NeedFirst then
+      for Result := 0 to High(FMarkValues) do
+      begin
+        if (Length(FMarkValues[Result].FPolygon) > 0) and IsVisible(FMarkValues[Result].FValue) then
+          exit;
+      end
+    else
+      for Result := High(FMarkValues) downto 0 do
+        if (Length(FMarkValues[Result].FPolygon) > 0) and IsVisible(FMarkValues[Result].FValue) then
+          exit;
   end;
   Result := -1;
 end;
 
-function TChartAxis.GetIndexOfLastVisibleMark: Integer;
-var
-  coord: Integer;
+function TChartAxis.GetIndexOfFirstVisibleMark: Integer;
 begin
-  for Result := High(FMarkValues) downto 0 do begin
-    coord := FHelper.GraphToImage(FMarkValues[Result].FValue);
-    if FHelper.IsInClipRange(coord) then
-      exit;
-  end;
-  Result := -1;
+  Result := GetIndexOfFirstOrLastVisibleMark(true);
+end;
+
+function TChartAxis.GetIndexOfLastVisibleMark: Integer;
+begin
+  Result := GetIndexOfFirstOrLastVisibleMark(false);
 end;
 
 function TChartAxis.GetMarkIndexAt(APoint: TPoint): Integer;

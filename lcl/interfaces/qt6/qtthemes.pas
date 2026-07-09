@@ -142,6 +142,7 @@ var
   W: WideString;
   ABgColor: TQColor;
   Alpha: Word;
+  optHover: QStyleOptionH;
 
   procedure DrawSplitterInternal;
   var
@@ -568,6 +569,16 @@ begin
         end;
         qdvStandardPixmap:
         begin
+          if (Details.Element = teWindow) and
+            (StyleState and (QStyleState_MouseOver or QStyleState_Sunken) <> 0) then
+          begin
+            optHover := QStyleOption_create(Ord(QStyleOptionVersion), Ord(QStyleOptionSO_Default));
+            QStyleOption_setState(optHover, StyleState or QStyleState_AutoRaise);
+            QStyleOption_setRect(optHover, @ARect);
+            QStyle_drawPrimitive(Style, QStylePE_PanelButtonTool, optHover, Context.Widget,
+              Context.Parent);
+            QStyleOption_Destroy(optHover);
+          end;
           AIcon := QIcon_create();
           if Element.StandardPixmap = QStyleSP_TitleBarCloseButton then
           begin
@@ -1022,6 +1033,21 @@ begin
           Result.cx := MulDiv(Result.cx, PPI, ScreenInfo.PixelsPerInchX);
       end else
         Result := inherited;
+    teWindow:
+      if Details.Part in [WP_CLOSEBUTTON, WP_SMALLCLOSEBUTTON, WP_MDICLOSEBUTTON,
+        WP_MINBUTTON, WP_MDIMINBUTTON, WP_MAXBUTTON,
+        WP_RESTOREBUTTON, WP_MDIRESTOREBUTTON,
+        WP_HELPBUTTON, WP_MDIHELPBUTTON,
+        WP_SYSBUTTON, WP_MDISYSBUTTON] then
+      begin
+        Result.cx := QStyle_pixelMetric(Style, QStylePM_SmallIconSize, nil, nil);
+        Result.cy := Result.cx;
+        if (Result.cx>0) then
+          Result.cx := MulDiv(Result.cx, PPI, ScreenInfo.PixelsPerInchX);
+        if (Result.cy>0) then
+          Result.cy := MulDiv(Result.cy, PPI, ScreenInfo.PixelsPerInchY);
+      end else
+        Result := inherited;
     else
       Result := inherited;
   end;
@@ -1212,7 +1238,7 @@ begin
               {$IFDEF DARWIN}
               Result.Features := QStyleOptionToolButtonHasMenu;
               {$ELSE}
-              Result.Features := QStyleOptionToolButtonMenuButtonPopup;
+              Result.Features := QStyleOptionToolButtonHasMenu or QStyleOptionToolButtonMenuButtonPopup;
               {$ENDIF}
             end;
           TP_SEPARATOR,
@@ -1274,17 +1300,30 @@ begin
             Result.StandardPixmap := QStyleSP_TitleBarCloseButton;
             exit;
           end;
+          WP_MINBUTTON, WP_MDIMINBUTTON:
+          begin
+            Result.DrawVariant := qdvStandardPixmap;
+            Result.StandardPixmap := QStyleSP_TitleBarMinButton;
+            exit;
+          end;
+          WP_MAXBUTTON:
+          begin
+            Result.DrawVariant := qdvStandardPixmap;
+            Result.StandardPixmap := QStyleSP_TitleBarMaxButton;
+            exit;
+          end;
+          WP_RESTOREBUTTON, WP_MDIRESTOREBUTTON:
+          begin
+            Result.DrawVariant := qdvStandardPixmap;
+            Result.StandardPixmap := QStyleSP_TitleBarNormalButton;
+            exit;
+          end;
           WP_SMALLCAPTION: Result.SubControls := QStyleSC_TitleBarLabel;
           WP_SYSBUTTON: Result.SubControls := QStyleSC_TitleBarSysMenu;
-          WP_MINBUTTON: Result.SubControls := QStyleSC_TitleBarMinButton;
-          WP_MAXBUTTON: Result.SubControls := QStyleSC_TitleBarMaxButton;
           WP_CLOSEBUTTON: Result.SubControls := QStyleSC_TitleBarCloseButton;
-          WP_RESTOREBUTTON: Result.SubControls := QStyleSC_TitleBarNormalButton;
           WP_HELPBUTTON: Result.SubControls := QStyleSC_TitleBarContextHelpButton;
           WP_MDIHELPBUTTON: Result.SubControls := QStyleSC_TitleBarContextHelpButton;
-          WP_MDIMINBUTTON: Result.SubControls := QStyleSC_MdiMinButton;
           WP_MDICLOSEBUTTON: Result.SubControls := QStyleSC_MdiCloseButton;
-          WP_MDIRESTOREBUTTON: Result.SubControls := QStyleSC_MdiNormalButton;
         else
           Result.SubControls := QStyleSC_None;
         end;

@@ -36,7 +36,10 @@ type
     procedure Init;
   end;
 
-  TNonSrcIDEHighlighter = class(TLazEditCustomHighlighter); // Hold colors, not related to SourceEditor
+  { TNonSrcIDEHighlighter }
+
+  TNonSrcIDEHighlighter = class(TLazEditEmptyHighlighter)
+  end; // Hold colors, not related to SourceEditor
 
   { TIdeSyntaxHighlighterList }
 

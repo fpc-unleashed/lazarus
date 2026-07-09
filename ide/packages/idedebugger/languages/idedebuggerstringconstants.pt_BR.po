@@ -139,6 +139,38 @@ msgstr ""
 msgid "Please choose the formatter to add."
 msgstr ""
 
+#: idedebuggerstringconstants.dbgvaluedisabled
+#, fuzzy
+msgctxt "idedebuggerstringconstants.dbgvaluedisabled"
+msgid "Disabled"
+msgstr "Desativado"
+
+#: idedebuggerstringconstants.dbgvalueerror
+#, object-pascal-format
+msgid "Error: %s"
+msgstr ""
+
+#: idedebuggerstringconstants.dbgvalueevaluating
+msgctxt "idedebuggerstringconstants.dbgvalueevaluating"
+msgid "Evaluating"
+msgstr ""
+
+#: idedebuggerstringconstants.dbgvalueinvalid
+msgid "Invalid"
+msgstr ""
+
+#: idedebuggerstringconstants.dbgvaluenotevaluated
+msgid "Not evaluated"
+msgstr ""
+
+#: idedebuggerstringconstants.dbgvalueunavailable
+msgid "Unavailable"
+msgstr ""
+
+#: idedebuggerstringconstants.dbgwatchcolorautoopenconsolewindowlinu
+msgid "Auto open console Window (Linux):"
+msgstr ""
+
 #: idedebuggerstringconstants.dbgwatchcolordisabled
 #, fuzzy
 msgctxt "idedebuggerstringconstants.dbgwatchcolordisabled"
@@ -156,11 +188,29 @@ msgid "Error"
 msgstr "Erro"
 
 #: idedebuggerstringconstants.dbgwatchcolorevaluating
+msgctxt "idedebuggerstringconstants.dbgwatchcolorevaluating"
 msgid "Evaluating"
+msgstr ""
+
+#: idedebuggerstringconstants.dbgwatchcolornever
+msgctxt "idedebuggerstringconstants.dbgwatchcolornever"
+msgid "Never"
+msgstr ""
+
+#: idedebuggerstringconstants.dbgwatchcoloronoutputalways
+msgid "On output (always)"
+msgstr ""
+
+#: idedebuggerstringconstants.dbgwatchcoloronoutputonceperdebugsessi
+msgid "On output (once per debug session)"
 msgstr ""
 
 #: idedebuggerstringconstants.dbgwatchcolors
 msgid "Watches/Locals"
+msgstr ""
+
+#: idedebuggerstringconstants.dbgwatchcolorshadowlast
+msgid "From previous pause"
 msgstr ""
 
 #: idedebuggerstringconstants.dbgwatchcolorunknown
@@ -287,6 +337,7 @@ msgid "Dynamic"
 msgstr ""
 
 #: idedebuggerstringconstants.dispformatdlgarraycombinenone
+msgctxt "idedebuggerstringconstants.dispformatdlgarraycombinenone"
 msgid "Never"
 msgstr ""
 
@@ -1188,6 +1239,18 @@ msgctxt "idedebuggerstringconstants.lisbrkpointstate"
 msgid "State"
 msgstr "Estado"
 
+#: idedebuggerstringconstants.lisc0ascontrolpictures
+msgid "C0 as Control Pictures"
+msgstr ""
+
+#: idedebuggerstringconstants.lisc0asiso2047
+msgid "C0 as ISO 2047"
+msgstr ""
+
+#: idedebuggerstringconstants.lisc1asc0underbar
+msgid "C1 as C0 + Underbar"
+msgstr ""
+
 #: idedebuggerstringconstants.liscallstacknotevaluated
 msgid "Stack not evaluated"
 msgstr "Pilha não avaliada"
@@ -1390,6 +1453,10 @@ msgstr "Retomar Manipulados"
 msgid "Resume Unhandled"
 msgstr "Retomar não Manipulados"
 
+#: idedebuggerstringconstants.lisdecorations
+msgid "Decorations"
+msgstr ""
+
 #: idedebuggerstringconstants.lisdeleteall
 msgid "&Delete All"
 msgstr "&Excluir Tudo"
@@ -1429,6 +1496,11 @@ msgstr "Excluir ponto de parada para o endereço %s?"
 #, object-pascal-format
 msgid "Delete watchpoint for \"%s\"?"
 msgstr "Excluir ponto de observação para \"%s\"?"
+
+#: idedebuggerstringconstants.lisdeletetracepointforexception
+#, object-pascal-format
+msgid "Delete exception filter for \"%s\"?"
+msgstr ""
 
 #: idedebuggerstringconstants.lisdigits
 msgid "Digits:"
@@ -1525,9 +1597,17 @@ msgstr "Adicionar Comentário ..."
 msgid "Add Comment"
 msgstr "Adicionar Comentário"
 
+#: idedebuggerstringconstants.lisexceptionclass
+msgid "Class:"
+msgstr ""
+
 #: idedebuggerstringconstants.lisexceptiondialog
 msgid "Debugger Exception Notification"
 msgstr "Notificação Exceções Depurador"
+
+#: idedebuggerstringconstants.lisexceptionfilter
+msgid "&Exception filter ..."
+msgstr ""
 
 #: idedebuggerstringconstants.lisexport
 msgctxt "lazarusidestrconsts.lisexport"
@@ -1590,6 +1670,10 @@ msgstr "Definir novo grupo ..."
 #: idedebuggerstringconstants.lisgroupsetnone
 msgid "Clear group(s)"
 msgstr "Limpar grupo(s)"
+
+#: idedebuggerstringconstants.lishexascii
+msgid "Hex + ASCII"
+msgstr ""
 
 #: idedebuggerstringconstants.lishitcount
 msgid "Hitcount"
@@ -1699,6 +1783,14 @@ msgstr "Linha:"
 #: idedebuggerstringconstants.lislinelength
 msgid "Line/Length"
 msgstr "Linha/Comprimento"
+
+#: idedebuggerstringconstants.lislinelimit
+msgid "Line limit"
+msgstr ""
+
+#: idedebuggerstringconstants.lislinenumbers
+msgid "Line numbers"
+msgstr ""
 
 #: idedebuggerstringconstants.lislocals
 msgctxt "lazarusidestrconsts.lislocals"
@@ -1824,9 +1916,9 @@ msgctxt "idedebuggerstringconstants.lismenuviewassembler"
 msgid "Assembler"
 msgstr "Assembler"
 
-#: idedebuggerstringconstants.lismenuviewbreakpoints
-msgid "BreakPoints"
-msgstr "Pontos de parada"
+#: idedebuggerstringconstants.lismenuviewbreakpointsandexceptions
+msgid "BreakPoints/Exceptions"
+msgstr ""
 
 #: idedebuggerstringconstants.lismenuviewcallstack
 msgid "Call Stack"
@@ -1871,6 +1963,10 @@ msgstr "? (Desligado)"
 msgid "? (On)"
 msgstr "? (Ligado)"
 
+#: idedebuggerstringconstants.lisoutputstyle
+msgid "Output Style"
+msgstr ""
+
 #: idedebuggerstringconstants.lispasscount
 msgid "Pass Count"
 msgstr "Núm. Passos"
@@ -1882,6 +1978,10 @@ msgstr "Arquivo:"
 #: idedebuggerstringconstants.lispendingon
 msgid "Pending (On)"
 msgstr "Pendente (Ligado)"
+
+#: idedebuggerstringconstants.lisrawoutput
+msgid "Raw Output"
+msgstr ""
 
 #: idedebuggerstringconstants.lisregisters
 msgctxt "lazarusidestrconsts.lisregisters"
@@ -1902,6 +2002,10 @@ msgstr ""
 
 #: idedebuggerstringconstants.lissearchparenthint
 msgid "MaxCount:NamePattern"
+msgstr ""
+
+#: idedebuggerstringconstants.lisskipexception
+msgid "Continue"
 msgstr ""
 
 #: idedebuggerstringconstants.lissourcebreakpoint
@@ -1969,6 +2073,10 @@ msgstr "Fonte"
 msgctxt "lazarusidestrconsts.listhreadsstate"
 msgid "State"
 msgstr "Estado"
+
+#: idedebuggerstringconstants.lisunformatted
+msgid "Unformatted"
+msgstr ""
 
 #: idedebuggerstringconstants.lisvalue
 #, fuzzy

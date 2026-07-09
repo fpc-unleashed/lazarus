@@ -227,6 +227,8 @@ type
     class function  GetPosition(const ATrackBar: TCustomTrackBar): integer; override;
     class procedure SetPosition(const ATrackBar: TCustomTrackBar; const NewPosition: integer); override;
     class procedure SetOrientation(const ATrackBar: TCustomTrackBar; const {%H-}AOrientation: TTrackBarOrientation); override;
+    class procedure GetPreferredSize(const AWinControl: TWinControl;
+      var PreferredWidth, PreferredHeight: integer; {%H-}WithThemeSpace: Boolean); override;
   end;
 
   { TGtk3WSCustomTreeView }
@@ -307,6 +309,46 @@ begin
     RecreateWnd(ATrackBar);
 end;
 
+class procedure TGtk3WSTrackBar.GetPreferredSize(const AWinControl: TWinControl;
+  var PreferredWidth, PreferredHeight: integer; WithThemeSpace: Boolean);
+const
+  TrackBarTickLen = 6;
+  TrackBarBorder  = 1;
+  TrackBarLongDef = 100;
+var
+  KnobSize, TickAreas: Integer;
+  ATrack: TCustomTrackBar;
+begin
+  if not WSCheckHandleAllocated(AWinControl, 'GetPreferredSize') then
+    exit;
+
+  ATrack := TCustomTrackBar(AWinControl);
+
+  KnobSize := PtrInt(g_object_get_data(
+    PGObject(TGtk3TrackBar(ATrack.Handle).Widget), 'lcl-scale-knob-size'));
+
+  if KnobSize < GTKMINIMUMSIZE + 2 then
+    KnobSize := GTKMINIMUMSIZE + 2;
+
+  TickAreas := 0;
+  if ATrack.TickStyle <> tsNone then
+  begin
+    if ATrack.TickMarks in [tmTopLeft, tmBoth] then
+      Inc(TickAreas, TrackBarTickLen + 2);
+    if ATrack.TickMarks in [tmBottomRight, tmBoth] then
+      Inc(TickAreas, TrackBarTickLen + 2);
+  end;
+  if ATrack.Orientation = trHorizontal then
+  begin
+    PreferredWidth := TrackBarLongDef;
+    PreferredHeight := KnobSize + TickAreas + 2 * TrackBarBorder;
+  end else
+  begin
+    PreferredWidth := KnobSize + TickAreas + 2 * TrackBarBorder;
+    PreferredHeight := TrackBarLongDef;
+  end;
+end;
+
 { TGtk3WSToolBar }
 
 class function TGtk3WSToolBar.CreateHandle(const AWinControl: TWinControl;
@@ -383,17 +425,11 @@ begin
   AListView := TGtk3ListView.Create(AWinControl, AParams);
   if TLVHack(AWinControl).ViewStyle = vsSmallIcon then
   begin
-    if Assigned(TLVHack(AWinControl).SmallImages) then
-      AListView.setItemWidth(TLVHack(AWinControl).SmallImages.Width)
-    else
-      AListView.setItemWidth(0);
+    AListView.setItemWidth(TLVHack(AWinControl).SmallImagesWidth);
   end else
   if TLVHack(AWinControl).ViewStyle = vsIcon then
   begin
-    if Assigned(TLVHack(AWinControl).LargeImages) then
-      AListView.setItemWidth(TLVHack(AWinControl).LargeImages.Width)
-    else
-      AListView.setItemWidth(0);
+    AListView.setItemWidth(TLVHack(AWinControl).LargeImagesWidth);
   end else
   if TLVHack(AWinControl).ViewStyle = vsList then
   begin
@@ -603,6 +639,9 @@ const
     GTK_SELECTION_SINGLE {1} ,
     GTK_SELECTION_MULTIPLE {3}
   );
+var
+  AW: PGtkWidget;
+  AAlloc: TGtkAllocation;
 begin
   case AProp of
     lvpAutoArrange:
@@ -678,8 +717,17 @@ begin
       if TGtk3ListView(ALV.Handle).IsTreeView then
       begin
         //Delphi docs: To use columns in a list view, the ViewStyle property must be set to vsReport.
-        PGtkTreeView(TGtk3ListView(ALV.Handle).GetContainerWidget)^.set_headers_visible(AIsSet and (TLVHack(ALV).ViewStyle = vsReport));
-        PGtkTreeView(TGtk3ListView(ALV.Handle).GetContainerWidget)^.resize_children;
+        AW := PGtkWidget(TGtk3ListView(ALV.Handle).GetContainerWidget);
+        PGtkTreeView(AW)^.set_headers_visible(AIsSet and (TLVHack(ALV).ViewStyle = vsReport));
+        if (gtk_widget_get_allocated_height(AW) <= 1) and (ALV.Height > 1) then
+        begin
+          AAlloc.x := 0;
+          AAlloc.y := 0;
+          AAlloc.width := ALV.Width;
+          AAlloc.height := ALV.Height;
+          gtk_widget_size_allocate(AW, @AAlloc);
+        end;
+        PGtkTreeView(AW)^.resize_children;
       end;
     end;
     lvpShowWorkAreas:
@@ -1032,6 +1080,7 @@ begin
    so it won't trigger selection changes etc.}
   g_object_set_data(PGObject(TGtk3Widget(ALV.Handle).Widget), 'lcl_gtkwidget_in_update', ALV);
   g_object_freeze_notify(TGtk3Widget(ALV.Handle).Widget);
+  g_object_set_data(PGObject(TGtk3Widget(ALV.Handle).Widget), 'lcl_lv_notify_frozen', ALV);
 end;
 
 class procedure TGtk3WSCustomListView.EndUpdate(const ALV: TCustomListView);
@@ -1039,7 +1088,11 @@ begin
   if not WSCheckHandleAllocated(ALV, 'EndUpdate') then
     Exit;
   g_object_set_data(PGObject(TGtk3Widget(ALV.Handle).Widget), 'lcl_gtkwidget_in_update', nil);
-  g_object_thaw_notify(TGtk3Widget(ALV.Handle).Widget);
+  if g_object_get_data(PGObject(TGtk3Widget(ALV.Handle).Widget), 'lcl_lv_notify_frozen') <> nil then
+  begin
+    g_object_thaw_notify(TGtk3Widget(ALV.Handle).Widget);
+    g_object_set_data(PGObject(TGtk3Widget(ALV.Handle).Widget), 'lcl_lv_notify_frozen', nil);
+  end;
   gtk_widget_queue_draw(TGtk3ListView(ALV.Handle).GetContainerWidget);
 end;
 
@@ -1666,7 +1719,10 @@ begin
 
   ANoteBook^.show_all;
   ANoteBook^.set_allocation(@Alloc);
-  ANoteBook^.set_show_tabs(True);
+  if (AWinControl is TCustomTabControl) and not TCustomTabControl(AWinControl).ShowTabs then
+    ANoteBook^.set_show_tabs(False)
+  else
+    ANoteBook^.set_show_tabs(True);
   AWindow^.realize;
   AWindow^.show_all;
   APage^.get_allocation(@Alloc);

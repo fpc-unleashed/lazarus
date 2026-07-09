@@ -30,7 +30,7 @@ if LCLWidgetType+&apos;&apos;=&apos;&apos; then begin
     else if (TargetOS=&apos;amiga&apos;) or (TargetOS=&apos;aros&apos;) or (TargetOS=&apos;morphos&apos;) then
       LCLWidgetType := &apos;mui&apos;
     else
-      LCLWidgetType:=&apos;gtk2&apos;;
+      LCLWidgetType:=&apos;gtk3&apos;;
   end;
 end;
 
@@ -38,21 +38,15 @@ end;
 base := LCLWidgetType+&apos;/&apos;;
 if LCLWidgetType=&apos;gtk3&apos; then
 begin
-  CustomOptions := &apos;-dgtk3&apos;;
   UnitPath := base + &apos;gtk3bindings&apos;;
 end else
 if LCLWidgetType=&apos;gtk&apos; then
   CustomOptions := &apos;-dgtk1&apos;
 else if LCLWidgetType=&apos;carbon&apos; then begin
-  CustomOptions := &apos;-dcarbon&apos;;
   UnitPath := base+&apos;objc;&apos;
              +base+&apos;pascocoa/appkit;&apos;
              +base+&apos;pascocoa/foundation&apos;;
   IncPath := UnitPath;
-end else if LCLWidgetType=&apos;cocoa&apos; then begin
-  CustomOptions := &apos;-dcocoa&apos;;
-  if TargetCPU&lt;>&apos;i386&apos; then
-    CustomOptions += &apos; -dNoCarbon&apos;;
 end else if LCLWidgetType=&apos;wince&apos; then begin
   CustomOptions := &apos;-dDisableChecks&apos;;
 end else if LCLWidgetType=&apos;fpgui&apos; then begin
@@ -1838,6 +1832,11 @@ end;"/>
         <UnitName Value="gtk3widgets"/>
       </Item>
       <Item>
+        <Filename Value="gtk3/gtk3mdiemulator.pas"/>
+        <AddToUsesPkgSection Value="False"/>
+        <UnitName Value="gtk3mdiemulator"/>
+      </Item>
+      <Item>
         <Filename Value="gtk3/gtk3winapi.inc"/>
         <Type Value="Include"/>
       </Item>
@@ -2906,6 +2905,11 @@ end;"/>
         <Filename Value="wince/winext.pas"/>
         <AddToUsesPkgSection Value="False"/>
         <UnitName Value="WinExt"/>
+      </Item>
+      <Item>
+        <Filename Value="cocoa/cocoawsgrids.pas"/>
+        <AddToUsesPkgSection Value="False"/>
+        <UnitName Value="CocoaWSGrids"/>
       </Item>
     </Files>
     <LazDoc Paths="../../docs/xml/lcl"/>

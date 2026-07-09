@@ -50,10 +50,10 @@ uses
   Laz2_XMLCfg, Laz2_XMLRead, LazStringUtils, LazTracer, AvgLvlTree, FPCAdds, UTF8Process,
   Masks,
   // codetools
-  FileProcs, DefineTemplates, CodeToolManager, CodeCache, DirectoryCacher,
+  FileProcs, DefineTemplates, CodeToolManager, CodeCache, DirectoryCacher, CTFileChksums,
   BasicCodeTools, NonPascalCodeTools, SourceChanger,
   // BuildIntf
-  IDEExternToolIntf, MacroDefIntf, ProjectIntf, CompOptsIntf, LazMsgWorker,
+  IDEExternToolIntf, MacroDefIntf, MacroIntf, ProjectIntf, CompOptsIntf, LazMsgWorker,
   FppkgIntf, PackageDependencyIntf, PackageLinkIntf, PackageIntf, ComponentReg,
   // Package registration
   LazarusPackageIntf,
@@ -188,6 +188,7 @@ type
   TLazPackageGraph = class(TPackageGraphInterface)
   private
     FAbortRegistration: boolean;
+    FBuildRelease: boolean;
     fChanged: boolean;
     FErrorMsg: string;
     FItems: TFPList;   // unsorted list of TLazPackage
@@ -239,6 +240,7 @@ type
     FVerbosity: TPkgVerbosityFlags;
     FFindFileCache: TLazPackageGraphFileCache;
     FNewPackageClass: TLazPackageClass;
+    FFileChecksums: TFileChecksums;
     function CreateDefaultPackage: TLazPackage;
     function GetCount: Integer;
     function GetPackages(Index: integer): TLazPackage;
@@ -295,6 +297,8 @@ type
     function GetPackageFromMacroParameter(const TheID: string; out
       APackage: TLazPackage): boolean;
     function SrcEditFileIsModified(const SrcFilename: string): boolean;
+    function GetCompilerChecksum(const aCompilerFilename: string; out Checksum: string): TFileChecksums.TState;
+    function GetCompilerVersion(out aVersion: string): boolean;
   public
     // searching
     function CheckIfPackageCanBeClosed(APackage: TLazPackage): boolean;
@@ -457,6 +461,7 @@ type
     function SrcBasePackagesNeedLazbuild: string; // check if compiled-in and source base pkg list differ that a built using make is needed
     procedure LoadStaticBasePackages;
     procedure LoadAutoInstallPackages(PkgList: TStringList);
+    procedure LoadReleasePackages;
     procedure SortAutoInstallDependencies;
     function GetIDEInstallPackageOptions(
                  var InheritedOptionStrings: TInheritedCompOptsStrings): string;
@@ -499,6 +504,7 @@ type
     property UpdateLock: integer read FUpdateLock;
     property Verbosity: TPkgVerbosityFlags read FVerbosity write FVerbosity;
     property NewPackageClass: TLazPackageClass read FNewPackageClass write FNewPackageClass;
+    property BuildRelease: boolean read FBuildRelease write FBuildRelease; // store compiler checksum instead of date
 
     // base packages
     property SrcBasePackages: TStringListUTF8Fast read FSrcBasePackages;
@@ -563,8 +569,7 @@ function FPCParamNeedsBuildAll(const Param: String): boolean;
 function FPCParamForBuildAllHasChanged(OldParams, NewParams: TStrings): boolean;
 function RemoveFPCVerbosityParams(CompParams: TStrings): TStrings;
 function WriteCompilerCfgFile(CfgFilename: string; CompilerParams: TStrings;
-                              out CmdLineParams: TStrings): TCodeBuffer;
-
+                              out CmdLineParams: TStrings): TCodeBuffer; // Result=nil means read error, caller must call Result.Save
 
 implementation
 
@@ -1252,6 +1257,7 @@ begin
   FreeAndNil(FItems);
   FreeAndNil(FTree);
   FreeAndNil(FFindFileCache);
+  FreeAndNil(FFileChecksums);
   inherited Destroy;
 end;
 
@@ -1509,6 +1515,24 @@ begin
   if Assigned(OnSrcEditFileIsModified) then
     Result:=OnSrcEditFileIsModified(SrcFilename)
   else
+    Result:=false;
+end;
+
+function TLazPackageGraph.GetCompilerChecksum(const aCompilerFilename: string; out Checksum: string
+  ): TFileChecksums.TState;
+begin
+  if FFileCheckSums=nil then
+    FFileChecksums:=TFileChecksums.Create;
+  Result:=FFileChecksums.GetChecksum(aCompilerFilename,Checksum);
+end;
+
+function TLazPackageGraph.GetCompilerVersion(out aVersion: string): boolean;
+begin
+  aVersion:='$(FPCVer)';
+  Result:=IDEMacros.SubstituteMacros(aVersion);
+  if not Result then
+    aVersion:=''
+  else if aVersion='' then
     Result:=false;
 end;
 
@@ -2486,7 +2510,10 @@ var
 begin
   for i:=0 to PkgList.Count-1 do begin
     PackageName:=PkgList[i];
-    if not IsValidPkgName(PackageName) then continue;
+    if not IsValidPkgName(PackageName) then begin
+      debugln(['Error: (lazarus) TLazPackageGraph.LoadAutoInstallPackages invalid name "',PackageName,'"']);
+      continue;
+    end;
     Dependency:=FindDependencyByNameInList(FirstInstallDependency,
                                            pddRequires,PackageName);
     //DebugLn('TLazPackageGraph.LoadAutoInstallPackages ',dbgs(Dependency),' ',PackageName);
@@ -2506,6 +2533,21 @@ begin
       Dependency.RequiredPackage.AutoInstall:=pitStatic;
   end;
   SortAutoInstallDependencies;
+end;
+
+procedure TLazPackageGraph.LoadReleasePackages;
+var
+  sl: TStringList;
+  i: Integer;
+begin
+  sl:=TStringList.Create;
+  try
+    for i:=0 to High(LazarusIDEReleasePkgNames) do
+      sl.Add(LazarusIDEReleasePkgNames[i]);
+    LoadAutoInstallPackages(sl);
+  finally
+    sl.Free;
+  end;
 end;
 
 procedure TLazPackageGraph.SortAutoInstallDependencies;
@@ -3432,7 +3474,7 @@ function TLazPackageGraph.SavePackageCompiledState(APackage: TLazPackage;
   MainPPUExists, ShowAbort: boolean): TModalResult;
 var
   XMLConfig: TXMLConfig;
-  StateFile: String;
+  StateFile, StoredCompilerFilename: String;
   CompilerFileDate: Integer;
   o: TPkgOutputDir;
   Stats: TPkgLastCompileStats;
@@ -3446,19 +3488,44 @@ begin
     Stats:=APackage.LastCompile[o];
     Stats.LazarusVersion:=LazarusVersionStr;
     Stats.CompilerFilename:=CompilerFilename;
+    StoredCompilerFilename:=CompilerFilename;
     Stats.CompilerFileDate:=CompilerFileDate;
+    Stats.CompilerVersion:='';
     Stats.Params.Assign(CompilerParams);
     Stats.Complete:=Complete;
-    Stats.ViaMakefile:=false;
+    Stats.MainPPUExists:=MainPPUExists;
+    Stats.Kind:=pcskDefault;
+
+    if o=podDefault then
+    begin
+      // make all paths relative in state file, so it can be copied to other hosts
+      // Note: a state file in the fallback directory should keep absolute paths,
+      //       as it can be from a different package. For example if the user started a
+      //       lazarus from a readonly usb stick and then from a debian package.
+      MakeFPCParamsPathsRelative(Stats.Params,APackage.DirectoryExpanded);
+      StoredCompilerFilename:=CreateRelativePath(CompilerFilename,APackage.Directory,true,true);
+    end;
+
+    if BuildRelease then
+    begin
+      Stats.Kind:=pcskRelease;
+      StoredCompilerFilename:=ExtractFileName(Stats.CompilerFilename);
+      if not GetCompilerVersion(Stats.CompilerVersion) then
+      begin
+        debugln('Error: (lazarus) TLazPackageGraph.SavePackageCompiledState no compiler version');
+        exit;
+      end;
+    end;
 
     XMLConfig:=TXMLConfig.CreateClean(StateFile);
     try
       XMLConfig.SetValue('Lazarus/Version',Stats.LazarusVersion);
-      XMLConfig.SetValue('Compiler/Value',CompilerFilename);
-      XMLConfig.SetValue('Compiler/Date',CompilerFileDate);
-      XMLConfig.SetValue('Params/Value',MergeCmdLineParams(CompilerParams));
-      XMLConfig.SetDeleteValue('Complete/Value',Complete,true);
-      XMLConfig.SetDeleteValue('Complete/MainPPUExists',MainPPUExists,true);
+      XMLConfig.SetValue('Compiler/Value',StoredCompilerFilename);
+      XMLConfig.SetValue('Compiler/Date',Stats.CompilerFileDate);
+      XMLConfig.SetDeleteValue('Compiler/Version',Stats.CompilerVersion,'');
+      XMLConfig.SetValue('Params/Value',MergeCmdLineParams(Stats.Params));
+      XMLConfig.SetDeleteValue('Complete/Value',Stats.Complete,true);
+      XMLConfig.SetDeleteValue('Complete/MainPPUExists',Stats.MainPPUExists,true);
       InvalidateFileStateCache;
       XMLConfig.Flush;
     finally
@@ -3793,8 +3860,9 @@ var
   SrcPPUFile: String;
   AFilename: String;
   CompilerFilename, SrcFilename: string;
-  LFMFilename: String;
+  LFMFilename, aVersion: String;
   ReducedParams, ReducedLastParams: TStrings;
+  CompilerHasChanged: Boolean;
 begin
   Result:=mrYes;
   {$IFDEF VerbosePkgCompile}
@@ -3809,12 +3877,17 @@ begin
 
   SrcFilename:=APackage.GetSrcFilename;
   CompilerFilename:=APackage.GetCompilerFilename;
-  // Note: use absolute paths, because some external tools resolve symlinked directories and some do not
   CompilerParams:=GetPackageCompilerParams(APackage);
   try
     o:=APackage.GetOutputDirType;
     Stats:=APackage.LastCompile[o];
     //debugln(['TLazPackageGraph.CheckIfCurPkgOutDirNeedsCompile  Last="',ExtractCompilerParamsForBuildAll(APackage.LastCompilerParams),'" Now="',ExtractCompilerParamsForBuildAll(CompilerParams),'"']);
+
+    // Note: The actual call of fpc needs absolute paths, because some external tools resolve
+    //       symlinked directories and some do not.
+    //       The state file (*.compiled) uses relative paths, so it can be copied to other hosts.
+    if o=podDefault then
+      MakeFPCParamsPathsRelative(CompilerParams,APackage.Directory);
 
     // check state file
     StateFilename:=APackage.GetStateFilename;
@@ -3841,12 +3914,36 @@ begin
     end;
 
     // check if build all (-B) is needed
-    if (Stats.CompilerFilename<>CompilerFilename)
-    or FPCParamForBuildAllHasChanged(Stats.Params,CompilerParams)
-    or ((Stats.CompilerFileDate>0)
-        and FileExistsCached(CompilerFilename)
-        and (FileAgeCached(CompilerFilename)<>Stats.CompilerFileDate))
-    then begin
+    CompilerHasChanged:=FPCParamForBuildAllHasChanged(Stats.Params,CompilerParams);
+    aVersion:='';
+    if not CompilerHasChanged then
+      case Stats.Kind of
+      pcskDefault:
+        if (CompareFilenames(Stats.CompilerFilename,CompilerFilename)<>0)
+        or ((Stats.CompilerFileDate>0)
+            and FileExistsCached(CompilerFilename)
+            and (FileAgeCached(CompilerFilename)<>Stats.CompilerFileDate))
+        then
+          CompilerHasChanged:=true;
+      pcskMakefile:
+        if FilenameIsAbsolute(Stats.CompilerFilename) then
+        begin
+          if (CompareFilenames(Stats.CompilerFilename,CompilerFilename)<>0) then
+            CompilerHasChanged:=true
+          else if (Stats.CompilerFileDate>0)
+            and FileExistsCached(CompilerFilename)
+            and (FileAgeCached(CompilerFilename)<>Stats.CompilerFileDate)
+          then
+            CompilerHasChanged:=true;
+        end;
+      pcskRelease:
+        if (Stats.CompilerVersion>'')
+            and GetCompilerVersion(aVersion)
+            and (aVersion<>Stats.CompilerVersion) then
+          CompilerHasChanged:=true;
+      end;
+    if CompilerHasChanged then
+    begin
       NeedBuildAllFlag:=true;
       ConfigChanged:=true;
     end;
@@ -3862,7 +3959,7 @@ begin
 
     // check compiler and params
     LastParams:=APackage.LastCompile[o].Params;
-    if Stats.ViaMakefile then begin
+    if Stats.Kind=pcskMakefile then begin
       // the package was compiled via Makefile/fpmake
       if ConsoleVerbosity>=1 then
         debugln(['Hint: (lazarus) package ',APackage.IDAsString,' was compiled via "make" with parameters "',MergeCmdLineParams(LastParams,TLazCompilerOptions.ConsoleParamsMax),'"']);
@@ -3924,6 +4021,22 @@ begin
         LastPaths.Free;
       end;
     end else begin
+
+      // compiler
+      if (Stats.Kind=pcskDefault)
+      and (CompareFilenames(CompilerFilename,Stats.CompilerFilename)<>0) then begin
+        DebugLn('Hint: (lazarus) Compiler filename changed for ',APackage.IDAsString);
+        DebugLn('  Old="',Stats.CompilerFilename,'"');
+        DebugLn('  Now="',CompilerFilename,'"');
+        DebugLn('  State file="',Stats.StateFileName,'"');
+        Note+='Compiler filename changed:'+LineEnding
+           +'  Old="'+Stats.CompilerFilename+'"'+LineEnding
+           +'  Now="'+CompilerFilename+'"'+LineEnding
+           +'  State file="'+Stats.StateFileName+'"'+LineEnding;
+        exit(mrYes);
+      end;
+
+      // params
       ReducedParams:=RemoveFPCVerbosityParams(CompilerParams);
       ReducedLastParams:=RemoveFPCVerbosityParams(LastParams);
       try
@@ -3946,19 +4059,6 @@ begin
       end;
     end;
 
-    // compiler
-    if (not Stats.ViaMakefile)
-    and (CompilerFilename<>Stats.CompilerFilename) then begin
-      DebugLn('Hint: (lazarus) Compiler filename changed for ',APackage.IDAsString);
-      DebugLn('  Old="',Stats.CompilerFilename,'"');
-      DebugLn('  Now="',CompilerFilename,'"');
-      DebugLn('  State file="',Stats.StateFileName,'"');
-      Note+='Compiler filename changed:'+LineEnding
-         +'  Old="'+Stats.CompilerFilename+'"'+LineEnding
-         +'  Now="'+CompilerFilename+'"'+LineEnding
-         +'  State file="'+Stats.StateFileName+'"'+LineEnding;
-      exit(mrYes);
-    end;
     if not FileExistsCached(CompilerFilename) then begin
       DebugLn('Hint: (lazarus) Compiler filename not found for ',APackage.IDAsString);
       DebugLn('  File="',CompilerFilename,'"');
@@ -3967,7 +4067,9 @@ begin
          +'  State file="'+Stats.StateFileName+'"'+LineEnding;
       exit(mrYes);
     end;
-    if (not Stats.ViaMakefile)
+
+    if (Stats.Kind=pcskDefault)
+    and (Stats.CompilerFileDate>0)
     and (FileAgeCached(CompilerFilename)<>Stats.CompilerFileDate) then begin
       DebugLn('Hint: (lazarus) Compiler file changed for ',APackage.IDAsString);
       DebugLn('  File="',CompilerFilename,'"');
@@ -3977,6 +4079,24 @@ begin
         +'  Now='+UniversalFileAgeToLocalStr(FileAgeCached(CompilerFilename))+LineEnding
         +'  State file="'+Stats.StateFileName+'"'+LineEnding;
       exit(mrYes);
+    end;
+
+    if (Stats.CompilerVersion>'') then
+    begin
+      if (aVersion='') then
+        GetCompilerVersion(aVersion);
+      // Note if aVersion='' then compiler did not write its version (not an error)
+      if (aVersion>'') and (Stats.CompilerVersion<>aVersion) then
+      begin
+        DebugLn('Hint: (lazarus) Compiler file changed for ',APackage.IDAsString);
+        DebugLn('  File="',CompilerFilename,'" Version="'+aVersion+'"');
+        DebugLn('  Old Version="'+Stats.CompilerVersion+'"');
+        Note+='Compiler file "'+CompilerFilename+'" version changed:'+LineEnding
+          +'  Old='+Stats.CompilerVersion+LineEnding
+          +'  Now='+aVersion+LineEnding
+          +'  State file="'+Stats.StateFileName+'"'+LineEnding;
+        exit(mrYes);
+      end;
     end;
 
     // check main source file
@@ -4123,15 +4243,24 @@ begin
         Stats.LazarusVersion:=XMLConfig.GetValue('Lazarus/Version','');
         Stats.CompilerFilename:=XMLConfig.GetValue('Compiler/Value','');
         Stats.CompilerFileDate:=XMLConfig.GetValue('Compiler/Date',0);
+        Stats.CompilerVersion:=XMLConfig.GetValue('Compiler/Version','');
         Stats.Complete:=XMLConfig.GetValue('Complete/Value',true);
         Stats.MainPPUExists:=XMLConfig.GetValue('Complete/MainPPUExists',true);
         MakefileValue:=XMLConfig.GetValue('Makefile/Value','');
         Stats.Params.Clear;
         Params:=XMLConfig.GetValue('Params/Value','');
         if (MakefileValue='') then
-          Stats.ViaMakefile:=false
+        begin
+          if Stats.CompilerVersion>'' then
+            Stats.Kind:=pcskRelease
+          else begin
+            Stats.Kind:=pcskDefault;
+            if (Stats.CompilerFilename>'') and not FilenameIsAbsolute(Stats.CompilerFilename) then
+              Stats.CompilerFilename:=ResolveDots(APackage.DirectoryExpanded+Stats.CompilerFilename);
+          end;
+        end
         else begin
-          Stats.ViaMakefile:=true;
+          Stats.Kind:=pcskMakefile;
           MakefileVersion:=StrToIntDef(MakefileValue,0);
           if MakefileVersion<2 then begin
             // old versions used %(

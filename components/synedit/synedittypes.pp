@@ -161,11 +161,11 @@ type
     eoScrollByOneLess,         // Scroll vertically, by <PageUp> and <PageDown> keys, less by one line
     eoScrollPastEof,           // When scrolling to end-of-file, show last line at the top of the control, instead of the bottom
     eoScrollPastEol,           // Allows caret to go into empty space beyond end-of-line position
-                               // The caret can move (and the scrollbar provides scrolling for) up to either
+                               // The caret can move (and the ScrollBar provides scrolling for) up to either
                                // - the length of the longest Line
                                // - MaxLeftChar
     eoScrollHintFollows,       // The hint, showing vertical scroll position, follows the mouse cursor
-    eoShowScrollHint,          // Shows hint, with the current scroll position, when scrolling vertically by dragging the scrollbar slider
+    eoShowScrollHint,          // Shows hint, with the current scroll position, when scrolling vertically by dragging the ScrollBar slider
     eoShowSpecialChars,        // Shows non-printable characters (spaces, tabulations) with greyed symbols
     eoSmartTabs,               // When using <Tab> key, caret will go to the next non-space character of the previous line
     eoTabIndent,               // Allows keys <Tab> and <Shift+Tab> act as block-indent and block-unindent, for selected blocks
@@ -175,7 +175,7 @@ type
     // Not implemented
     eoAutoSizeMaxScrollWidth,  //TODO Automatically resizes the MaxScrollWidth property when inserting text
     eoDisableScrollArrows,     //TODO Disables the scroll bar arrow buttons when you can't scroll in that direction any more
-    eoHideShowScrollbars,      //TODO If enabled, then the scrollbars will only show when necessary. If you have "Scroll past EOL" option, then the horizontal bar will always be there (it uses MaxLength instead)
+    eoHideShowScrollBars,      //TODO If enabled, then the ScrollBars will only show when necessary. If you have "Scroll past EOL" option, then the horizontal bar will always be there (it uses MaxLength instead)
     eoDropFiles,               //TODO Allows control to accept file drag-drop operation
     eoSmartTabDelete,          //TODO Similar to "Smart tabs", but when you delete characters
     eoSpacesToTabs,            // Converts long substrings of space characters to tabs and spaces
@@ -215,7 +215,7 @@ type
                                // - Limit to length of longest line + width of one page
                                // if eoScrollPastEol also is set, the bigger of the 2 limits is used
     eoScrollPastEolAutoCaret,  // Allows caret to go into empty space beyond end-of-line position
-                               // Limit will follow the caret / scrollbar-range extends when caret goes further
+                               // Limit will follow the caret / ScrollBar-range extends when caret goes further
     eoBookmarkRestoresScroll   // Bookmarks also restore scroll pos
   );
   TSynEditorOptions2 = set of TSynEditorOption2;
@@ -223,10 +223,26 @@ type
   TSynVisibleSpecialChar = (vscSpace, vscTabAtFirst, vscTabAtLast);
   TSynVisibleSpecialChars = set of TSynVisibleSpecialChar;
 
-  TSynLineStyle      = TLazTextAttrLineStyle;
-  TSynFrameEdges     = TLazTextAttrFrameEdges;
-  TLazSynBorderSide  = TLazTextAttrBorderSide;
-  TLazSynBorderSides = TLazTextAttrBorderSides;
+  TSynLineStyle      = TLazTextAttrLineStyle   deprecated 'use LazEditTextAttributes.TLazTextAttrLineStyle / To be removed in 5.99';
+  TSynFrameEdges     = TLazTextAttrFrameEdges  deprecated 'use LazEditTextAttributes.TLazTextAttrFrameEdges / To be removed in 5.99';
+  TLazSynBorderSide  = TLazTextAttrBorderSide  deprecated 'use LazEditTextAttributes.TLazTextAttrBorderSide / To be removed in 5.99';
+  TLazSynBorderSides = TLazTextAttrBorderSides deprecated 'use LazEditTextAttributes.TLazTextAttrBorderSides / To be removed in 5.99';
+
+const
+  slsSolid  = TLazTextAttrLineStyle.slsSolid deprecated 'use enum from LazEditTextAttributes / To be removed in 5.99';  // PS_SOLID pen
+  slsDashed = TLazTextAttrLineStyle.slsDashed deprecated 'use enum from LazEditTextAttributes / To be removed in 5.99'; // PS_DASH pen
+  slsDotted = TLazTextAttrLineStyle.slsDotted deprecated 'use enum from LazEditTextAttributes / To be removed in 5.99'; // PS_DOT
+  slsWaved  = TLazTextAttrLineStyle.slsWaved deprecated 'use enum from LazEditTextAttributes / To be removed in 5.99';  // solid wave
+  sfeNone   = TLazTextAttrFrameEdges.sfeNone deprecated 'use enum from LazEditTextAttributes / To be removed in 5.99';
+  sfeAround = TLazTextAttrFrameEdges.sfeAround deprecated 'use enum from LazEditTextAttributes / To be removed in 5.99';       // frame around
+  sfeBottom = TLazTextAttrFrameEdges.sfeBottom deprecated 'use enum from LazEditTextAttributes / To be removed in 5.99';       // bottom part of the frame
+  sfeLeft   = TLazTextAttrFrameEdges.sfeLeft deprecated 'use enum from LazEditTextAttributes / To be removed in 5.99';         // left part of the frame
+  bsLeft   = TLazTextAttrBorderSide.bsLeft deprecated 'use enum from LazEditTextAttributes / To be removed in 5.99';
+  bsTop    = TLazTextAttrBorderSide.bsTop deprecated 'use enum from LazEditTextAttributes / To be removed in 5.99';
+  bsRight  = TLazTextAttrBorderSide.bsRight deprecated 'use enum from LazEditTextAttributes / To be removed in 5.99';
+  bsBottom = TLazTextAttrBorderSide.bsBottom deprecated 'use enum from LazEditTextAttributes / To be removed in 5.99';
+
+type
 
   THookedCommandEvent = procedure(Sender: TObject; AfterProcessing: boolean;
     var Handled: boolean; var Command: TSynEditorCommand;

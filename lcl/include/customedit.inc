@@ -78,6 +78,8 @@ begin
     SetInitialBounds(0, 0, CX, CY);
   FEchoMode := emNormal;
   BorderStyle := bsSingle;
+  FOptions := DefOptions;
+  FLayout := tlCenter;
   FAutoSelect := True;
   FAutoSelected := False;
   FTextChangedByRealSetText := False;
@@ -737,6 +739,15 @@ begin
   FAlignment := AValue;
   if HandleAllocated then
     TWSCustomEditClass(WidgetSetClass).SetAlignment(Self, FAlignment);
+end;
+
+procedure TCustomEdit.SetLayout(const AValue: TTextLayout);
+begin
+  if FLayout = AValue then
+    exit;
+  FLayout := AValue;
+  if HandleAllocated then
+    TWSCustomEditClass(WidgetSetClass).SetTextLayout(Self, FLayout);
 end;
 
 

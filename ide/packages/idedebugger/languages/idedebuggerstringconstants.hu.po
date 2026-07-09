@@ -132,6 +132,38 @@ msgstr ""
 msgid "Please choose the formatter to add."
 msgstr ""
 
+#: idedebuggerstringconstants.dbgvaluedisabled
+#, fuzzy
+msgctxt "idedebuggerstringconstants.dbgvaluedisabled"
+msgid "Disabled"
+msgstr "Letiltva"
+
+#: idedebuggerstringconstants.dbgvalueerror
+#, object-pascal-format
+msgid "Error: %s"
+msgstr ""
+
+#: idedebuggerstringconstants.dbgvalueevaluating
+msgctxt "idedebuggerstringconstants.dbgvalueevaluating"
+msgid "Evaluating"
+msgstr ""
+
+#: idedebuggerstringconstants.dbgvalueinvalid
+msgid "Invalid"
+msgstr ""
+
+#: idedebuggerstringconstants.dbgvaluenotevaluated
+msgid "Not evaluated"
+msgstr ""
+
+#: idedebuggerstringconstants.dbgvalueunavailable
+msgid "Unavailable"
+msgstr ""
+
+#: idedebuggerstringconstants.dbgwatchcolorautoopenconsolewindowlinu
+msgid "Auto open console Window (Linux):"
+msgstr ""
+
 #: idedebuggerstringconstants.dbgwatchcolordisabled
 #, fuzzy
 msgctxt "idedebuggerstringconstants.dbgwatchcolordisabled"
@@ -149,11 +181,29 @@ msgid "Error"
 msgstr "Hiba"
 
 #: idedebuggerstringconstants.dbgwatchcolorevaluating
+msgctxt "idedebuggerstringconstants.dbgwatchcolorevaluating"
 msgid "Evaluating"
+msgstr ""
+
+#: idedebuggerstringconstants.dbgwatchcolornever
+msgctxt "idedebuggerstringconstants.dbgwatchcolornever"
+msgid "Never"
+msgstr ""
+
+#: idedebuggerstringconstants.dbgwatchcoloronoutputalways
+msgid "On output (always)"
+msgstr ""
+
+#: idedebuggerstringconstants.dbgwatchcoloronoutputonceperdebugsessi
+msgid "On output (once per debug session)"
 msgstr ""
 
 #: idedebuggerstringconstants.dbgwatchcolors
 msgid "Watches/Locals"
+msgstr ""
+
+#: idedebuggerstringconstants.dbgwatchcolorshadowlast
+msgid "From previous pause"
 msgstr ""
 
 #: idedebuggerstringconstants.dbgwatchcolorunknown
@@ -280,6 +330,7 @@ msgid "Dynamic"
 msgstr ""
 
 #: idedebuggerstringconstants.dispformatdlgarraycombinenone
+msgctxt "idedebuggerstringconstants.dispformatdlgarraycombinenone"
 msgid "Never"
 msgstr ""
 
@@ -1173,6 +1224,18 @@ msgctxt "idedebuggerstringconstants.lisbrkpointstate"
 msgid "State"
 msgstr "Állapot"
 
+#: idedebuggerstringconstants.lisc0ascontrolpictures
+msgid "C0 as Control Pictures"
+msgstr ""
+
+#: idedebuggerstringconstants.lisc0asiso2047
+msgid "C0 as ISO 2047"
+msgstr ""
+
+#: idedebuggerstringconstants.lisc1asc0underbar
+msgid "C1 as C0 + Underbar"
+msgstr ""
+
 #: idedebuggerstringconstants.liscallstacknotevaluated
 msgid "Stack not evaluated"
 msgstr "Verem nincs kiértékelve"
@@ -1375,6 +1438,10 @@ msgstr "Folytatás kezelve"
 msgid "Resume Unhandled"
 msgstr "Folytatás kezeletlenül"
 
+#: idedebuggerstringconstants.lisdecorations
+msgid "Decorations"
+msgstr ""
+
 #: idedebuggerstringconstants.lisdeleteall
 msgid "&Delete All"
 msgstr "Min&den törlése"
@@ -1414,6 +1481,11 @@ msgstr "Törli a következő címhez beállított töréspontot: %s?"
 #, object-pascal-format
 msgid "Delete watchpoint for \"%s\"?"
 msgstr "Törli a következőhöz beállított figyelési pontot: \"%s\"?"
+
+#: idedebuggerstringconstants.lisdeletetracepointforexception
+#, object-pascal-format
+msgid "Delete exception filter for \"%s\"?"
+msgstr ""
 
 #: idedebuggerstringconstants.lisdigits
 msgid "Digits:"
@@ -1510,9 +1582,17 @@ msgstr "Megjegyzés hozzáadása ..."
 msgid "Add Comment"
 msgstr "Megjegyzés hozzáadása"
 
+#: idedebuggerstringconstants.lisexceptionclass
+msgid "Class:"
+msgstr ""
+
 #: idedebuggerstringconstants.lisexceptiondialog
 msgid "Debugger Exception Notification"
 msgstr "Hibakereső kivétel figyelmeztetés"
+
+#: idedebuggerstringconstants.lisexceptionfilter
+msgid "&Exception filter ..."
+msgstr ""
 
 #: idedebuggerstringconstants.lisexport
 msgctxt "lazarusidestrconsts.lisexport"
@@ -1575,6 +1655,10 @@ msgstr "Új csoport beállítása ..."
 #: idedebuggerstringconstants.lisgroupsetnone
 msgid "Clear group(s)"
 msgstr "Csoport(ok) törlése"
+
+#: idedebuggerstringconstants.lishexascii
+msgid "Hex + ASCII"
+msgstr ""
 
 #: idedebuggerstringconstants.lishitcount
 msgid "Hitcount"
@@ -1685,6 +1769,14 @@ msgstr "Sor:"
 #: idedebuggerstringconstants.lislinelength
 msgid "Line/Length"
 msgstr "Sor/Hossz"
+
+#: idedebuggerstringconstants.lislinelimit
+msgid "Line limit"
+msgstr ""
+
+#: idedebuggerstringconstants.lislinenumbers
+msgid "Line numbers"
+msgstr ""
 
 #: idedebuggerstringconstants.lislocals
 msgctxt "lazarusidestrconsts.lislocals"
@@ -1810,9 +1902,9 @@ msgctxt "idedebuggerstringconstants.lismenuviewassembler"
 msgid "Assembler"
 msgstr "Assembler"
 
-#: idedebuggerstringconstants.lismenuviewbreakpoints
-msgid "BreakPoints"
-msgstr "Töréspontok"
+#: idedebuggerstringconstants.lismenuviewbreakpointsandexceptions
+msgid "BreakPoints/Exceptions"
+msgstr ""
 
 #: idedebuggerstringconstants.lismenuviewcallstack
 msgid "Call Stack"
@@ -1857,6 +1949,10 @@ msgstr "? (Ki)"
 msgid "? (On)"
 msgstr "? (Be)"
 
+#: idedebuggerstringconstants.lisoutputstyle
+msgid "Output Style"
+msgstr ""
+
 #: idedebuggerstringconstants.lispasscount
 msgid "Pass Count"
 msgstr "Megszakítások száma"
@@ -1868,6 +1964,10 @@ msgstr "Fájlnév:"
 #: idedebuggerstringconstants.lispendingon
 msgid "Pending (On)"
 msgstr "Függőben (bekapcsolva)"
+
+#: idedebuggerstringconstants.lisrawoutput
+msgid "Raw Output"
+msgstr ""
 
 #: idedebuggerstringconstants.lisregisters
 msgctxt "lazarusidestrconsts.lisregisters"
@@ -1888,6 +1988,10 @@ msgstr ""
 
 #: idedebuggerstringconstants.lissearchparenthint
 msgid "MaxCount:NamePattern"
+msgstr ""
+
+#: idedebuggerstringconstants.lisskipexception
+msgid "Continue"
 msgstr ""
 
 #: idedebuggerstringconstants.lissourcebreakpoint
@@ -1955,6 +2059,10 @@ msgstr "Forrás"
 msgctxt "lazarusidestrconsts.listhreadsstate"
 msgid "State"
 msgstr "Állapot"
+
+#: idedebuggerstringconstants.lisunformatted
+msgid "Unformatted"
+msgstr ""
 
 #: idedebuggerstringconstants.lisvalue
 #, fuzzy

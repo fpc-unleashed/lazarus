@@ -227,6 +227,7 @@ type
     FDefaultStylePriority: array[TFontStyle] of Integer;
     FDefaultFeatures: TLazTextAttributeFeatures;
 
+    function GetName: String;
   protected
     function GetPriority(AnIndex: TLazTextAttributeColor): integer; override;
     function GetFrameSidePriority(Side: TLazTextAttrBorderSide): integer; override;
@@ -235,6 +236,7 @@ type
     procedure SetStylePriority(AnIndex: TFontStyle; AValue: integer); override;
 
     function GetFeaturesStored: Boolean;
+    function GetIndexedFeatureStored(AnIndex: TLazTextAttributeFeature): Boolean;
     function GetColorStored(AnIndex: TLazTextAttributeColor): Boolean;
     function GetPriorityStored(AnIndex: TLazTextAttributeColor): Boolean;
     function GetFrameStyleStored: Boolean;
@@ -265,6 +267,7 @@ type
     procedure RemoveChangeHandler(AnHandler: TNotifyEvent);
 
     property Caption: PString read FCaption;                        // will never be nil
+    property Name: String read GetName;
     property StoredName: string read FStoredName write FStoredName; // name for storage (e.g. xml)
 
   public
@@ -286,6 +289,7 @@ type
     property StrikeOutPriority stored GetStylePriorityStored;
 
     property Features stored GetFeaturesStored;
+    property ExtendPastEol stored GetIndexedFeatureStored;
 
     property OnChange: TNotifyEvent read FOnChange write FOnChange;
   end;
@@ -795,6 +799,12 @@ end;
 
 { TLazEditTextAttribute }
 
+function TLazEditTextAttribute.GetName: String;
+begin
+  if FCaption = nil then exit('');
+  Result := FCaption^;
+end;
+
 function TLazEditTextAttribute.GetPriority(AnIndex: TLazTextAttributeColor): integer;
 begin
   Result := FPriority[AnIndex];
@@ -829,6 +839,11 @@ end;
 function TLazEditTextAttribute.GetFeaturesStored: Boolean;
 begin
   Result := FFeatures <> FDefaultFeatures;
+end;
+
+function TLazEditTextAttribute.GetIndexedFeatureStored(AnIndex: TLazTextAttributeFeature): Boolean;
+begin
+  Result := (FFeatures * [AnIndex]) <> (FDefaultFeatures * [AnIndex]);
 end;
 
 function TLazEditTextAttribute.GetColorStored(AnIndex: TLazTextAttributeColor): Boolean;

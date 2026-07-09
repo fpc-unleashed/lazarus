@@ -10,7 +10,7 @@
       <PathDelim Value="\"/>
       <SearchPaths>
         <IncludeFiles Value="include;include\$(TargetOS)"/>
-        <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)\$(LCLWidgetType)"/>
+        <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
       </SearchPaths>
       <Other>
         <CustomOptions Value="$(IDEBuildOptions)"/>
@@ -173,7 +173,7 @@ Files in this package are for the main configuration of the IDE."/>
       </Item>
       <Item>
         <Filename Value="resourceconvertproc.pas"/>
-        <UnitName Value="resourceconvertproc"/>
+        <UnitName Value="ResourceConvertProc"/>
       </Item>
       <Item>
         <Filename Value="searchpathprocs.pas"/>

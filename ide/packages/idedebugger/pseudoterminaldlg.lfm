@@ -7,63 +7,53 @@ object PseudoConsoleDlg: TPseudoConsoleDlg
   ClientHeight = 480
   ClientWidth = 800
   DockSite = True
+  LCLVersion = '4.99.0.0'
   OnResize = FormResize
-  LCLVersion = '2.2.0.3'
+  OnShow = FormShow
   object PageControl1: TPageControl
     Left = 0
-    Height = 458
+    Height = 457
     Top = 0
     Width = 800
     ActivePage = TabSheetRaw
     Align = alClient
-    TabIndex = 1
+    ShowTabs = False
+    TabIndex = 0
     TabOrder = 0
-    object TabSheet1: TTabSheet
-      Caption = 'Formatted'
-      ClientHeight = 426
-      ClientWidth = 796
-      TabVisible = False
-      object Panel1: TPanel
-        Left = 636
-        Height = 426
-        Top = 0
-        Width = 160
-        Align = alRight
-        Caption = 'Panel1'
-        TabOrder = 0
-      end
-    end
     object TabSheetRaw: TTabSheet
       Caption = 'Raw Output'
-      ClientHeight = 426
-      ClientWidth = 796
+      ClientHeight = 449
+      ClientWidth = 792
       object PanelRawOptions: TPanel
-        Left = 596
-        Height = 426
+        Left = 531
+        Height = 449
         Top = 0
-        Width = 200
+        Width = 261
         Align = alRight
-        ClientHeight = 426
-        ClientWidth = 200
+        BevelOuter = bvNone
+        ClientHeight = 449
+        ClientWidth = 261
         TabOrder = 1
         object RadioGroupRight: TRadioGroup
-          Left = 1
+          Left = 0
           Height = 108
-          Top = 79
-          Width = 198
+          Top = 70
+          Width = 255
           Align = alTop
           AutoFill = True
           AutoSize = True
+          BorderSpacing.Right = 6
           Caption = 'Output Style'
           ChildSizing.LeftRightSpacing = 6
+          ChildSizing.TopBottomSpacing = 6
           ChildSizing.EnlargeHorizontal = crsHomogenousChildResize
           ChildSizing.EnlargeVertical = crsHomogenousChildResize
           ChildSizing.ShrinkHorizontal = crsScaleChilds
           ChildSizing.ShrinkVertical = crsScaleChilds
           ChildSizing.Layout = cclLeftToRightThenTopToBottom
           ChildSizing.ControlsPerLine = 1
-          ClientHeight = 84
-          ClientWidth = 192
+          ClientHeight = 88
+          ClientWidth = 251
           ItemIndex = 0
           Items.Strings = (
             'Unformatted'
@@ -71,17 +61,18 @@ object PseudoConsoleDlg: TPseudoConsoleDlg
             'C0 as ISO 2047'
             'Hex + ASCII'
           )
-          OnSelectionChanged = RadioGroupRightSelectionChanged
           TabOrder = 1
+          OnSelectionChanged = RadioGroupRightSelectionChanged
         end
         object CheckGroupRight: TCheckGroup
-          Left = 1
-          Height = 78
-          Top = 1
-          Width = 198
+          Left = 0
+          Height = 70
+          Top = 0
+          Width = 255
           Align = alTop
           AutoFill = True
           AutoSize = True
+          BorderSpacing.Right = 6
           Caption = 'Decorations'
           ChildSizing.LeftRightSpacing = 6
           ChildSizing.TopBottomSpacing = 6
@@ -91,8 +82,8 @@ object PseudoConsoleDlg: TPseudoConsoleDlg
           ChildSizing.ShrinkVertical = crsScaleChilds
           ChildSizing.Layout = cclLeftToRightThenTopToBottom
           ChildSizing.ControlsPerLine = 1
-          ClientHeight = 54
-          ClientWidth = 192
+          ClientHeight = 50
+          ClientWidth = 251
           Items.Strings = (
             'Line numbers'
             'C1 as C0 + Underbar'
@@ -103,30 +94,35 @@ object PseudoConsoleDlg: TPseudoConsoleDlg
           }
         end
         object PanelRightBelowCG: TPanel
-          Left = 1
-          Height = 238
-          Top = 187
-          Width = 198
+          Left = 0
+          Height = 271
+          Top = 178
+          Width = 261
           Align = alClient
           BevelOuter = bvNone
-          ClientHeight = 238
-          ClientWidth = 198
+          ClientHeight = 271
+          ClientWidth = 261
           TabOrder = 2
           object GroupBoxRight: TGroupBox
             Left = 0
-            Height = 64
+            Height = 55
             Top = 0
-            Width = 198
+            Width = 255
             Align = alTop
+            AutoSize = True
+            BorderSpacing.Right = 6
             Caption = 'Line limit'
-            ClientHeight = 40
-            ClientWidth = 192
+            ChildSizing.LeftRightSpacing = 6
+            ChildSizing.TopBottomSpacing = 6
+            ClientHeight = 35
+            ClientWidth = 251
             TabOrder = 0
             object MaskEdit1: TMaskEdit
-              Left = 9
+              Left = 6
               Height = 23
-              Top = 0
+              Top = 6
               Width = 128
+              EnableSets = False
               MaxLength = 7
               TabOrder = 0
               EditMask = '#######'
@@ -134,11 +130,44 @@ object PseudoConsoleDlg: TPseudoConsoleDlg
               SpaceChar = '_'
             end
           end
+          object lbAutoOpenConsole: TLabel
+            AnchorSideLeft.Control = PanelRightBelowCG
+            AnchorSideTop.Control = cbAutoOpenConsole
+            AnchorSideTop.Side = asrCenter
+            AnchorSideRight.Control = PanelRightBelowCG
+            AnchorSideRight.Side = asrBottom
+            AnchorSideBottom.Control = cbAutoOpenConsole
+            Left = 6
+            Height = 15
+            Top = 221
+            Width = 249
+            Anchors = [akLeft, akRight, akBottom]
+            BorderSpacing.Around = 6
+            Caption = 'lbAutoOpenConsole'
+          end
+          object cbAutoOpenConsole: TComboBox
+            AnchorSideLeft.Control = PanelRightBelowCG
+            AnchorSideTop.Side = asrBottom
+            AnchorSideRight.Control = PanelRightBelowCG
+            AnchorSideRight.Side = asrBottom
+            AnchorSideBottom.Control = PanelRightBelowCG
+            AnchorSideBottom.Side = asrBottom
+            Left = 6
+            Height = 23
+            Top = 242
+            Width = 249
+            Anchors = [akLeft, akRight, akBottom]
+            BorderSpacing.Around = 6
+            ItemHeight = 15
+            Style = csDropDownList
+            TabOrder = 1
+            OnChange = cbAutoOpenConsoleChange
+          end
         end
       end
       object Splitter1: TSplitter
-        Left = 591
-        Height = 426
+        Left = 526
+        Height = 449
         Top = 0
         Width = 5
         Align = alRight
@@ -146,25 +175,25 @@ object PseudoConsoleDlg: TPseudoConsoleDlg
       end
       object Memo1: TMemo
         Left = 4
-        Height = 418
+        Height = 441
         Top = 4
-        Width = 583
+        Width = 518
         Align = alClient
         BorderSpacing.Around = 4
         Font.Name = 'Monospace'
-        OnUTF8KeyPress = Memo1UTF8KeyPress
         ParentFont = False
         ReadOnly = True
         ScrollBars = ssAutoBoth
         TabOrder = 0
         WantTabs = True
+        OnUTF8KeyPress = Memo1UTF8KeyPress
       end
     end
   end
   object StatusBar1: TStatusBar
     Left = 0
-    Height = 22
-    Top = 458
+    Height = 23
+    Top = 457
     Width = 800
     Panels = <    
       item

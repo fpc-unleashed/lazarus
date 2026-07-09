@@ -40,16 +40,20 @@ unit Debugger;
 interface
 
 uses
-  TypInfo, Classes, SysUtils, math, Types, fgl,
+  TypInfo, Classes, SysUtils, math, Types, fgl, RegExpr,
   // LazUtils
   Laz2_XMLCfg, LazFileUtils, LazUtilities, LazLoggerBase,
   LazClasses, Maps, LazMethodList, Laz2_XMLWrite,
+  // IdeIntf
+  IdeDebuggerWatchValueIntf,
   // DebuggerIntf
   DbgIntfMiscClasses, DbgIntfDebuggerBase,
-  IdeDebuggerWatchValueIntf, RegExpr, LazDebuggerIntf, LazDebuggerIntfBaseTypes,
-  LazDebuggerValueConverter, LazDebuggerTemplate, LazDebuggerIntfFloatTypes, IdeDebuggerBase,
-  IdeDebuggerWatchResult, IdeDebuggerOpts, IdeDebuggerBackendValueConv,
-  IdeDebuggerUtils, IdeDebuggerValueFormatter, IdeDebuggerDisplayFormats, ProjectDebugLink;
+  LazDebuggerIntf, LazDebuggerIntfBaseTypes, LazDebuggerValueConverter, LazDebuggerTemplate,
+  LazDebuggerIntfFloatTypes, LazDebuggerIntfExceptions,
+  // IdeDebugger
+  IdeDebuggerBase, IdeDebuggerWatchResult, IdeDebuggerOpts, IdeDebuggerBackendValueConv,
+  IdeDebuggerUtils, IdeDebuggerValueFormatter, IdeDebuggerDisplayFormats,
+  ProjectDebugLink, IdeDebuggerStringConstants;
 
 const
   XMLBreakPointsNode = 'BreakPoints';
@@ -217,7 +221,7 @@ type
 
   TOnSaveFilenameToConfig = procedure(var Filename: string) of object;
   TOnLoadFilenameFromConfig = procedure(var Filename: string) of object;
-  TOnGetGroupByName = function(const GroupName: string): TIDEBreakPointGroup of object;
+  TOnGetGroupByName = function(const GroupName: string; ACreateIfNotExists: Boolean = False): TIDEBreakPointGroup of object;
 
   TNullableBool = (nbUnknown, nbTrue, nbFalse);
 
@@ -273,17 +277,22 @@ type
     );
   TIDEBreakPointActions = set of TIDEBreakPointAction;
 
-  TIDEBreakPoint = class;
+const
+  bpaSkipExcept = bpaStop; // using the same flag
+
+type
+
+  TIdeTracePoint = class;
 
   { TIDEBreakPointGroupList }
 
   TIDEBreakPointGroupList = class
   private
     FList: TFPList;
-    FOwner: TIDEBreakPoint;
+    FOwner: TIdeTracePoint;
     function GetItem(AIndex: Integer): TIDEBreakPointGroup;
   public
-    constructor Create(AOwner: TIDEBreakPoint);
+    constructor Create(AOwner: TIdeTracePoint);
     destructor Destroy; override;
     procedure Assign(ASrc: TIDEBreakPointGroupList);
     procedure Clear;
@@ -294,7 +303,9 @@ type
     property Items[AIndex: Integer]: TIDEBreakPointGroup read GetItem; default;
   end;
 
-  TIDEBreakPoint = class(TIDEBreakPointBase)
+  { TIdeTracePoint }
+
+  TIdeTracePoint = class(TIDEBreakPointBase) // TODO: change parent to TBreakPointBase, and move any "Master" related code to TIdeBreakPoint
   private
     FLogEvalExpression: String;
     FAutoContinueTime: Cardinal;
@@ -302,15 +313,56 @@ type
     FDisableGroupList: TIDEBreakPointGroupList;
     FEnableGroupList: TIDEBreakPointGroupList;
     FGroup: TIDEBreakPointGroup;
-    FLoading: Boolean;
     FLogMessage: String;
     FLogCallStackLimit: Integer;
+
+    FLoading: integer;
     FUserModified: Boolean;
+
+    procedure SetActions(AValue: TIDEBreakPointActions);
+    procedure SetAutoContinueTime(AValue: Cardinal);
+    procedure SetGroup(AValue: TIDEBreakPointGroup);
+    procedure SetLogCallStackLimit(AValue: Integer);
+    procedure SetLogEvalExpression(AValue: String);
+    procedure SetLogMessage(AValue: String);
+  protected
+    procedure AssignTo(Dest: TPersistent); override;
+
+    procedure SetBreakHitCount(const AValue: Integer); override;
+    procedure SetInitialEnabled(const AValue: Boolean); override;
+    procedure SetExpression(const AValue: String); override;
+    //procedure SetEnabled(const AValue: Boolean); override;  // follow initial enabled???
+    //procedure SetKind(const AValue: TDBGBreakPointKind);
+
+    procedure DoUserChanged;  // User changed settings
+
+    procedure DisableGroups;
+    procedure EnableGroups;
+    procedure ClearAllGroupLists;
+  public
+    constructor Create(ACollection: TCollection); override;
+    destructor Destroy; override;
+
+    procedure LoadFromXMLConfig(XMLConfig: TXMLConfig; const Path: string;
+                                const OnGetGroup: TOnGetGroupByName);
+    procedure SaveToXMLConfig(const AConfig: TXMLConfig; const APath: string);
+
+  public
+    property Actions: TIDEBreakPointActions read FActions write SetActions;
+    property AutoContinueTime: Cardinal read FAutoContinueTime write SetAutoContinueTime;
+    property Group: TIDEBreakPointGroup read FGroup write SetGroup;
+    property DisableGroupList: TIDEBreakPointGroupList read FDisableGroupList;
+    property EnableGroupList: TIDEBreakPointGroupList read FEnableGroupList;
+    property LogEvalExpression: String read FLogEvalExpression write SetLogEvalExpression;
+    property LogMessage: String read FLogMessage write SetLogMessage;
+    property LogCallStackLimit: Integer read FLogCallStackLimit write SetLogCallStackLimit;
+  end;
+
+  TIDEBreakPoint = class(TIdeTracePoint)
   protected
     procedure AssignLocationTo(Dest: TPersistent); override;
     procedure AssignTo(Dest: TPersistent); override;
     procedure DoChanged; override;
-    procedure DoUserChanged;  // User changed settings
     function GetHitCount: Integer; override;
     function GetValid: TValidState; override;
     procedure SetBreakHitCount(const AValue: Integer); override;
@@ -320,51 +372,23 @@ type
     procedure SetKind(const AValue: TDBGBreakPointKind);
     function  DebugExeLine: Integer; virtual;  // Same as line, but in Subclass: the line in the compiled exe
 
-    procedure DisableGroups;
-    procedure DoActionChange; virtual;
     procedure DoHit(const ACount: Integer; var AContinue, ANeedInternalPause: Boolean); override;
-    procedure EnableGroups;
-    procedure ClearAllGroupLists;
     {$IFDEF DBG_BREAKPOINT}
     function  DebugText: string;
     {$ENDIF}
-  protected
-    // virtual properties
-    function GetActions: TIDEBreakPointActions; virtual;
-    function GetGroup: TIDEBreakPointGroup; virtual;
-    function GetAutoContinueTime: Cardinal; virtual;
-    function GetLogMessage: String; virtual;
-    function GetLogCallStackLimit: Integer;
-    procedure SetActions(const AValue: TIDEBreakPointActions); virtual;
-    procedure SetGroup(const AValue: TIDEBreakPointGroup); virtual;
-    procedure SetAutoContinueTime(const AValue: Cardinal); virtual;
-    procedure SetLogEvalExpression(AValue: String);
-    procedure SetLogMessage(const AValue: String); virtual;
-    procedure SetLogCallStackLimit(const AValue: Integer);
   public
-    constructor Create(ACollection: TCollection); override;
     destructor Destroy; override;
     procedure LoadFromXMLConfig(XMLConfig: TXMLConfig; const Path: string;
                       const OnLoadFilename: TOnLoadFilenameFromConfig;
-                      const OnGetGroup: TOnGetGroupByName); virtual;
+                      const OnGetGroup: TOnGetGroupByName); reintroduce;
     procedure SaveToXMLConfig(const AConfig: TXMLConfig; const APath: string;
-                      const OnSaveFilename: TOnSaveFilenameToConfig); virtual;
+                      const OnSaveFilename: TOnSaveFilenameToConfig); reintroduce;
     procedure SetAddress(const AValue: TDBGPtr); override;
     procedure SetLocation(const ASource: String; const ALine: Integer); override;
     procedure SetWatch(const AData: String; const AScope: TDBGWatchPointScope;
                        const AKind: TDBGWatchPointKind); override;
     procedure ResetMaster;
-    property UserModified: Boolean read FUserModified write FUserModified; // Indicator for DoChanged
-  public
-    property Actions: TIDEBreakPointActions read GetActions write SetActions;
-    property AutoContinueTime: Cardinal read GetAutoContinueTime write SetAutoContinueTime;
-    property Group: TIDEBreakPointGroup read GetGroup write SetGroup;
-    property DisableGroupList: TIDEBreakPointGroupList read FDisableGroupList;
-    property EnableGroupList: TIDEBreakPointGroupList read FEnableGroupList;
-    property LogEvalExpression: String read FLogEvalExpression write SetLogEvalExpression;
-    property Loading: Boolean read FLoading;
-    property LogMessage: String read GetLogMessage write SetLogMessage;
-    property LogCallStackLimit: Integer read GetLogCallStackLimit write SetLogCallStackLimit;
+    property UserModified: Boolean read FUserModified write FUserModified; // Indicator for TManagedBreakPoints.Update
   end;
   TIDEBreakPointClass = class of TIDEBreakPoint;
 
@@ -433,7 +457,7 @@ type
     FName: String;
     FBreakpoints: TList;// A list of breakpoints that member
     FReferences: TList; // A list of breakpoints that refer to us through En/disable group
-    function GetBreakpoint(const AIndex: Integer): TIDEBreakPoint;
+    function GetBreakpoint(const AIndex: Integer): TIdeTracePoint;
     procedure SetEnabled(const AValue: Boolean);
     procedure SetInitialEnabled(const AValue: Boolean);
     procedure SetName(const AValue: String);
@@ -442,19 +466,19 @@ type
     procedure AddReference(const ABreakPointList: TIDEBreakPointGroupList);
     procedure RemoveReference(const ABreakPointList: TIDEBreakPointGroupList);
   public
-    function Add(const ABreakPoint: TIDEBreakPoint): Integer;
+    function Add(const ABreakPoint: TIdeTracePoint): Integer;
     function Count: Integer;
     constructor Create(ACollection: TCollection); override;
     procedure Delete(const AIndex: Integer);
     destructor Destroy; override;
-    function Remove(const ABreakPoint: TIDEBreakPoint): Integer;
+    function Remove(const ABreakPoint: TIdeTracePoint): Integer;
     procedure LoadFromXMLConfig(XMLConfig: TXMLConfig;
                                 const Path: string); virtual;
     procedure SaveToXMLConfig(XMLConfig: TXMLConfig;
                               const Path: string); virtual;
     class function CheckName(const AName: String): Boolean;
   public
-    property Breakpoints[const AIndex: Integer]: TIDEBreakPoint read GetBreakpoint;
+    property Breakpoints[const AIndex: Integer]: TIdeTracePoint read GetBreakpoint;
     property Enabled: Boolean read FEnabled write SetEnabled;
     //property InitialEnabled: Boolean read FInitialEnabled write SetInitialEnabled;
     property Name: String read FName write SetName;
@@ -470,11 +494,10 @@ type
   protected
   public
     constructor Create;
-    procedure LoadFromXMLConfig(XMLConfig: TXMLConfig;
-                                const Path: string); virtual;
+    procedure LoadFromXMLConfig(XMLConfig: TXMLConfig; const Path: string; const AClear: boolean = True); virtual;
     procedure SaveToXMLConfig(XMLConfig: TXMLConfig;
       const Path: string; const ALegacyList: Boolean); virtual;
-    function GetGroupByName(const GroupName: string): TIDEBreakPointGroup;
+    function GetGroupByName(const GroupName: string; ACreateIfNotExist: boolean = False): TIDEBreakPointGroup;
     function FindGroupByName(const GroupName: string;
                              Ignore: TIDEBreakPointGroup): TIDEBreakPointGroup;
     function IndexOfGroupWithName(const GroupName: string;
@@ -618,7 +641,7 @@ type
     function GetTopParentWatch: TIdeWatch;
     function GetTrackingID: string;
     function GetValue(const AThreadId: Integer; const AStackFrame: Integer): TIdeWatchValue;
-    function GetAnyValidParentWatchValue(AThreadId: Integer; AStackFrame: Integer): TIdeWatchValue;
+    function GetAnyValidParentWatchValue(AThreadId: Integer; AStackFrame: Integer; AFollowParentFrame: boolean = False): TIdeWatchValue;
     function GetWatchDisplayName: String;
     procedure SetDisplayName(AValue: String); reintroduce;
     function GetEnabled: Boolean;
@@ -653,12 +676,13 @@ type
     procedure LimitChildWatchCount(AMaxCnt: Integer; AKeepIndexEntriesBelow: Int64 = low(Int64));
     property ChildrenByNameAsField[AName, AClassName: String; DerefCount: Integer]: TIdeWatch read GetChildrenByNameAsField;
     property ChildrenByNameAsArrayEntry[AName: Int64; DerefCount: Integer]: TIdeWatch read GetChildrenByNameAsArrayEntry;
-    function HasAllValidParents(AThreadId: Integer; AStackFrame: Integer): boolean;
+    function HasAllValidParents(AThreadId: Integer; AStackFrame: Integer; AFollowParentFrame: boolean = False): boolean;
     property ParentWatch: TIdeWatch read FParentWatch;
     property TopParentWatch: TIdeWatch read GetTopParentWatch;
     property DisplayName: String read GetWatchDisplayName write SetDisplayName;
     property TrackingID: string read GetTrackingID; // experimental
   public
+    function GetResolvedParentFrameValue(const AThreadId: Integer; const AStackFrame: Integer): TIdeWatchValue;
     property Values[const AThreadId: Integer; const AStackFrame: Integer]: TIdeWatchValue
              read GetValue;
   end;
@@ -1975,41 +1999,90 @@ type
                                                       write SetItem; default;
   end;
 
+  TIDEExceptions = class;
+  TIDEException = class;
+
+  TIDEExceptionsEvent = procedure(const ASender: TIDEExceptions;
+                                   const AnException: TIDEException) of object;
+
+  TIDEExceptionsNotification = class(TDebuggerNotification)
+  private
+    FOnAdd:    TIDEExceptionsEvent;
+    FOnUpdate: TIDEExceptionsEvent;//Item will be nil in case all items need to be updated
+    FOnRemove: TIDEExceptionsEvent;
+  public
+    property OnAdd:    TIDEExceptionsEvent read FOnAdd    write FOnAdd;
+    property OnUpdate: TIDEExceptionsEvent read FOnUpdate write FOnUpdate;
+    property OnRemove: TIDEExceptionsEvent read FOnRemove write FonRemove;
+  end;
 
   { TIDEException }
-  TIDEException = class(TBaseException)
+  TIDEException = class(TIdeTracePoint, IDbgExceptionHandler)
   private
-    FMaster: TDBGException;
+    FName: String;
+
+    function GetName: String;
+  protected
+    function GetSource: String; override; // return the exception class name
+    procedure SetCollection(Value: TCollection); override;
+    procedure AssignTo(Dest: TPersistent); override;
+    procedure DoExceptionHit(var AContinue: Boolean; out ANeedInternalPause: boolean;
+      const AnExceptTargetInfo: IDbgTargetExceptionInfo);
   public
     constructor Create(ACollection: TCollection); override;
-    procedure LoadFromXMLConfig(const AXMLConfig: TXMLConfig;
-                                const APath: string);
-    procedure SaveToXMLConfig(const AXMLConfig: TXMLConfig;
-                              const APath: string);
-    procedure ResetMaster;
+    procedure LoadFromXMLConfig(const AXMLConfig: TXMLConfig; const APath: string;
+                                const OnGetGroup: TOnGetGroupByName);
+    procedure SaveToXMLConfig(const AXMLConfig: TXMLConfig; const APath: string);
+    procedure SetName(const AValue: String); override;
+    procedure ResetHitCount;
+
+    property Name: String read GetName write SetName;
   end;
 
   { TIDEExceptions }
 
-  TIDEExceptions = class(TBaseExceptions)
+  TIDEExceptions = class(TBaseBreakPoints, IDbgExceptionHandlerList)
   private
+    FEventLogHandler: TDebuggerEventLogInterface;
+    FIgnoreAll: Boolean;
+    FNotificationList: TList;
+    FOnBreakPointHit: TDebuggerBreakPointHitEvent;
+
     function GetItem(const AIndex: Integer): TIDEException;
     procedure SetItem(const AIndex: Integer; const AValue: TIDEException);
+    function GetIgnoreAllExceptions: Boolean;
   protected
+    procedure AssignTo(Dest: TPersistent); override;
+    procedure SetIgnoreAll(const AValue: Boolean); virtual; // TProjectExceptions
     procedure AddDefault;
+    procedure ClearExceptions;
+
+    procedure NotifyAdd(const AnException: TIDEException); virtual;    // called when a breakpoint is added
+    procedure NotifyRemove(const AnException: TIDEException); virtual; // called by breakpoint when destructed
+    procedure Update(Item: TCollectionItem); override;
   public
-    function Add(const AName: String): TIDEException;
-    function Find(const AName: String): TIDEException;
+    function Add(const AName: String; AnUpdating: boolean = False): TIDEException;
+    function Find(const AName: String): IDbgExceptionHandler;
+    function FindExceptionHandler(const AnExceptTargetInfo: IDbgTargetExceptionInfo): IDbgExceptionHandler;
+    function FindItem(const AName: String): TIDEException;
+    procedure AddIfNeeded(AName: string);
+    procedure Reset;
   public
     constructor Create;
-    procedure LoadFromXMLConfig(const AXMLConfig: TXMLConfig;
-                                const APath: string);
-    procedure SaveToXMLConfig(const AXMLConfig: TXMLConfig;
-                              const APath: string; const ALegacyList: Boolean);
-    procedure AddIfNeeded(AName: string);
-    procedure Reset; override;
+    destructor Destroy; override;
+    procedure Clear; reintroduce;
+    procedure ResetHitCounts;
+    procedure AddNotification(const ANotification: TIDEExceptionsNotification);
+    procedure RemoveNotification(const ANotification: TIDEExceptionsNotification);
+
+    procedure LoadFromXMLConfig(const AXMLConfig: TXMLConfig; const APath: string; const OnGetGroup: TOnGetGroupByName);
+    procedure SaveToXMLConfig(const AXMLConfig: TXMLConfig; const APath: string; const ALegacyList: Boolean);
     property Items[const AIndex: Integer]: TIDEException read GetItem
                                                         write SetItem; default;
+    property IgnoreAll: Boolean read FIgnoreAll write SetIgnoreAll;
+
+    property EventLogHandler: TDebuggerEventLogInterface read FEventLogHandler write FEventLogHandler;
+    property OnBreakPointHit: TDebuggerBreakPointHitEvent read FOnBreakPointHit write FOnBreakPointHit;   // Fires when the program is paused at a breakpoint
   end;
 {%endregion   ^^^^^  Signals / Exceptions  ^^^^^   }
 
@@ -2029,7 +2102,10 @@ type
     FThreads: TIdeThreadsMonitor;
     FSnapshots: TSnapshotManager;
     FCurrentWatches: TCurrentWatches;
+
+    function  GetState: TDBGState; virtual; abstract;
   public
+    property State: TDBGState read GetState;           // The current state of the debugger
     property CallStack: TIdeCallStackMonitor read FCallStack;
     property Locals: TIdeLocalsMonitor read FLocals;
     property Watches: TIdeWatchesMonitor read FWatches;
@@ -2199,7 +2275,7 @@ begin
   Result := TIDEBreakPointGroup(FList[AIndex]);
 end;
 
-constructor TIDEBreakPointGroupList.Create(AOwner: TIDEBreakPoint);
+constructor TIDEBreakPointGroupList.Create(AOwner: TIdeTracePoint);
 begin
   FList := TFPList.Create;
   FOwner := AOwner;
@@ -4363,6 +4439,7 @@ begin
     if not (FValidity in [ddsUnknown, ddsRequested, ddsEvaluating]) then
       FParentFrameNotifyList.CallNotifyEvents(Self);
   end;
+
   if FParentFrameState * [pfLocked, pfDone] <> [] then
     exit;
 
@@ -4374,6 +4451,7 @@ begin
 
   if (ParentFrameFound >= 0) or (ANewValidity <> ddsError) or
      (Watch = nil) or (Watch.ParentFrameSearch = '') or
+     (Watch <> Watch.TopParentWatch) or
      not(ErrorKind in [dekIdentNotFound{, dekMemberNotFound}])
   then
     exit;
@@ -4460,8 +4538,13 @@ begin
       exit;
     end;
 
-    FParentFrameEvalValue.AddParentFrameNotification(@DoParentFrameValueChanged);
-    FParentFrameEvalValue.Value;
+    if FParentFrameEvalValue.Validity in [ddsValid, ddsError, ddsInvalid] then begin
+      DoParentFrameValueChanged(FParentFrameEvalValue);
+    end
+    else begin
+      FParentFrameEvalValue.AddParentFrameNotification(@DoParentFrameValueChanged);
+      FParentFrameEvalValue.Value;
+    end;
 
   until not (pfNeedEvalAgain in FParentFrameState);
   finally
@@ -4709,20 +4792,20 @@ begin
   if Watch = nil then
     exit;
   if not Watch.Enabled then
-    exit('<disabled>');
+    exit('<'+DbgValueDisabled+'>');
   i := DbgStateChangeCounter;  // workaround for state changes during TWatchValue.GetValue
   if Validity = ddsUnknown then begin
-    Result := '<evaluating>';
+    Result := '<'+DbgValueEvaluating+'>';
     Validity := ddsRequested;
     RequestData;
     if i <> DbgStateChangeCounter then exit; // in case the debugger did run.
     // TODO: The watch can also be deleted by the user
   end;
   case Validity of
-    ddsRequested, ddsEvaluating: Result := '<evaluating>';
+    ddsRequested, ddsEvaluating: Result := '<'+DbgValueEvaluating+'>';
     ddsValid:                    Result := inherited GetValue;
-    ddsInvalid:                  Result := '<invalid>';
-    ddsError:                    Result := '<Error: '+ (inherited GetValue) +'>';
+    ddsInvalid:                  Result := '<'+DbgValueInvalid+'>';
+    ddsError:                    Result := '<'+Format(DbgValueError, [inherited GetValue])+'>';
   end;
 end;
 
@@ -6103,58 +6186,262 @@ end;
 (******************************************************************************)
 (******************************************************************************)
 
-{ =========================================================================== }
-{ TIDEBreakPoint }
-{ =========================================================================== }
+{ TIdeTracePoint }
 
-function TIDEBreakPoint.GetAutoContinueTime: Cardinal;
+procedure TIdeTracePoint.SetActions(AValue: TIDEBreakPointActions);
 begin
-  Result := FAutoContinueTime;
+  if FActions = AValue then
+    exit;
+  FActions := AValue;
+  DoUserChanged;
 end;
 
-procedure TIDEBreakPoint.SetAutoContinueTime(const AValue: Cardinal);
+procedure TIdeTracePoint.SetAutoContinueTime(AValue: Cardinal);
 begin
-  if FAutoContinueTime = AValue then Exit;
+  if FAutoContinueTime = AValue then
+    exit;
   FAutoContinueTime := AValue;
   DoUserChanged;
 end;
 
-procedure TIDEBreakPoint.SetLogEvalExpression(AValue: String);
+procedure TIdeTracePoint.SetGroup(AValue: TIDEBreakPointGroup);
+var
+  Grp: TIDEBreakPointGroup;
 begin
-  if FLogEvalExpression <> AValue then
-  begin
-    FLogEvalExpression := AValue;
-    DoUserChanged;
+  if FGroup = AValue then
+    exit;
+
+  if FGroup <> nil then begin
+    Grp := FGroup;
+    FGroup := nil;  //  avoid second entrance
+    Grp.Remove(Self);
+  end;
+  FGroup := AValue;
+  if FGroup <> nil then begin
+    FGroup.Add(Self);
+  end;
+  DoUserChanged;
+end;
+
+procedure TIdeTracePoint.SetLogCallStackLimit(AValue: Integer);
+begin
+  if FLogCallStackLimit = AValue then
+    exit;
+  FLogCallStackLimit := AValue;
+  DoUserChanged;
+end;
+
+procedure TIdeTracePoint.SetLogEvalExpression(AValue: String);
+begin
+  if FLogEvalExpression = AValue then
+    exit;
+  FLogEvalExpression := AValue;
+  DoUserChanged;
+end;
+
+procedure TIdeTracePoint.SetLogMessage(AValue: String);
+begin
+  if FLogMessage = AValue then
+    exit;
+  FLogMessage := AValue;
+  DoUserChanged;
+end;
+
+procedure TIdeTracePoint.AssignTo(Dest: TPersistent);
+begin
+  inherited;
+  if Dest is TIdeTracePoint then begin
+    TIdeTracePoint(Dest).Actions           := FActions;
+    TIdeTracePoint(Dest).AutoContinueTime  := FAutoContinueTime;
+    TIdeTracePoint(Dest).Group             := FGroup;
+    TIdeTracePoint(Dest).LogEvalExpression := FLogEvalExpression;
+    TIdeTracePoint(Dest).LogMessage        := FLogMessage;
+    TIdeTracePoint(Dest).LogCallStackLimit := FLogCallStackLimit;
+    TIdeTracePoint(Dest).EnableGroupList.Assign(FEnableGroupList);
+    TIdeTracePoint(Dest).DisableGroupList.Assign(FDisableGroupList);
   end;
 end;
 
-procedure TIDEBreakPoint.SetLogMessage(const AValue: String);
+procedure TIdeTracePoint.SetBreakHitCount(const AValue: Integer);
 begin
-  if FLogMessage <> AValue then
+  if BreakHitCount = AValue then exit;
+  inherited SetBreakHitCount(AValue);
+  DoUserChanged;
+end;
+
+procedure TIdeTracePoint.SetInitialEnabled(const AValue: Boolean);
+begin
+  if InitialEnabled = AValue then exit;
+  inherited SetInitialEnabled(AValue);
+  DoUserChanged;
+end;
+
+procedure TIdeTracePoint.SetExpression(const AValue: String);
+begin
+  if AValue=Expression then exit;
+  inherited SetExpression(AValue);
+  DoUserChanged;
+end;
+
+procedure TIdeTracePoint.DoUserChanged;
+begin
+  if FLoading > 0 then
+    exit;
+  FUserModified := True;
+  Changed;
+end;
+
+procedure TIdeTracePoint.DisableGroups;
+var
+  n: Integer;
+begin
+{$IFDEF DBG_BREAKPOINT}
+  DebugLn(DBG_BREAKPOINT, ['DisableGroups: ', DebugText, ' Cnt=',  FDisableGroupList.Count]);
+{$ENDIF}
+  for n := 0 to FDisableGroupList.Count - 1 do
+    FDisableGroupList[n].Enabled := False;
+end;
+
+procedure TIdeTracePoint.EnableGroups;
+var
+  n: Integer;
+begin
+{$IFDEF DBG_BREAKPOINT}
+  DebugLn(DBG_BREAKPOINT, ['EnableGroups: ', DebugText, ' Cnt=',  FEnableGroupList.Count]);
+{$ENDIF}
+
+  for n := 0 to FEnableGroupList.Count - 1 do
+    FEnableGroupList[n].Enabled := True;
+end;
+
+procedure TIdeTracePoint.ClearAllGroupLists;
+begin
+  FDisableGroupList.Clear;
+  FEnableGroupList.Clear;
+end;
+
+constructor TIdeTracePoint.Create(ACollection: TCollection);
+begin
+  inherited Create(ACollection);
+  FGroup := nil;
+  FActions := [bpaStop];
+  FDisableGroupList := TIDEBreakPointGroupList.Create(Self);
+  FEnableGroupList := TIDEBreakPointGroupList.Create(Self);
+end;
+
+destructor TIdeTracePoint.Destroy;
+var
+  Grp: TIDEBreakPointGroup;
+begin
+  Grp := FGroup;
+  FGroup := nil;
+  if Grp <> nil then
+    Grp.Remove(Self);
+
+  ClearAllGroupLists;
+
+  inherited;
+  FreeAndNil(FDisableGroupList);
+  FreeAndNil(FEnableGroupList);
+end;
+
+procedure TIdeTracePoint.LoadFromXMLConfig(XMLConfig: TXMLConfig; const Path: string;
+  const OnGetGroup: TOnGetGroupByName);
+
+  procedure LoadGroupList(GroupList: TIDEBreakPointGroupList; const ListPath: string);
+  var
+    i: Integer;
+    CurGroup: TIDEBreakPointGroup;
+    NewCount: Integer;
+    GroupName: String;
   begin
-    FLogMessage := AValue;
-    DoUserChanged;
+    GroupList.Clear;
+    NewCount:=XMLConfig.GetValue(ListPath+'Count',0);
+    for i:=0 to NewCount-1 do begin
+      GroupName:=XMLConfig.GetValue(ListPath+'Group'+IntToStr(i+1)+'/Name','');
+      if GroupName='' then continue;
+      CurGroup:=OnGetGroup(GroupName, True);
+      if CurGroup=nil then continue;
+      GroupList.Add(CurGroup);
+    end;
+  end;
+
+var
+  GroupName: String;
+  NewActions: TIDEBreakPointActions;
+  CurAction: TIDEBreakPointAction;
+begin
+  inc(FLoading);
+  try
+    GroupName:=XMLConfig.GetValue(Path+'Group/Name','');
+    Group:=OnGetGroup(GroupName, True);
+
+    AutoContinueTime:=XMLConfig.GetValue(Path+'AutoContinueTime/Value',0);
+    BreakHitCount := XMLConfig.GetValue(Path+'BreakHitCount/Value',0);
+
+    InitialEnabled:=XMLConfig.GetValue(Path+'InitialEnabled/Value',true);
+    Enabled:=InitialEnabled;
+    FLogEvalExpression := XMLConfig.GetValue(Path+'LogEvalExpression/Value', '');
+    FLogMessage:=XMLConfig.GetValue(Path+'LogMessage/Value','');
+    FLogCallStackLimit:=XMLConfig.GetValue(Path+'LogCallStackLimit/Value',0);
+    NewActions:=[];
+    for CurAction:=Low(TIDEBreakPointAction) to High(TIDEBreakPointAction) do
+      if XMLConfig.GetValue(
+          Path+'Actions/'+DBGBreakPointActionNames[CurAction],
+          CurAction in [bpaStop])
+      then Include(NewActions,CurAction);
+    Actions:=NewActions;
+    LoadGroupList(FDisableGroupList,Path+'DisableGroups/');
+    LoadGroupList(FEnableGroupList,Path+'EnableGroups/');
+  finally
+    dec(FLoading);
+    if FLoading = 0 then
+      DoUserChanged;
   end;
 end;
 
-function TIDEBreakPoint.GetLogMessage: String;
-begin
-  Result := FLogMessage;
-end;
+procedure TIdeTracePoint.SaveToXMLConfig(const AConfig: TXMLConfig; const APath: string);
 
-function TIDEBreakPoint.GetLogCallStackLimit: Integer;
-begin
-  Result := FLogCallStackLimit;
-end;
-
-procedure TIDEBreakPoint.SetLogCallStackLimit(const AValue: Integer);
-begin
-  if FLogCallStackLimit <> AValue then
+  procedure SaveGroupList(const AList: TIDEBreakPointGroupList; const AListPath: string);
+  var
+    i: Integer;
+    CurGroup: TIDEBreakPointGroup;
   begin
-    FLogCallStackLimit := AValue;
-    DoUserChanged;
+    AConfig.SetDeleteValue(AListPath + 'Count', AList.Count,0);
+    for i := 0 to AList.Count - 1 do
+    begin
+      CurGroup := AList[i];
+      AConfig.SetDeleteValue(AListPath+'Group'+IntToStr(i+1)+'/Name', CurGroup.Name, '');
+    end;
   end;
+
+var
+  CurAction: TIDEBreakPointAction;
+begin
+  if Group <> nil
+  then AConfig.SetDeleteValue(APath+'Group/Name',Group.Name,'');
+
+  AConfig.SetDeleteValue(APath+'AutoContinueTime/Value',AutoContinueTime,0);
+  AConfig.SetDeleteValue(APath+'BreakHitCount/Value',BreakHitCount,0);
+
+  AConfig.SetDeleteValue(APath+'InitialEnabled/Value',InitialEnabled,true);
+  AConfig.SetDeleteValue(APath+'LogEvalExpression/Value', FLogEvalExpression,'');
+  AConfig.SetDeleteValue(APath+'LogMessage/Value',LogMessage,'');
+  AConfig.SetDeleteValue(APath+'LogCallStackLimit/Value',LogCallStackLimit,0);
+
+  for CurAction := Low(TIDEBreakPointAction) to High(TIDEBreakPointAction) do
+  begin
+    AConfig.SetDeleteValue(
+        APath+'Actions/'+DBGBreakPointActionNames[CurAction],
+        CurAction in Actions, CurAction in [bpaStop]);
+  end;
+  SaveGroupList(FDisableGroupList, APath + 'DisableGroups/');
+  SaveGroupList(FEnableGroupList, APath + 'EnableGroups/');
 end;
+
+{ =========================================================================== }
+{ TIDEBreakPoint }
+{ =========================================================================== }
 
 procedure TIDEBreakPoint.AssignLocationTo(Dest: TPersistent);
 var
@@ -6169,17 +6456,6 @@ end;
 procedure TIDEBreakPoint.AssignTo(Dest: TPersistent);
 begin
   inherited;
-  if Dest is TIDEBreakPoint
-  then begin
-    TIDEBreakPoint(Dest).Actions := FActions;
-    TIDEBreakPoint(Dest).AutoContinueTime := FAutoContinueTime;
-    TIDEBreakPoint(Dest).Group := FGroup;
-    TIDEBreakPoint(Dest).LogEvalExpression := FLogEvalExpression;
-    TIDEBreakPoint(Dest).LogMessage := FLogMessage;
-    TIDEBreakPoint(Dest).LogCallStackLimit := FLogCallStackLimit;
-    TIDEBreakPoint(Dest).EnableGroupList.Assign(FEnableGroupList);
-    TIDEBreakPoint(Dest).DisableGroupList.Assign(FDisableGroupList);
-  end;
 
   if (Collection <> nil) and (TIDEBreakPoints(Collection).FMaster <> nil)
   and (Dest is TDBGBreakPoint)
@@ -6200,12 +6476,6 @@ begin
   inherited DoChanged;
 end;
 
-procedure TIDEBreakPoint.DoUserChanged;
-begin
-  FUserModified := True;
-  Changed;
-end;
-
 function TIDEBreakPoint.GetHitCount: Integer;
 begin
   if Master = nil
@@ -6224,7 +6494,6 @@ procedure TIDEBreakPoint.SetBreakHitCount(const AValue: Integer);
 begin
   if BreakHitCount = AValue then exit;
   inherited SetBreakHitCount(AValue);
-  DoUserChanged;
   if Master <> nil then Master.BreakHitCount := AValue;
 end;
 
@@ -6240,7 +6509,6 @@ procedure TIDEBreakPoint.SetInitialEnabled(const AValue: Boolean);
 begin
   if InitialEnabled = AValue then exit;
   inherited SetInitialEnabled(AValue);
-  DoUserChanged;
   if Master <> nil then Master.InitialEnabled := AValue;
 end;
 
@@ -6248,7 +6516,6 @@ procedure TIDEBreakPoint.SetExpression(const AValue: String);
 begin
   if AValue=Expression then exit;
   inherited SetExpression(AValue);
-  DoUserChanged;
   if Master <> nil then Master.Expression := AValue;
 end;
 
@@ -6265,12 +6532,6 @@ begin
   Result := Line;
 end;
 
-procedure TIDEBreakPoint.ClearAllGroupLists;
-begin
-  FDisableGroupList.Clear;
-  FEnableGroupList.Clear;
-end;
-
 {$IFDEF DBG_BREAKPOINT}
 function TIDEBreakPoint.DebugText: string;
 var
@@ -6281,50 +6542,14 @@ begin
 end;
 {$ENDIF}
 
-constructor TIDEBreakPoint.Create(ACollection: TCollection);
-begin
-  inherited Create(ACollection);
-  FGroup := nil;
-  FActions := [bpaStop];
-  FDisableGroupList := TIDEBreakPointGroupList.Create(Self);
-  FEnableGroupList := TIDEBreakPointGroupList.Create(Self);
-end;
-
 destructor TIDEBreakPoint.Destroy;
-var
-  Grp: TIDEBreakPointGroup;
 begin
   ReleaseMaster;
 
   if (TIDEBreakPoints(Collection) <> nil)
   then TIDEBreakPoints(Collection).NotifyRemove(Self);
 
-  Grp := FGroup;
-  FGroup := nil;
-  if Grp <> nil
-  then Grp.Remove(Self);
-
-  ClearAllGroupLists;
-
   inherited;
-  FreeAndNil(FDisableGroupList);
-  FreeAndNil(FEnableGroupList);
-end;
-
-procedure TIDEBreakPoint.DisableGroups;
-var
-  n: Integer;
-begin
-{$IFDEF DBG_BREAKPOINT}
-  DebugLn(DBG_BREAKPOINT, ['DisableGroups: ', DebugText, ' Cnt=',  FDisableGroupList.Count]);
-{$ENDIF}
-  for n := 0 to FDisableGroupList.Count - 1 do
-    FDisableGroupList[n].Enabled := False;
-end;
-
-procedure TIDEBreakPoint.DoActionChange;
-begin
-  DoUserChanged;
 end;
 
 procedure TIDEBreakPoint.DoHit(const ACount: Integer; var AContinue,
@@ -6353,64 +6578,15 @@ begin
   then DisableGroups;
 end;
 
-procedure TIDEBreakPoint.EnableGroups;
-var
-  n: Integer;
-begin
-{$IFDEF DBG_BREAKPOINT}
-  DebugLn(DBG_BREAKPOINT, ['EnableGroups: ', DebugText, ' Cnt=',  FEnableGroupList.Count]);
-{$ENDIF}
-
-  for n := 0 to FEnableGroupList.Count - 1 do
-    FEnableGroupList[n].Enabled := True;
-end;
-
-function TIDEBreakPoint.GetActions: TIDEBreakPointActions;
-begin
-  Result := FActions;
-end;
-
-function TIDEBreakPoint.GetGroup: TIDEBreakPointGroup;
-begin
-  Result := FGroup;
-end;
-
 procedure TIDEBreakPoint.LoadFromXMLConfig(XMLConfig: TXMLConfig;
   const Path: string; const OnLoadFilename: TOnLoadFilenameFromConfig;
   const OnGetGroup: TOnGetGroupByName);
-
-  procedure LoadGroupList(GroupList: TIDEBreakPointGroupList; const ListPath: string);
-  var
-    i: Integer;
-    CurGroup: TIDEBreakPointGroup;
-    NewCount: Integer;
-    GroupName: String;
-  begin
-    GroupList.Clear;
-    NewCount:=XMLConfig.GetValue(ListPath+'Count',0);
-    for i:=0 to NewCount-1 do begin
-      GroupName:=XMLConfig.GetValue(ListPath+'Group'+IntToStr(i+1)+'/Name','');
-      if GroupName='' then continue;
-      CurGroup:=OnGetGroup(GroupName);
-      if CurGroup=nil then continue;
-      GroupList.Add(CurGroup);
-    end;
-  end;
-
 var
   Filename: String;
-  GroupName: String;
-  NewActions: TIDEBreakPointActions;
-  CurAction: TIDEBreakPointAction;
 begin
-  FLoading:=true;
+  inc(FLoading);
   try
     SetKind(TDBGBreakPointKind(GetEnumValueDef(TypeInfo(TDBGBreakPointKind),XMLConfig.GetValue(Path+'Kind/Value',''),0)));
-    GroupName:=XMLConfig.GetValue(Path+'Group/Name','');
-    Group:=OnGetGroup(GroupName);
-    Expression:=XMLConfig.GetValue(Path+'Expression/Value','');
-    AutoContinueTime:=XMLConfig.GetValue(Path+'AutoContinueTime/Value',0);
-    BreakHitCount := XMLConfig.GetValue(Path+'BreakHitCount/Value',0);
 
     Address:=XMLConfig.GetValue(Path+'Address/Value',Int64(0)); // shouldb TDBGPtr;
 
@@ -6420,84 +6596,42 @@ begin
     try ReadStr(XMLConfig.GetValue(Path+'WatchKind/Value', 'wpkWrite'), FWatchKind);
     except FWatchKind:= wpkWrite; end;
 
+    Expression:=XMLConfig.GetValue(Path+'Expression/Value','');
+
     Filename:=XMLConfig.GetValue(Path+'Source/Value','');
     if Assigned(OnLoadFilename) then OnLoadFilename(Filename);
     FSource:=Filename;
-
-    InitialEnabled:=XMLConfig.GetValue(Path+'InitialEnabled/Value',true);
-    Enabled:=InitialEnabled;
     FLine:=XMLConfig.GetValue(Path+'Line/Value',-1);
-    FLogEvalExpression := XMLConfig.GetValue(Path+'LogEvalExpression/Value', '');
-    FLogMessage:=XMLConfig.GetValue(Path+'LogMessage/Value','');
-    FLogCallStackLimit:=XMLConfig.GetValue(Path+'LogCallStackLimit/Value',0);
-    NewActions:=[];
-    for CurAction:=Low(TIDEBreakPointAction) to High(TIDEBreakPointAction) do
-      if XMLConfig.GetValue(
-          Path+'Actions/'+DBGBreakPointActionNames[CurAction],
-          CurAction in [bpaStop])
-      then Include(NewActions,CurAction);
-    Actions:=NewActions;
-    LoadGroupList(FDisableGroupList,Path+'DisableGroups/');
-    LoadGroupList(FEnableGroupList,Path+'EnableGroups/');
+
+    inherited LoadFromXMLConfig(XMLConfig, Path, OnGetGroup);
   finally
-    FLoading:=false;
+    dec(FLoading);
+    DoUserChanged;
   end;
 end;
 
 procedure TIDEBreakPoint.SaveToXMLConfig(const AConfig: TXMLConfig;
   const APath: string; const OnSaveFilename: TOnSaveFilenameToConfig);
-
-  procedure SaveGroupList(const AList: TIDEBreakPointGroupList; const AListPath: string);
-  var
-    i: Integer;
-    CurGroup: TIDEBreakPointGroup;
-  begin
-    AConfig.SetDeleteValue(AListPath + 'Count', AList.Count,0);
-    for i := 0 to AList.Count - 1 do
-    begin
-      CurGroup := AList[i];
-      AConfig.SetDeleteValue(AListPath+'Group'+IntToStr(i+1)+'/Name', CurGroup.Name, '');
-    end;
-  end;
-
 var
   s, Filename: String;
-  CurAction: TIDEBreakPointAction;
 begin
   AConfig.SetDeleteValue(APath+'Kind/Value',GetEnumName(TypeInfo(TDBGBreakPointKind), Ord(Kind)), '');
   AConfig.SetDeleteValue(APath+'Address/Value',Address,Int64(0)); // shouldb TDBGPtr;
 
   AConfig.SetDeleteValue(APath+'WatchData/Value', FWatchData, '');
   WriteStr(s{%H-}, FWatchScope);
-  AConfig.SetDeleteValue(APath+'WatchScope/Value', s, '');
+  AConfig.SetDeleteValue(APath+'WatchScope/Value', s, 'wpsGlobal');
   WriteStr(s, FWatchKind);
-  AConfig.SetDeleteValue(APath+'WatchKind/Value', s, '');
-
-  if Group <> nil
-  then AConfig.SetDeleteValue(APath+'Group/Name',Group.Name,'');
+  AConfig.SetDeleteValue(APath+'WatchKind/Value', s, 'wpkWrite');
 
   AConfig.SetDeleteValue(APath+'Expression/Value',Expression,'');
-  AConfig.SetDeleteValue(APath+'AutoContinueTime/Value',AutoContinueTime,0);
-  AConfig.SetDeleteValue(APath+'BreakHitCount/Value',BreakHitCount,0);
 
   Filename := Source;
   if Assigned(OnSaveFilename) then OnSaveFilename(Filename);
-
   AConfig.SetDeleteValue(APath+'Source/Value',Filename,'');
-  AConfig.SetDeleteValue(APath+'InitialEnabled/Value',InitialEnabled,true);
   AConfig.SetDeleteValue(APath+'Line/Value',Line,-1);
-  AConfig.SetDeleteValue(APath+'LogEvalExpression/Value', FLogEvalExpression,'');
-  AConfig.SetDeleteValue(APath+'LogMessage/Value',LogMessage,'');
-  AConfig.SetDeleteValue(APath+'LogCallStackLimit/Value',LogCallStackLimit,0);
 
-  for CurAction := Low(TIDEBreakPointAction) to High(TIDEBreakPointAction) do
-  begin
-    AConfig.SetDeleteValue(
-        APath+'Actions/'+DBGBreakPointActionNames[CurAction],
-        CurAction in Actions, CurAction in [bpaStop]);
-  end;
-  SaveGroupList(FDisableGroupList, APath + 'DisableGroups/');
-  SaveGroupList(FEnableGroupList, APath + 'EnableGroups/');
+  inherited SaveToXMLConfig(AConfig, APath);
 end;
 
 procedure TIDEBreakPoint.SetAddress(const AValue: TDBGPtr);
@@ -6529,61 +6663,6 @@ begin
   Master := nil;
   Changed;
 end;
-
-procedure TIDEBreakPoint.SetActions(const AValue: TIDEBreakPointActions);
-begin
-  if FActions <> AValue
-  then begin
-    FActions := AValue;
-    DoActionChange;
-  end;
-end;
-
-procedure TIDEBreakPoint.SetGroup(const AValue: TIDEBreakPointGroup);
-var
-  Grp: TIDEBreakPointGroup;
-begin
-  if FGroup <> AValue
-  then begin
-
-    if FGroup <> nil
-    then begin
-      Grp := FGroup;
-      FGroup := nil;  //  avoid second entrance
-      Grp.Remove(Self);
-    end;
-    FGroup := AValue;
-    if FGroup <> nil
-    then begin
-      FGroup.Add(Self);
-    end;
-    DoUserChanged;
-  end;
-end;
-
-(*
-procedure TIDEBreakPoint.CopyGroupList(SrcGroupList, DestGroupList: TIDEBreakPointGroupList;
-  DestGroups: TIDEBreakPointGroups);
-var
-  i: Integer;
-  CurGroup: TIDEBreakPointGroup;
-  NewGroup: TIDEBreakPointGroup;
-begin
-  DestGroupList.clear;
-  for i:=0 to SrcGroupList.Count-1 do begin
-    CurGroup:=TIDEBreakPointGroup(SrcGroupList[i]);
-    NewGroup:=DestGroups.GetGroupByName(CurGroup.Name);
-    DestGroupList.Add(NewGroup);
-  end;
-end;
-
-procedure TIDEBreakPoint.CopyAllGroupLists(SrcBreakPoint: TIDEBreakPoint;
-  DestGroups: TIDEBreakPointGroups);
-begin
-  CopyGroupList(SrcBreakPoint.FEnableGroupList,FEnableGroupList,DestGroups);
-  CopyGroupList(SrcBreakPoint.FDisableGroupList,FDisableGroupList,DestGroups);
-end;
-*)
 
 { =========================================================================== }
 { TIDEBreakPoints }
@@ -6843,7 +6922,7 @@ end;
 { TIDEBreakPointGroup }
 { =========================================================================== }
 
-function TIDEBreakPointGroup.Add(const ABreakPoint: TIDEBreakPoint): Integer;
+function TIDEBreakPointGroup.Add(const ABreakPoint: TIdeTracePoint): Integer;
 begin
   Result := FBreakpoints.IndexOf(ABreakPoint); //avoid dups
   if Result = -1
@@ -6876,7 +6955,7 @@ end;
 
 procedure TIDEBreakPointGroup.Delete(const AIndex: Integer);
 begin
-  Remove(TIDEBreakPoint(FBreakPoints[AIndex]));
+  Remove(TIdeTracePoint(FBreakPoints[AIndex]));
 end;
 
 destructor TIDEBreakPointGroup.Destroy;
@@ -6884,7 +6963,7 @@ var
   n: Integer;
 begin
   for n := FBreakpoints.Count - 1 downto 0 do
-    TIDEBreakPoint(FBreakpoints[n]).Group := nil;
+    TIdeTracePoint(FBreakpoints[n]).Group := nil;
   for n := FReferences.Count - 1 downto 0 do
     TIDEBreakPointGroupList(FReferences[n]).Remove(Self);
 
@@ -6894,12 +6973,12 @@ begin
   FreeAndNil(FReferences);
 end;
 
-function TIDEBreakPointGroup.GetBreakpoint(const AIndex: Integer): TIDEBreakPoint;
+function TIDEBreakPointGroup.GetBreakpoint(const AIndex: Integer): TIdeTracePoint;
 begin
-  Result := TIDEBreakPoint(FBreakPoints[AIndex]);
+  Result := TIdeTracePoint(FBreakPoints[AIndex]);
 end;
 
-function TIDEBreakPointGroup.Remove(const ABreakPoint: TIDEBreakPoint): Integer;
+function TIDEBreakPointGroup.Remove(const ABreakPoint: TIdeTracePoint): Integer;
 begin
   Result := FBreakpoints.Remove(ABreakPoint);
   if ABreakpoint.Group = Self
@@ -6945,7 +7024,7 @@ var
   n: Integer;
 begin
   for n := 0 to FBreakPoints.Count - 1 do
-    TIDEBreakPoint(FBreakPoints[n]).Enabled := AValue;
+    TIdeTracePoint(FBreakPoints[n]).Enabled := AValue;
 end;
 
 procedure TIDEBreakPointGroup.SetInitialEnabled(const AValue: Boolean);
@@ -6984,8 +7063,8 @@ begin
   inherited Create(TIDEBreakPointGroup);
 end;
 
-procedure TIDEBreakPointGroups.LoadFromXMLConfig(XMLConfig: TXMLConfig;
-  const Path: string);
+procedure TIDEBreakPointGroups.LoadFromXMLConfig(XMLConfig: TXMLConfig; const Path: string;
+  const AClear: boolean);
 var
   NewCount: integer;
   NewGroup: TIDEBreakPointGroup;
@@ -6994,7 +7073,8 @@ var
   ItemPath: string;
   IsLegacyList: Boolean;
 begin
-  Clear;
+  if AClear then
+    Clear;
   IsLegacyList := XMLConfig.IsLegacyList(Path);
   NewCount := XMLConfig.GetListItemCount(Path, 'Item',IsLegacyList);
   for i := 0 to NewCount - 1 do
@@ -7003,7 +7083,7 @@ begin
     ItemPath := Path+XMLConfig.GetListItemXPath('Item', i, IsLegacyList, True)+'/';
     NewGroup.LoadFromXMLConfig(XMLConfig, ItemPath);
     OldGroup := FindGroupByName(NewGroup.Name, NewGroup);
-    if OldGroup <> nil then
+    if (OldGroup <> nil) or (NewGroup.Name = '') then
       NewGroup.Free;
   end;
 end;
@@ -7026,9 +7106,16 @@ begin
   end;
 end;
 
-function TIDEBreakPointGroups.GetGroupByName(const GroupName: string): TIDEBreakPointGroup;
+function TIDEBreakPointGroups.GetGroupByName(const GroupName: string; ACreateIfNotExist: boolean
+  ): TIDEBreakPointGroup;
 begin
+  if GroupName = '' then
+    exit(nil);
   Result := FindGroupByName(GroupName, nil);
+  if (Result = nil) and ACreateIfNotExist then begin
+    Result := TIDEBreakPointGroup(Add);
+    Result.Name := GroupName;
+  end;
 end;
 
 function TIDEBreakPointGroups.FindGroupByName(const GroupName: string;
@@ -7147,14 +7234,26 @@ begin
   end;
 end;
 
-function TIdeWatch.HasAllValidParents(AThreadId: Integer; AStackFrame: Integer
-  ): boolean;
+function TIdeWatch.HasAllValidParents(AThreadId: Integer; AStackFrame: Integer;
+  AFollowParentFrame: boolean): boolean;
 begin
   Result := FParentWatch = nil;
   if Result then
     exit;
 
-  Result := (GetAnyValidParentWatchValue(AThreadId, AStackFrame) <> nil);
+  Result := (GetAnyValidParentWatchValue(AThreadId, AStackFrame, AFollowParentFrame) <> nil);
+end;
+
+function TIdeWatch.GetResolvedParentFrameValue(const AThreadId: Integer; const AStackFrame: Integer
+  ): TIdeWatchValue;
+var
+  s: Integer;
+begin
+  Result := Values[AThreadId, AStackFrame];
+  Result.StartEval;
+  s := Result.ParentFrameFound;
+  if s >= 0 then
+    Result := Values[AThreadId, s];
 end;
 
 procedure TIdeWatch.DoEnableChange;
@@ -7191,8 +7290,8 @@ begin
   Result := TIdeWatchValue(inherited Values[AThreadId, AStackFrame]);
 end;
 
-function TIdeWatch.GetAnyValidParentWatchValue(AThreadId: Integer;
-  AStackFrame: Integer): TIdeWatchValue;
+function TIdeWatch.GetAnyValidParentWatchValue(AThreadId: Integer; AStackFrame: Integer;
+  AFollowParentFrame: boolean): TIdeWatchValue;
 var
   i: Integer;
   vl: TWatchValueList;
@@ -7202,15 +7301,25 @@ begin
     exit;
   vl := FParentWatch.FValueList;
   i := vl.Count - 1;
-  while (i >= 0) and (
-    (vl.EntriesByIdx[i].ThreadId <> AThreadId) or
-    (vl.EntriesByIdx[i].StackFrame <> AStackFrame) or
-    (not vl.EntriesByIdx[i].IsValid)
-  ) do
-    dec(i);
-  if i >= 0 then
+  while (i >= 0) do begin
     Result := TIdeWatchValue(vl.EntriesByIdx[i]);
+    dec(i);
+    if (Result.ThreadId <> AThreadId) or
+       (Result.StackFrame <> AStackFrame)
+    then
+      continue;
+
+    if Result.IsValid then
+      exit;
+
+    if AFollowParentFrame and (Result.ParentFrameFound >= 0) then begin
+      Result := GetAnyValidParentWatchValue(AThreadId, Result.ParentFrameFound);
+      exit;
+    end;
+  end;
+  Result := nil;
 end;
+
 function TIdeWatch.GetWatchDisplayName: String;
 begin
   if FDisplayName <> '' then
@@ -7308,9 +7417,11 @@ begin
   Result.DisplayFormat := DisplayFormat;
   Result.DbgBackendConverter := DbgBackendConverter;
   Result.DbgValueFormatter   := DbgValueFormatter;
+  Result.FParentFrameSearch := ParentFrameSearch;
   Result.FDisplayName := ADispName;
-  if (defClassAutoCast in EvaluateFlags) then
-    Result.EvaluateFlags := Result.EvaluateFlags + [defClassAutoCast];
+  Result.EvaluateFlags := Result.EvaluateFlags
+    + EvaluateFlags * [defClassAutoCast, defAllowFunctionCall, defFunctionCallRunAllThreads,
+                       defSkipValConv, defSkipValueFormatter];
 
   EndChildUpdate;
 end;
@@ -8266,11 +8377,11 @@ function TSubLocalsValue.GetValue: String;
 begin
   RequestData;
   case FValidity of
-    ddsRequested, ddsEvaluating: Result := '<evaluating>';
+    ddsRequested, ddsEvaluating: Result := '<'+DbgValueEvaluating+'>';
     ddsValid:                    Result := inherited GetValue;
-    ddsInvalid:                  Result := '<invalid>';
-    ddsError:                    Result := '<Error: '+ (inherited GetValue) +'>';
-    else Result := '<not evaluated>';
+    ddsInvalid:                  Result := '<'+DbgValueInvalid+'>';
+    ddsError:                    Result := '<'+Format(DbgValueError, [inherited GetValue])+'>';
+    else Result := '<'+DbgValueNotEvaluated+'>';
   end;
 end;
 
@@ -8845,10 +8956,10 @@ function TIdeCallStackEntry.GetFunctionName: String;
 begin
   case Validity of
     ddsValid:     Result := inherited GetFunctionName;
-    ddsError:     Result := '<Error: '+(inherited GetFunctionName)+'>';
-    ddsInvalid:   Result := '<invalid>';
-    ddsRequested, ddsEvaluating: Result := '<evaluating>';
-    ddsUnknown:                  Result := '<unknown>';
+    ddsError:     Result := '<'+Format(DbgValueError, [inherited GetFunctionName])+'>';
+    ddsInvalid:   Result := '<'+DbgValueInvalid+'>';
+    ddsRequested, ddsEvaluating: Result := '<'+DbgValueEvaluating+'>';
+    ddsUnknown:                  Result := '<'+DbgValueUnavailable+'>';
   end;
 end;
 
@@ -9397,58 +9508,304 @@ end;
 { TIDEException }
 { =========================================================================== }
 
-constructor TIDEException.Create (ACollection: TCollection );
+function TIDEException.GetName: String;
 begin
-  FEnabled := True;
-  inherited Create(ACollection);
+  Result := FName;
 end;
 
-procedure TIDEException.LoadFromXMLConfig(const AXMLConfig: TXMLConfig;
-  const APath: string);
+function TIDEException.GetSource: String;
 begin
+  Result := FName;
+end;
+
+procedure TIDEException.SetCollection(Value: TCollection);
+begin
+  if Collection <> nil then
+    TIDEExceptions(Collection).NotifyRemove(Self);
+  inherited SetCollection(Value);
+  if Collection <> nil then
+    TIDEExceptions(Collection).NotifyAdd(Self);
+end;
+
+procedure TIDEException.AssignTo(Dest: TPersistent);
+begin
+  if Dest is TIDEException
+  then begin
+    TIDEException(Dest).Name := FName;
+  end
+  else
+    inherited AssignTo(Dest);
+end;
+
+procedure TIDEException.SetName(const AValue: String);
+begin
+  if FName = AValue then exit;
+
+  if (AValue <> '') and (TIDEExceptions(GetOwner).FindItem(AValue) <> nil)
+  then raise EDBGExceptions.Create('Duplicate name: ' + AValue);
+
+  FName := AValue;
+  Changed;
+end;
+
+procedure TIDEException.ResetHitCount;
+begin
+  SetHitCount(0);
+end;
+
+procedure TIDEException.DoExceptionHit(var AContinue: Boolean; out ANeedInternalPause: boolean;
+  const AnExceptTargetInfo: IDbgTargetExceptionInfo);
+var
+  c: Integer;
+  s: String;
+begin
+  ANeedInternalPause := False;
+
+  c := HitCount + 1;
+  SetHitCount(c);
+  //if (BreakHitCount > 0) and (c >= BreakHitCount) then begin
+  //  AContinue := True;
+  if (BreakHitCount > 0) and (c < BreakHitCount) then begin
+    exit;
+  end;
+
+  AContinue := Enabled and (bpaSkipExcept in Actions);
+
+  // TODO: new categories for exception
+  if bpaLogMessage in Actions then begin
+    if not AnExceptTargetInfo.GetExceptionMessage(s) then
+      s := '';
+    TIDEExceptions(Collection).EventLogHandler.LogCustomEvent(ecBreakpoint, etBreakpointMessage, Format('Exception "%s" with Message: %s', [AnExceptTargetInfo.ClassName, s]));
+  end;
+  //if (bpaEValExpression in Actions) and (Trim(FLogEvalExpression) <> '') then
+  //  Master.DoLogExpression(Trim(FLogEvalExpression));
+  //if bpaLogCallStack in Actions
+  //then Master.DoLogCallStack(FLogCallStackLimit);
+
+  //// SnapShot is taken in TDebugManager.DebuggerChangeState
+  if bpaTakeSnapshot in Actions then
+    ANeedInternalPause := True;
+  if bpaEnableGroup in Actions then
+    EnableGroups;
+  if bpaDisableGroup in Actions then
+    DisableGroups;
+
+  if TIDEExceptions(Collection).OnBreakPointHit <> nil then
+    TIDEExceptions(Collection).OnBreakPointHit(nil, self, AContinue);
+end;
+
+constructor TIDEException.Create (ACollection: TCollection );
+begin
+  inherited Create(ACollection);
+  Enabled := True;
+  SetKind(bpkException);
+end;
+
+procedure TIDEException.LoadFromXMLConfig(const AXMLConfig: TXMLConfig; const APath: string;
+  const OnGetGroup: TOnGetGroupByName);
+begin
+  inherited LoadFromXMLConfig(AXMLConfig, APath, OnGetGroup);
   FName:=AXMLConfig.GetValue(APath+'Name/Value','');
-  FEnabled:=AXMLConfig.GetValue(APath+'Enabled/Value',true);
+  Enabled:=AXMLConfig.GetValue(APath+'Enabled/Value',true);
+  SetKind(bpkException);
 end;
 
 procedure TIDEException.SaveToXMLConfig(const AXMLConfig: TXMLConfig;
   const APath: string);
 begin
+  inherited SaveToXMLConfig(AXMLConfig, APath);
   AXMLConfig.SetDeleteValue(APath+'Name/Value',FName,'');
-  AXMLConfig.SetDeleteValue(APath+'Enabled/Value',FEnabled,true);
-end;
-
-procedure TIDEException.ResetMaster;
-begin
-  FMaster := nil;
+  AXMLConfig.SetDeleteValue(APath+'Enabled/Value', Enabled,true);
 end;
 
 { =========================================================================== }
 { TIDEExceptions }
 { =========================================================================== }
 
-function TIDEExceptions.Add(const AName: String): TIDEException;
-begin
-  Result := TIDEException(inherited Add(AName));
-end;
-
-function TIDEExceptions.Find(const AName: String): TIDEException;
-begin
-  Result := TIDEException(inherited Find(AName));
-end;
-
-constructor TIDEExceptions.Create;
-begin
-  inherited Create(TIDEException);
-  AddDefault;
-end;
-
 function TIDEExceptions.GetItem(const AIndex: Integer): TIDEException;
 begin
   Result := TIDEException(inherited GetItem(AIndex));
 end;
 
-procedure TIDEExceptions.LoadFromXMLConfig(const AXMLConfig: TXMLConfig;
-  const APath: string);
+procedure TIDEExceptions.SetItem(const AIndex: Integer;
+  const AValue: TIDEException);
+begin
+  inherited SetItem(Aindex, AValue);
+end;
+
+function TIDEExceptions.Add(const AName: String; AnUpdating: boolean): TIDEException;
+begin
+  Result := TIDEException(inherited Add(AnUpdating));
+  Result.Name := AName;
+end;
+
+function TIDEExceptions.Find(const AName: String): IDbgExceptionHandler;
+begin
+  Result := IDbgExceptionHandler(FindItem(AName));
+end;
+
+function TIDEExceptions.FindExceptionHandler(const AnExceptTargetInfo: IDbgTargetExceptionInfo): IDbgExceptionHandler;
+begin
+  Result := IDbgExceptionHandler(FindItem(AnExceptTargetInfo.ClassName));
+end;
+
+function TIDEExceptions.FindItem(const AName: String): TIDEException;
+var
+  n: Integer;
+begin
+  for n := 0 to Count - 1 do
+  begin
+    Result := TIdeException(GetItem(n));
+    if CompareText(Result.Name, AName) = 0 then Exit;
+  end;
+  Result := nil;
+end;
+
+procedure TIDEExceptions.AddIfNeeded(AName: string);
+begin
+  if Find(AName) = nil then
+    Add(AName);
+end;
+
+procedure TIDEExceptions.Reset;
+begin
+  ClearExceptions;
+  FIgnoreAll := False;
+  AddDefault;
+end;
+
+procedure TIDEExceptions.AssignTo(Dest: TPersistent);
+begin
+  if Dest is TIDEExceptions
+  then begin
+    TideExceptions(Dest).IgnoreAll := IgnoreAll;
+  end
+  else
+    inherited AssignTo(Dest);
+end;
+
+procedure TIDEExceptions.SetIgnoreAll(const AValue: Boolean);
+begin
+  if FIgnoreAll = AValue then exit;
+  FIgnoreAll := AValue;
+  Changed;
+end;
+
+function TIDEExceptions.GetIgnoreAllExceptions: Boolean;
+begin
+  Result := FIgnoreAll;
+end;
+
+procedure TIDEExceptions.AddDefault;
+begin
+  AddIfNeeded('EAbort');
+  AddIfNeeded('ECodetoolError');
+  AddIfNeeded('EFOpenError');
+end;
+
+procedure TIDEExceptions.ClearExceptions;
+var
+  itm: TRefCountedColectionItem;
+begin
+  while Count>0 do begin
+    itm := Items[Count-1];
+    itm.Collection := nil;
+    itm.ReleaseReference;
+  end;
+
+end;
+
+procedure TIDEExceptions.NotifyAdd(const AnException: TIDEException);
+var
+  n: Integer;
+  Notification: TIDEExceptionsNotification;
+begin
+  AnException.InitialEnabled := True;
+  AnException.Enabled := True;
+
+  for n := 0 to FNotificationList.Count - 1 do begin
+    Notification := TIDEExceptionsNotification(FNotificationList[n]);
+    if Assigned(Notification.FOnAdd) then
+      Notification.FOnAdd(Self, AnException);
+  end;
+//  AnException.ClearChanged; // we did send "Add" instead
+end;
+
+procedure TIDEExceptions.NotifyRemove(const AnException: TIDEException);
+var
+  n: Integer;
+  Notification: TIDEExceptionsNotification;
+begin
+  for n := 0 to FNotificationList.Count - 1 do begin
+    Notification := TIDEExceptionsNotification(FNotificationList[n]);
+    if Assigned(Notification.FOnRemove) then
+      Notification.FOnRemove(Self, AnException);
+  end;
+end;
+
+procedure TIDEExceptions.Update(Item: TCollectionItem);
+var
+  n: Integer;
+  Notification: TIDEExceptionsNotification;
+begin
+  //if IgnoreUpdate then
+  //  exit;
+  // Note: Item will be nil in case all items need to be updated
+  for n := 0 to FNotificationList.Count - 1 do begin
+    Notification := TIDEExceptionsNotification(FNotificationList[n]);
+    if Assigned(Notification.FOnUpdate) then
+      Notification.FOnUpdate(Self, TIDEException(Item));
+  end;
+end;
+
+constructor TIDEExceptions.Create;
+begin
+  FNotificationList := TList.Create;
+  inherited Create(TIDEException);
+  FIgnoreAll := False;
+  AddDefault;
+end;
+
+destructor TIDEExceptions.Destroy;
+var
+  n: Integer;
+begin
+  for n := FNotificationList.Count - 1 downto 0 do
+    TDebuggerNotification(FNotificationList[n]).ReleaseReference;
+  FNotificationList.Clear;
+
+  ClearExceptions;
+  inherited Destroy;
+  FreeAndNil(FNotificationList);
+end;
+
+procedure TIDEExceptions.Clear;
+begin
+  ClearExceptions;
+end;
+
+procedure TIDEExceptions.ResetHitCounts;
+var
+  i: Integer;
+begin
+  for i := 0 to Count - 1 do
+    Items[i].ResetHitCount;
+end;
+
+procedure TIDEExceptions.AddNotification(const ANotification: TIDEExceptionsNotification);
+begin
+  FNotificationList.Add(ANotification);
+  ANotification.AddReference;
+end;
+
+procedure TIDEExceptions.RemoveNotification(const ANotification: TIDEExceptionsNotification);
+begin
+  FNotificationList.Remove(ANotification);
+  ANotification.ReleaseReference;
+end;
+
+procedure TIDEExceptions.LoadFromXMLConfig(const AXMLConfig: TXMLConfig; const APath: string;
+  const OnGetGroup: TOnGetGroupByName);
 var
   NewCount: Integer;
   i: Integer;
@@ -9462,9 +9819,9 @@ begin
   FIgnoreAll := AXMLConfig.GetValue(APath + 'IgnoreAll', False);
   for i := 0 to NewCount-1 do
   begin
-    IDEException := TIDEException(inherited Add(''));
+    IDEException := TIDEException(Add(''));
     ItemPath := APath+AXMLConfig.GetListItemXPath('Item', i, IsLegacyList, True)+'/';
-    IDEException.LoadFromXMLConfig(AXMLConfig, ItemPath);
+    IDEException.LoadFromXMLConfig(AXMLConfig, ItemPath, OnGetGroup);
   end;
 end;
 
@@ -9485,31 +9842,6 @@ begin
     ItemPath := APath+AXMLConfig.GetListItemXPath('Item', i, ALegacyList, True)+'/';
     IDEException.SaveToXMLConfig(AXMLConfig, ItemPath);
   end;
-end;
-
-procedure TIDEExceptions.AddIfNeeded(AName: string);
-begin
-  if Find(AName) = nil then
-    Add(AName);
-end;
-
-procedure TIDEExceptions.Reset;
-begin
-  inherited Reset;
-  AddDefault;
-end;
-
-procedure TIDEExceptions.SetItem(const AIndex: Integer;
-  const AValue: TIDEException);
-begin
-  inherited SetItem(Aindex, AValue);
-end;
-
-procedure TIDEExceptions.AddDefault;
-begin
-  AddIfNeeded('EAbort');
-  AddIfNeeded('ECodetoolError');
-  AddIfNeeded('EFOpenError');
 end;
 
 { TIDELineInfo }

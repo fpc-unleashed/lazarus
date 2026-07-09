@@ -138,6 +138,38 @@ msgstr ""
 msgid "Please choose the formatter to add."
 msgstr ""
 
+#: idedebuggerstringconstants.dbgvaluedisabled
+#, fuzzy
+msgctxt "idedebuggerstringconstants.dbgvaluedisabled"
+msgid "Disabled"
+msgstr "Zakázané"
+
+#: idedebuggerstringconstants.dbgvalueerror
+#, object-pascal-format
+msgid "Error: %s"
+msgstr ""
+
+#: idedebuggerstringconstants.dbgvalueevaluating
+msgctxt "idedebuggerstringconstants.dbgvalueevaluating"
+msgid "Evaluating"
+msgstr ""
+
+#: idedebuggerstringconstants.dbgvalueinvalid
+msgid "Invalid"
+msgstr ""
+
+#: idedebuggerstringconstants.dbgvaluenotevaluated
+msgid "Not evaluated"
+msgstr ""
+
+#: idedebuggerstringconstants.dbgvalueunavailable
+msgid "Unavailable"
+msgstr ""
+
+#: idedebuggerstringconstants.dbgwatchcolorautoopenconsolewindowlinu
+msgid "Auto open console Window (Linux):"
+msgstr ""
+
 #: idedebuggerstringconstants.dbgwatchcolordisabled
 #, fuzzy
 msgctxt "idedebuggerstringconstants.dbgwatchcolordisabled"
@@ -155,11 +187,29 @@ msgid "Error"
 msgstr "Chyba"
 
 #: idedebuggerstringconstants.dbgwatchcolorevaluating
+msgctxt "idedebuggerstringconstants.dbgwatchcolorevaluating"
 msgid "Evaluating"
+msgstr ""
+
+#: idedebuggerstringconstants.dbgwatchcolornever
+msgctxt "idedebuggerstringconstants.dbgwatchcolornever"
+msgid "Never"
+msgstr ""
+
+#: idedebuggerstringconstants.dbgwatchcoloronoutputalways
+msgid "On output (always)"
+msgstr ""
+
+#: idedebuggerstringconstants.dbgwatchcoloronoutputonceperdebugsessi
+msgid "On output (once per debug session)"
 msgstr ""
 
 #: idedebuggerstringconstants.dbgwatchcolors
 msgid "Watches/Locals"
+msgstr ""
+
+#: idedebuggerstringconstants.dbgwatchcolorshadowlast
+msgid "From previous pause"
 msgstr ""
 
 #: idedebuggerstringconstants.dbgwatchcolorunknown
@@ -285,6 +335,7 @@ msgid "Dynamic"
 msgstr ""
 
 #: idedebuggerstringconstants.dispformatdlgarraycombinenone
+msgctxt "idedebuggerstringconstants.dispformatdlgarraycombinenone"
 msgid "Never"
 msgstr ""
 
@@ -1174,6 +1225,18 @@ msgctxt "idedebuggerstringconstants.lisbrkpointstate"
 msgid "State"
 msgstr "Stav"
 
+#: idedebuggerstringconstants.lisc0ascontrolpictures
+msgid "C0 as Control Pictures"
+msgstr ""
+
+#: idedebuggerstringconstants.lisc0asiso2047
+msgid "C0 as ISO 2047"
+msgstr ""
+
+#: idedebuggerstringconstants.lisc1asc0underbar
+msgid "C1 as C0 + Underbar"
+msgstr ""
+
 #: idedebuggerstringconstants.liscallstacknotevaluated
 msgid "Stack not evaluated"
 msgstr ""
@@ -1373,6 +1436,10 @@ msgstr "Pokračovať obslúžené"
 msgid "Resume Unhandled"
 msgstr "Pokračovať neobslúžené"
 
+#: idedebuggerstringconstants.lisdecorations
+msgid "Decorations"
+msgstr ""
+
 #: idedebuggerstringconstants.lisdeleteall
 msgid "&Delete All"
 msgstr "Z&mazať všetky"
@@ -1412,6 +1479,11 @@ msgstr "Zmazať bod prerušenia na adrese %s?"
 #, object-pascal-format
 msgid "Delete watchpoint for \"%s\"?"
 msgstr "Zmazať bod pozorovania pre \"%s\"?"
+
+#: idedebuggerstringconstants.lisdeletetracepointforexception
+#, object-pascal-format
+msgid "Delete exception filter for \"%s\"?"
+msgstr ""
 
 #: idedebuggerstringconstants.lisdigits
 msgid "Digits:"
@@ -1509,8 +1581,16 @@ msgstr "Pridať komentár ..."
 msgid "Add Comment"
 msgstr "Pridať komentár"
 
+#: idedebuggerstringconstants.lisexceptionclass
+msgid "Class:"
+msgstr ""
+
 #: idedebuggerstringconstants.lisexceptiondialog
 msgid "Debugger Exception Notification"
+msgstr ""
+
+#: idedebuggerstringconstants.lisexceptionfilter
+msgid "&Exception filter ..."
 msgstr ""
 
 #: idedebuggerstringconstants.lisexport
@@ -1573,6 +1653,10 @@ msgstr ""
 
 #: idedebuggerstringconstants.lisgroupsetnone
 msgid "Clear group(s)"
+msgstr ""
+
+#: idedebuggerstringconstants.lishexascii
+msgid "Hex + ASCII"
 msgstr ""
 
 #: idedebuggerstringconstants.lishitcount
@@ -1681,6 +1765,14 @@ msgstr "Riadok:"
 #: idedebuggerstringconstants.lislinelength
 msgid "Line/Length"
 msgstr "Dĺžka riadka"
+
+#: idedebuggerstringconstants.lislinelimit
+msgid "Line limit"
+msgstr ""
+
+#: idedebuggerstringconstants.lislinenumbers
+msgid "Line numbers"
+msgstr ""
 
 #: idedebuggerstringconstants.lislocals
 msgctxt "lazarusidestrconsts.lislocals"
@@ -1802,9 +1894,9 @@ msgctxt "idedebuggerstringconstants.lismenuviewassembler"
 msgid "Assembler"
 msgstr "Assembler"
 
-#: idedebuggerstringconstants.lismenuviewbreakpoints
-msgid "BreakPoints"
-msgstr "Body prerušenia"
+#: idedebuggerstringconstants.lismenuviewbreakpointsandexceptions
+msgid "BreakPoints/Exceptions"
+msgstr ""
 
 #: idedebuggerstringconstants.lismenuviewcallstack
 msgid "Call Stack"
@@ -1849,6 +1941,10 @@ msgstr "? (Vypnúť)"
 msgid "? (On)"
 msgstr "? (Zapnúť)"
 
+#: idedebuggerstringconstants.lisoutputstyle
+msgid "Output Style"
+msgstr ""
+
 #: idedebuggerstringconstants.lispasscount
 msgid "Pass Count"
 msgstr "Počet priechodov"
@@ -1859,6 +1955,10 @@ msgstr "Meno súboru:"
 
 #: idedebuggerstringconstants.lispendingon
 msgid "Pending (On)"
+msgstr ""
+
+#: idedebuggerstringconstants.lisrawoutput
+msgid "Raw Output"
 msgstr ""
 
 #: idedebuggerstringconstants.lisregisters
@@ -1879,6 +1979,10 @@ msgstr ""
 
 #: idedebuggerstringconstants.lissearchparenthint
 msgid "MaxCount:NamePattern"
+msgstr ""
+
+#: idedebuggerstringconstants.lisskipexception
+msgid "Continue"
 msgstr ""
 
 #: idedebuggerstringconstants.lissourcebreakpoint
@@ -1945,6 +2049,10 @@ msgstr "Zdrojový kód"
 msgctxt "lazarusidestrconsts.listhreadsstate"
 msgid "State"
 msgstr "Stav"
+
+#: idedebuggerstringconstants.lisunformatted
+msgid "Unformatted"
+msgstr ""
 
 #: idedebuggerstringconstants.lisvalue
 msgctxt "idedebuggerstringconstants.lisvalue"

@@ -44,7 +44,7 @@ type
     procedure DrawElement(Cr: Pcairo_t; Details: TThemedElementDetails; X, Y, Width, Height: Integer; AScreen: PGdkScreen = nil);
     procedure DrawText(DC: HDC; Details: TThemedElementDetails; const S: String; X, Y, Width, Height: Integer; Flags: Cardinal);
   public
-
+    function IsDarkTheme: boolean; override;
     procedure DrawElement(DC: HDC; Details: TThemedElementDetails; const R: TRect; ClipRect: PRect); override;
     procedure DrawEdge(DC: HDC; Details: TThemedElementDetails; const R: TRect; Edge, Flags: Cardinal; AContentRect: PRect); override;
     procedure DrawIcon(DC: HDC; Details: TThemedElementDetails; const R: TRect; himl: HIMAGELIST; Index: Integer); override;
@@ -58,7 +58,7 @@ type
   end;
 
 implementation
-uses LazGdkPixbuf2, Graphics, LazLogger, Math, gtk3procs, gtk3objects, gtk3int, LCLIntf;
+uses LazGdkPixbuf2, LazGio2, Graphics, LazLogger, Math, gtk3procs, gtk3objects, gtk3int, LCLIntf;
 
 function RgbaToCSS(const C: TGdkRGBA): string;
 begin
@@ -254,57 +254,31 @@ procedure TGTK3ThemeServices.DrawText(ACanvas: TPersistent;
   Details: TThemedElementDetails; const S: String; R: TRect; Flags,
   Flags2: Cardinal);
 begin
-  (*DOES NOT WORK YET !
-  writeln('TGTK3ThemeServices.DrawText: ACanvas ',dbgsName(ACanvas),' IsCanva=',(ACanvas is TCanvas));
-  if (ACanvas is TCanvas) then
-  begin
-    inherited DrawText(TCanvas(ACanvas).Handle, Details, S, R, Flags, Flags2);
-  end else
-  *)
   inherited DrawText(ACanvas, Details, S, R, Flags, Flags2);
-  //DrawText(DC, Details, S, R.Left, R.Top, R.Width, R.Height, Flags);
 end;
 
 procedure TGTK3ThemeServices.DrawText(DC: HDC; Details: TThemedElementDetails;
   const S: String; R: TRect; Flags, Flags2: Cardinal);
 begin
-  inherited DrawText(DC, Details, S, R, Flags, Flags2);
-  // DrawText(DC, Details, S, R.Left, R.Top, R.Width, R.Height, Flags);
+  if not GTK3WidgetSet.IsValidDC(DC) then
+    exit;
+  LCLIntf.DrawText(DC, PChar(S), Length(S), R, Flags);
 end;
 
 function TGTK3ThemeServices.GetDetailSizeForPPI(Details: TThemedElementDetails;
   PPI: Integer): TSize;
 var
-  AValue: TGValue;
   Context: PGtkStyleContext;
   min_width, min_height: gint;
+  Pad, Bord: TGtkBorder;
 begin
   Result := Size(0, 0);
   if Details.Element = teButton then
   begin
     if (Byte(Details.Part) in [BP_CHECKBOX, BP_RADIOBUTTON]) then
     begin
-      if Byte(Details.Part) = BP_CHECKBOX then
-        Context := GetStyleWidget(lgsCheckBox)^.get_style_context
-      else
-        Context := GetStyleWidget(lgsRadioButton)^.get_style_context;
-
-      gtk_style_context_save(Context);
-
-      if Byte(Details.Part) = BP_CHECKBOX then
-        gtk_style_context_add_class(Context, 'check')
-      else
-        gtk_style_context_add_class(Context, 'radio');
-
-      gtk_style_context_get(Context, gtk_style_context_get_state(Context),
-        ['min-width', @min_width, 'min-height', @min_height, nil]);
-
-      if (min_width <= 0) or (min_height <= 0) then
-        Result := Size(16, 16)
-      else
-        Result := Size(min_width, min_height);
-      gtk_style_context_restore(Context);
-
+      Result.cx := MulDiv(LCLIntf.GetSystemMetrics(SM_CXMENUCHECK), PPI, 96);
+      Result.cy := MulDiv(LCLIntf.GetSystemMetrics(SM_CYMENUCHECK), PPI, 96);
     end else
       Result := inherited;
   end else
@@ -316,6 +290,32 @@ begin
       inc(Result.cx);
       inc(Result.cy);
     end;
+  end else
+  if (Details.Element = teWindow) and (Details.Part in
+       [WP_CLOSEBUTTON, WP_SMALLCLOSEBUTTON, WP_MDICLOSEBUTTON,
+        WP_MINBUTTON, WP_MDIMINBUTTON, WP_MAXBUTTON,
+        WP_RESTOREBUTTON, WP_MDIRESTOREBUTTON,
+        WP_HELPBUTTON, WP_MDIHELPBUTTON,
+        WP_SYSBUTTON, WP_MDISYSBUTTON]) then
+  begin
+    min_width := 0;
+    min_height := 0;
+    Context := MakeCtx2(gtk_header_bar_get_type, 'headerbar', 'titlebar',
+      gtk_button_get_type, 'button', 'titlebutton',
+      GTK_STATE_FLAG_NORMAL, gdk_screen_get_default);
+    gtk_style_context_get(Context, GTK_STATE_FLAG_NORMAL,
+      ['min-width', @min_width, 'min-height', @min_height, nil]);
+    FillChar(Pad{%H-}, SizeOf(Pad), 0);
+    FillChar(Bord{%H-}, SizeOf(Bord), 0);
+    gtk_style_context_get_padding(Context, GTK_STATE_FLAG_NORMAL, @Pad);
+    gtk_style_context_get_border(Context, GTK_STATE_FLAG_NORMAL, @Bord);
+    g_object_unref(Context);
+    if min_width <= 0 then
+      min_width := 16;
+    if min_height <= 0 then
+      min_height := 16;
+    Result.cx := MulDiv(min_width + Pad.left + Pad.right + Bord.left + Bord.right, PPI, 96);
+    Result.cy := MulDiv(min_height + Pad.top + Pad.bottom + Bord.top + Bord.bottom, PPI, 96);
   end else
   (* NOT YET READY
   if Details.Element = teToolBar then
@@ -420,20 +420,34 @@ procedure TGTK3ThemeServices.DrawElement(DC: HDC;
 var
   GtkDC: TGtk3DeviceContext absolute DC;
   AScreen: PGdkScreen;
+  dL, dT, dR, dB, t: Integer;
 begin
-  if GtkDC.Parent <> nil then
-    AScreen := gtk_widget_get_screen(GtkDC.Parent)
-  else if GtkDC.Window <> nil then
-    AScreen := gdk_window_get_screen(GtkDC.Window)
-  else
-    AScreen := gdk_screen_get_default();
+  AScreen := gdk_screen_get_default();
+
+  dL := GtkDC.LToDX(R.Left);
+  dT := GtkDC.LToDY(R.Top);
+  dR := GtkDC.LToDX(R.Right);
+  dB := GtkDC.LToDY(R.Bottom);
+
+  if dL > dR then
+  begin
+    t := dL;
+    dL := dR;
+    dR := t;
+  end;
+
+  if dT > dB then
+  begin
+    t := dT;
+    dT := dB;
+    dB := t;
+  end;
 
   //if (Details.Element = teButton) and (Details.Part in [BP_CHECKBOX, BP_RADIOBUTTON]) then
   //  inherited DrawElement(DC, Details, R, ClipRect)
   //else
     Self.DrawElement(GtkDC.pcr, Details,
-      R.Left - GtkDC.WindowOrg.X, R.Top - GtkDC.WindowOrg.Y,
-      R.Width, R.Height, AScreen);
+      dL, dT, dR - dL, dB - dT, AScreen);
 end;
 
 function GetThemeColor(Ctx: PGtkStyleContext; const Name: PChar; Default: TGdkRGBA): TGdkRGBA;
@@ -510,6 +524,10 @@ begin
   '  background-color: alpha(@theme_selected_bg_color, 0.3); ' +
   '  border-color: @theme_selected_bg_color; ' +
   '  color: @theme_fg_color; ' +
+  '} ' +
+
+  '%0:s:hover { ' +
+  '  border-color: @theme_button_decoration_hover_breeze; ' +
   '} ' +
 
   '%0:s:focus:not(:checked) { ' +
@@ -599,14 +617,6 @@ begin
      (Details.Part = BP_CHECKBOX) and
      IsMixed(Details) then
     Include(Result, GTK_STATE_FLAG_INCONSISTENT);
-
-  // For checkbox/radio indicators the LCL "Hot" state covers both mouse-hover
-  // and keyboard focus. Map it to PRELIGHT + FOCUSED so Adwaita renders both
-  // the hover highlight and the focus ring correctly.
-  if (Details.Element = teButton) and
-     (Details.Part in [BP_CHECKBOX, BP_RADIOBUTTON]) and
-     IsHot(Details) then
-    Include(Result, GTK_STATE_FLAG_FOCUSED);
 
   // define orientations
   if ((Details.Element = teRebar) and (Details.Part = RP_GRIPPER)) or
@@ -1218,11 +1228,6 @@ begin
             // headerbar.titlebar > button.titlebutton[.close/.minimize/.maximize]
             Context := MakeCtx2(gtk_header_bar_get_type, 'headerbar', 'titlebar',
               gtk_button_get_type, 'button', 'titlebutton', State, AScreen);
-            if BtnClass <> '' then
-              gtk_style_context_add_class(Context, BtnClass);
-            // Clip background/frame to button rect, the theme CSS for hover/pressed
-            // renders the icon via -gtk-icon-source at a fixed native size that
-            // overflows our rect. Clipping prevents that overflow.
             cairo_save(Cr);
             cairo_rectangle(Cr, X, Y, Width, Height);
             cairo_clip(Cr);
@@ -1232,6 +1237,8 @@ begin
 
             if BtnIconName <> '' then
             begin
+              if BtnClass <> '' then
+                gtk_style_context_add_class(Context, BtnClass);
               ArrowSz := Min(Width, Height) * 2 div 3;
               ArrowX := X + (Width  - ArrowSz) div 2;
               ArrowY := Y + (Height - ArrowSz) div 2;
@@ -1253,9 +1260,6 @@ begin
           end;
         end;
       end;
-
-      else
-        DebugLn(Format('WARNING: TGtk3ThemeServices.DrawElement: Drawing for element %d not implemented.',[Ord(Details.Element)]));
     end;
   finally
     cairo_set_operator(Cr, AOldOperator);
@@ -1291,6 +1295,20 @@ begin
   pango_cairo_show_layout(GtkDc.pcr, Layout);
   g_object_unref(Context);
   g_object_unref(Layout);
+end;
+
+function TGTK3ThemeServices.IsDarkTheme: boolean;
+var
+ sett: PGSettings;
+ bs: string;
+begin
+  sett := g_settings_new('org.gnome.desktop.interface');
+  bs := sett^.get_string('color-scheme');
+  sett^.unref;
+  if bs <> '' then
+    Result := Pos('prefer-dark', bs) > 0
+  else
+    Result := inherited IsDarkTheme;
 end;
 
 end.

@@ -27,10 +27,10 @@ unit SynGutterCodeFolding;
 interface
 
 uses
-  SysUtils, Classes, Controls, Graphics, Menus, LCLIntf,
-  SynGutterBase, SynEditMiscProcs, SynEditFoldedView, SynEditMouseCmds,
-  SynEditHighlighterFoldBase, SynEditMiscClasses, LazSynEditText, LazEditTextAttributes, LCLType,
-  ImgList, Forms;
+  SysUtils, Classes, Controls, Graphics, Menus, LCLIntf, SynGutterBase, SynEditMiscProcs,
+  SynEditFoldedView, SynEditMouseCmds, SynEditHighlighterFoldBase, SynEditMiscClasses,
+  LazSynEditText, LazEditTextAttributes, LazEditFoldHighlighter,
+  LazEditHighlighterFoldNodeHighlighter, LCLType, ImgList, Forms;
 
 type
 
@@ -466,6 +466,8 @@ begin
   MarkupInfo.Background := clNone;
   MarkupInfo.Foreground := clDkGray;
   MarkupInfo.FrameColor := clNone;
+  MarkupInfo.InternalSaveDefaultValues;
+  FMarkupInfoCurrentFold.InternalSaveDefaultValues;
 
   CaretObj.AddChangeHandler(@CaretChanged);
   ViewedTextBuffer.AddChangeHandler(senrHighlightChanged, @DoHighlightChanged);
@@ -728,8 +730,8 @@ procedure TSynGutterCodeFolding.UpdateInnerFoldRange;
 var
   hl: TSynCustomFoldHighlighter;
   y, x, lvl, s, e, ndMin, ndCur, y2, i, c, mlvl: Integer;
-  ndList: TLazSynFoldNodeInfoList;
-  nd: TSynFoldNodeInfo;
+  ndList: TLazEditFoldNodeInfoList;
+  nd: TLazEditFoldNodeInfo;
   act: TSynFoldActions;
   HasBefore, HasAfter: Boolean;
 begin

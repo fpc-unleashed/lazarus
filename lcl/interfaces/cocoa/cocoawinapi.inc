@@ -562,7 +562,7 @@ begin
 
     p:=ctx.ROP2;
     opn:=ctx.Pen;
-    pn:=TCocoaPen.Create(clDkGray, psSolid, true, 2, pmCopy, pecFlat, pjsRound, false );
+    pn:=TCocoaPen.Create(clDkGray, psDot, true, 2, pmCopy, pecFlat, pjsRound, false );
     try
       ctx.Pen:=pn;
       ctx.ROP2:=R2_NOTXORPEN;
@@ -2133,7 +2133,9 @@ begin
     NUMRESERVED:
       Result := 0;
   else
+    {$IFDEF VerboseWinAPI}
     DebugLn('TCocoaWidgetSet.GetDeviceCaps TODO Index: ' + DbgS(Index));
+    {$ENDIF}
     Result := 0;
   end;
 end;
@@ -2254,6 +2256,11 @@ begin
       Result := DownMap[(Modifiers and NSControlKeyMask) <> 0];
     VK_LWIN, VK_RWIN:
       Result := DownMap[(Modifiers and NSCommandKeyMask) <> 0];
+    VK_FN:
+      if IsEditableTextKey(CocoaWidgetSetState.keyEvent.keyCode) then
+        Result := DownMap[(Modifiers and NSFunctionKeyMask) <> 0]
+      else
+        Result := 0;
     VK_CAPITAL:
       Result := ToggleMap[(Modifiers and NSAlphaShiftKeyMask) <> 0];
     VK_LBUTTON:
@@ -2663,7 +2670,9 @@ begin
     SM_LCLHasFormAlphaBlend:
       Result := 1;
   else
+    {$IFDEF VerboseWinAPI}
     DebugLn('TCocoaWidgetSet.GetSystemMetrics TODO ', DbgS(NIndex));
+    {$ENDIF}
   end;
 
   {$IFDEF VerboseWinAPI}

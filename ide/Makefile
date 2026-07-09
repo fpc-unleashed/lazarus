@@ -378,7 +378,7 @@ else
 ifeq ($(OS_TARGET),darwin)
 LCL_PLATFORM=cocoa
 else
-LCL_PLATFORM=gtk2
+LCL_PLATFORM=gtk3
 endif
 endif
 endif
@@ -415,10 +415,10 @@ DEFAULT_IDE_OPTIONS=  \
   -Fu../components/lazdebuggers/lazdebuggerfp/lib/$(CPU_TARGET)-$(OS_TARGET)/$(LCL_PLATFORM) \
   -Fu../components/lazdebuggers/lazdebuggerlldb/lib/$(CPU_TARGET)-$(OS_TARGET)/$(LCL_PLATFORM) \
   -Fu../components/lazdebuggers/lazdebuggerfplldb/lib/$(CPU_TARGET)-$(OS_TARGET)/$(LCL_PLATFORM) \
-  -Fupackages/ideconfig/lib/$(CPU_TARGET)-$(OS_TARGET)/$(LCL_PLATFORM) \
+  -Fupackages/ideconfig/lib/$(CPU_TARGET)-$(OS_TARGET) \
+  -Fupackages/idepackager/lib/$(CPU_TARGET)-$(OS_TARGET) \
+  -Fupackages/ideproject/lib/$(CPU_TARGET)-$(OS_TARGET) \
   -Fupackages/ideutils/lib/$(CPU_TARGET)-$(OS_TARGET)/$(LCL_PLATFORM) \
-  -Fupackages/idepackager/lib/$(CPU_TARGET)-$(OS_TARGET)/$(LCL_PLATFORM) \
-  -Fupackages/ideproject/lib/$(CPU_TARGET)-$(OS_TARGET)/$(LCL_PLATFORM) \
   -Fupackages/idedebugger/lib/$(CPU_TARGET)-$(OS_TARGET)/$(LCL_PLATFORM)
 BIG_IDE_OPTIONS=-dBigIDE $(DEFAULT_IDE_OPTIONS) \
   -Fu../components/lazedit/lib/$(CPU_TARGET)-$(OS_TARGET)/$(LCL_PLATFORM) \
@@ -460,7 +460,16 @@ BIG_IDE_OPTIONS=-dBigIDE $(DEFAULT_IDE_OPTIONS) \
   -Fu../components/dockedformeditor/lib/$(CPU_TARGET)-$(OS_TARGET)/$(LCL_PLATFORM) \
   -Fu../components/anchordocking/units/$(CPU_TARGET)-$(OS_TARGET)/$(LCL_PLATFORM) \
   -Fu../components/anchordocking/design/units/$(CPU_TARGET)-$(OS_TARGET)/$(LCL_PLATFORM)
-LAZBUILD_OPT=$(LAZARUS_LIBPATHS)
+LAZBUILD_OPT=$(LAZARUS_LIBPATHS) \
+  -Fu../packager/units/$(CPU_TARGET)-$(OS_TARGET) \
+  -Fu../components/lazutils/lib/$(CPU_TARGET)-$(OS_TARGET) \
+  -Fu../components/codetools/units/$(CPU_TARGET)-$(OS_TARGET) \
+  -Fu../components/lazdebuggers/lazdebuggerintf/lib/$(CPU_TARGET)-$(OS_TARGET) \
+  -Fu../components/debuggerintf/lib/$(CPU_TARGET)-$(OS_TARGET) \
+  -Fu../components/buildintf/units/$(CPU_TARGET)-$(OS_TARGET) \
+  -Fupackages/ideconfig/lib/$(CPU_TARGET)-$(OS_TARGET) \
+  -Fupackages/idepackager/lib/$(CPU_TARGET)-$(OS_TARGET) \
+  -Fupackages/ideproject/lib/$(CPU_TARGET)-$(OS_TARGET)
 ifneq ($(findstring $(OS_TARGET),win32 win64),)
 LAZARUS_OPT+= -WG
 endif
@@ -4946,14 +4955,7 @@ makefiles: fpc_makefiles
 ifneq ($(wildcard fpcmake.loc),)
 include fpcmake.loc
 endif
-.PHONY: ide bigide starter lazbuilder all clean cleanide purge revisioninc
-revisioninc:
-ifneq ($(USESVN2REVISIONINC),0)
-ifeq ($(wildcard ../tools/svn2revisioninc$(SRCEXEEXT)),)
-	$(MAKE) -C ../tools svn2revisioninc$(SRCEXEEXT) OS_TARGET=$(OS_SOURCE) CPU_TARGET=$(CPU_SOURCE) OPT=''
-endif
-	../tools/svn2revisioninc$(SRCEXEEXT) .. revision.inc
-endif
+.PHONY: ide bigide starter lazbuilder all clean cleanide purge
 idepackages:
 	$(MAKE) -C packages/ideconfig
 	$(MAKE) -C packages/ideutils
@@ -4968,7 +4970,7 @@ bigide: $(COMPILER_UNITTARGETDIR) revisioninc
 starter: $(COMPILER_UNITTARGETDIR)
 	$(MAKE) --assume-new=startlazarus.lpr startlazarus$(EXEEXT) OPT='$(DEFAULT_IDE_OPTIONS) $(LAZARUS_OPT) $(OPT)'
 lazbuilder: $(COMPILER_UNITTARGETDIR)
-	$(MAKE) --assume-new=lazbuild.lpr lazbuild$(EXEEXT) OPT='$(DEFAULT_IDE_OPTIONS) $(LAZBUILD_OPT) $(OPT)'
+	$(MAKE) --assume-new=lazbuild.lpr lazbuild$(EXEEXT) OPT='$(LAZBUILD_OPT) $(OPT)'
 all: lazbuilder ide starter
 cleanide:
 	-$(DEL) $(wildcard *$(OEXT))
@@ -4996,9 +4998,9 @@ ifneq ($(findstring $(OS_TARGET),win32 win64),)
 endif
 cleanlaz: clean cleanide
 	$(MAKE) -C packages/ideconfig clean
-	$(MAKE) -C packages/ideutils clean
 	$(MAKE) -C packages/idepackager clean
 	$(MAKE) -C packages/ideproject clean
+	$(MAKE) -C packages/ideutils clean
 	$(MAKE) -C packages/idedebugger clean
 	${DELTREE} ../units/*
 purge: cleanlaz

@@ -860,13 +860,14 @@ type
     property DockSitesCanBeMinimized: boolean read FDockSitesCanBeMinimized write SetDockSitesCanBeMinimized default false;
     property FlatHeadersButtons: boolean read FFlatHeadersButtons write SetFlatHeadersButtons default true;
 
-    property SplitterWidth: integer read FSplitterWidth write SetSplitterWidth default 4;
+    property SplitterWidth: integer read FSplitterWidth write SetSplitterWidth default DefaultSplitterWidth;
     property SplitterResizeStyle: TResizeStyle read FSplitterResizeStyle write SetSplitterResizeStyle default rsUpdate;
     property ScaleOnResize: boolean read FScaleOnResize write SetScaleOnResize default true; // scale children when resizing a site
     property AllowDragging: boolean read FAllowDragging write SetAllowDragging default false;
     property MultiLinePages: boolean read FMultiLinePages write SetMultiLinePages default false;
     property OptionsChangeStamp: int64 read FOptionsChangeStamp;
     procedure IncreaseOptionsChangeStamp; inline;
+    function ScaledSplitterWidth: integer;
 
     // for descendants
     property SplitterClass: TAnchorDockSplitterClass read FSplitterClass write FSplitterClass;
@@ -1634,7 +1635,7 @@ begin
   ScaleOnResize                    := Config.GetValue('ScaleOnResize',true);
   ShowHeader                       := Config.GetValue('ShowHeader',false);
   ShowHeaderCaption                := Config.GetValue('ShowHeaderCaption',true);
-  SplitterWidth                    := Config.GetValue('SplitterWidth',4);
+  SplitterWidth                    := Config.GetValue('SplitterWidth',DefaultSplitterWidth);
   SplitterResizeStyle              := Str2ResizeStyle(Config.GetValue('SplitterResizeStyle',crsUpdate));
   Config.UndoAppendBasePath;
 end;
@@ -1662,7 +1663,7 @@ begin
   Config.SetDeleteValue(Path+'ScaleOnResize',ScaleOnResize,true);
   Config.SetDeleteValue(Path+'ShowHeader',ShowHeader,false);
   Config.SetDeleteValue(Path+'ShowHeaderCaption',ShowHeaderCaption,true);
-  Config.SetDeleteValue(Path+'SplitterWidth',SplitterWidth,4);
+  Config.SetDeleteValue(Path+'SplitterWidth',SplitterWidth,DefaultSplitterWidth);
   Config.SetDeleteValue(Path+'SplitterResizeStyle',ResizeStyle2Str[SplitterResizeStyle],crsUpdate);
 end;
 
@@ -1690,7 +1691,7 @@ begin
   Config.SetDeleteValue('ScaleOnResize',ScaleOnResize,true);
   Config.SetDeleteValue('ShowHeader',ShowHeader,false);
   Config.SetDeleteValue('ShowHeaderCaption',ShowHeaderCaption,true);
-  Config.SetDeleteValue('SplitterWidth',SplitterWidth,4);
+  Config.SetDeleteValue('SplitterWidth',SplitterWidth,DefaultSplitterWidth);
   Config.SetDeleteValue('SplitterResizeStyle',ResizeStyle2Str[SplitterResizeStyle],crsUpdate);
   Config.UndoAppendBasePath;
 end;
@@ -1748,7 +1749,7 @@ begin
   ScaleOnResize                    := Config.GetValue(Path+'ScaleOnResize',true);
   ShowHeader                       := Config.GetValue(Path+'ShowHeader',false);
   ShowHeaderCaption                := Config.GetValue(Path+'ShowHeaderCaption',true);
-  SplitterWidth                    := Config.GetValue(Path+'SplitterWidth',4);
+  SplitterWidth                    := Config.GetValue(Path+'SplitterWidth',DefaultSplitterWidth);
   SplitterResizeStyle              := Str2ResizeStyle(Config.GetValue(Path+'SplitterResizeStyle',crsUpdate));
 end;
 
@@ -2491,10 +2492,14 @@ function TAnchorDockMaster.RestoreLayout(Tree: TAnchorDockLayoutTree;
       Splitter.BoundsRect:=NewBounds;
       if ANode.NodeType=adltnSplitterVertical then begin
         Splitter.ResizeAnchor:=akLeft;
+        if SplitterWidth>=1 then
+          Splitter.Width := ScaledSplitterWidth;
         Splitter.AnchorSide[akLeft].Control:=nil;
         Splitter.AnchorSide[akRight].Control:=nil;
       end else begin
         Splitter.ResizeAnchor:=akTop;
+        if SplitterWidth>=1 then
+          Splitter.Height := ScaledSplitterWidth;
         Splitter.AnchorSide[akTop].Control:=nil;
         Splitter.AnchorSide[akBottom].Control:=nil;
       end;
@@ -2807,9 +2812,9 @@ begin
     if not Splitter.CustomWidth then
     begin
       if Splitter.ResizeAnchor in [akLeft,akRight] then
-        Splitter.Width:=SplitterWidth
+        Splitter.Width := ScaledSplitterWidth
       else
-        Splitter.Height:=SplitterWidth;
+        Splitter.Height := ScaledSplitterWidth;
     end;
   end;
   OptionsChanged;
@@ -3293,7 +3298,7 @@ begin
   FShowHeaderCaption:=false;
   FHideHeaderCaptionFloatingControl:=true;
   FSplitterResizeStyle:=rsUpdate;
-  FSplitterWidth:=4;
+  FSplitterWidth:=DefaultSplitterWidth;
   FScaleOnResize:=true;
   FMapMinimizedControls:=TMapMinimizedControls.Create;
   fNeedSimplify:=TFPList.Create;
@@ -4424,6 +4429,13 @@ begin
   LUIncreaseChangeStamp64(FOptionsChangeStamp);
 end;
 
+function TAnchorDockMaster.ScaledSplitterWidth: integer;
+begin
+  Result := MulDiv(SplitterWidth, Screen.PixelsPerInch, 96);
+  if Result < 1 then
+    Result := SplitterWidth;
+end;
+
 procedure TAnchorDockMaster.UpdateHeaders;
 var
   i: Integer;
@@ -4702,10 +4714,10 @@ begin
   Splitter:=DockMaster.CreateSplitter;
   if DockAlign in [alLeft,alRight] then begin
     Splitter.ResizeAnchor:=akLeft;
-    Splitter.Width:=DockMaster.SplitterWidth;
+    Splitter.Width := DockMaster.ScaledSplitterWidth;
   end else begin
     Splitter.ResizeAnchor:=akTop;
-    Splitter.Height:=DockMaster.SplitterWidth;
+    Splitter.Height := DockMaster.ScaledSplitterWidth;
   end;
   Splitter.Parent:=Self;
 
@@ -6059,10 +6071,10 @@ begin
     AnchorAndChangeBounds(RotateSplitter,CWSide,CCWSplitter);
     if Side in [akLeft,akRight] then begin
       RotateSplitter.Left:=Splitter.Left;
-      RotateSplitter.Width:=DockMaster.SplitterWidth;
+      RotateSplitter.Width := DockMaster.ScaledSplitterWidth;
     end else begin
       RotateSplitter.Top:=Splitter.Top;
-      RotateSplitter.Height:=DockMaster.SplitterWidth;
+      RotateSplitter.Height := DockMaster.ScaledSplitterWidth;
     end;
     // shrink Splitter
     AnchorAndChangeBounds(Splitter,CCWSide,CWSplitter);
@@ -6098,6 +6110,13 @@ begin
     BoundSplitter.Width:=0;
     BoundSplitter.Height:=0;
     BoundSplitter.Visible:=false;
+  end else
+  if DockMaster.SplitterWidth >= 1 then
+  begin
+    if Align in [alLeft,alRight] then
+      BoundSplitter.Width := DockMaster.ScaledSplitterWidth
+    else
+      BoundSplitter.Height := DockMaster.ScaledSplitterWidth;
   end;
 end;
 
@@ -7290,6 +7309,33 @@ begin
   SizeCorrector(h,PreferredButtonHeight);
 end;
 
+procedure CapButtonToHeaderHeight(AControl: TControl; var w,h: integer);
+var
+  Hdr: TAnchorDockHeader;
+  DC: HDC;
+  R: TRect;
+  OldFont: HGDIOBJ;
+  CapH: Integer;
+begin
+  if (AControl=nil) or not (AControl.Parent is TAnchorDockHeader) then exit;
+  Hdr:=TAnchorDockHeader(AControl.Parent);
+  if not Hdr.HandleAllocated then exit;
+  DC:=GetDC(Hdr.Handle);
+  try
+    R:=Rect(0,0,10000,10000);
+    OldFont:=SelectObject(DC,HGDIOBJ(Hdr.Font.Reference.Handle));
+    DrawText(DC,PChar(TestTxt),Length(TestTxt),R,
+      DT_CALCRECT or DT_EXPANDTABS or DT_SINGLELINE or DT_NOPREFIX);
+    SelectObject(DC,OldFont);
+    CapH:=(R.Bottom-R.Top)+Hdr.BevelWidth*2-2*ButtonBorderSpacingAround;
+  finally
+    ReleaseDC(Hdr.Handle,DC);
+  end;
+  if CapH<1 then exit;
+  if h>CapH then h:=CapH;
+  if w>CapH then w:=CapH;
+end;
+
 procedure TAnchorDockCloseButton.CalculatePreferredSize(var PreferredWidth,
   PreferredHeight: integer; WithThemeSpace: Boolean);
 begin
@@ -7301,10 +7347,11 @@ begin
       PreferredWidth:=cx;
       PreferredHeight:=cy;
       ButtonSizeCorrector(PreferredWidth,PreferredHeight);
-      {$IF defined(LCLGtk2) or defined(Carbon)}
+      {$IF defined(LCLGtk2) or defined(LCLCarbon)}
       inc(PreferredWidth,2);
       inc(PreferredHeight,2);
       {$ENDIF}
+      CapButtonToHeaderHeight(Self,PreferredWidth,PreferredHeight);
     end
   else
     CalculatePreferredFlatButtonSize(Parent.Handle, PreferredWidth,PreferredHeight);
@@ -7315,19 +7362,50 @@ end;
 function TAnchorDockMinimizeButton.GetDrawDetails: TThemedElementDetails;
 
 function WindowPart: TThemedWindow;
+  var
+    AHeaderParent: TWinControl;
+    ASite: TAnchorDockHostSite;
+    AMinimized: Boolean;
   begin
-    // no check states available
-    Result := twMinButtonNormal;
-    if not IsEnabled then
-      Result := {$IFDEF LCLGtk2}twMDIRestoreButtonDisabled{$ELSE}twMinButtonDisabled{$ENDIF}
+    AMinimized := False;
+    ASite := nil;
+    if Assigned(Parent) then
+    begin
+      AHeaderParent := Parent.Parent;
+      if (DockMaster.FOverlappingForm <> nil)
+      and (AHeaderParent = TWinControl(DockMaster.FOverlappingForm)) then
+        ASite := DockMaster.FOverlappingForm.AnchorDockHostSite
+      else
+      if AHeaderParent is TAnchorDockHostSite then
+        ASite := TAnchorDockHostSite(AHeaderParent);
+    end;
+    if Assigned(ASite) then
+      AMinimized := ASite.Minimized;
+
+    if AMinimized then
+    begin
+      Result := twRestoreButtonNormal;
+      if not IsEnabled then
+        Result := twRestoreButtonDisabled
+      else
+      if FState in [bsDown, bsExclusive] then
+        Result := twRestoreButtonPushed
+      else
+      if FState = bsHot then
+        Result := twRestoreButtonHot;
+    end
     else
-    if FState in [bsDown, bsExclusive] then
-      Result := {$IFDEF LCLGtk2}twMDIRestoreButtonPushed{$ELSE}twMinButtonPushed{$ENDIF}
-    else
-    if FState = bsHot then
-      Result := {$IFDEF LCLGtk2}twMDIRestoreButtonHot{$ELSE}twMinButtonHot{$ENDIF}
-    else
-      Result := {$IFDEF LCLGtk2}twMDIRestoreButtonNormal{$ELSE}twMinButtonNormal{$ENDIF};
+    begin
+      Result := twMinButtonNormal;
+      if not IsEnabled then
+        Result := twMinButtonDisabled
+      else
+      if FState in [bsDown, bsExclusive] then
+        Result := twMinButtonPushed
+      else
+      if FState = bsHot then
+        Result := twMinButtonHot;
+    end;
   end;
 
 begin
@@ -7348,10 +7426,11 @@ begin
       PreferredWidth:=cx;
       PreferredHeight:=cy;
       ButtonSizeCorrector(PreferredWidth,PreferredHeight);
-      {$IF defined(LCLGtk2) or defined(Carbon)}
+      {$IF defined(LCLGtk2) or defined(LCLCarbon)}
       inc(PreferredWidth,2);
       inc(PreferredHeight,2);
       {$ENDIF}
+      CapButtonToHeaderHeight(Self,PreferredWidth,PreferredHeight);
     end
   else
     CalculatePreferredFlatButtonSize(Parent.Handle, PreferredWidth,PreferredHeight);
@@ -7424,7 +7503,7 @@ begin
       if Child is TAnchorDockHostSite then begin
         ChildSite:=TAnchorDockHostSite(Child);
         ChildSite.CreateBoundSplitter(Site is TAnchorDockPanel);
-        SplitterWidth:=DockMaster.SplitterWidth;
+        SplitterWidth := DockMaster.ScaledSplitterWidth;
       end;
 
       if Site is TAnchorDockPanel then
@@ -7599,7 +7678,7 @@ begin
       if Control is TAnchorDockHostSite then begin
         ChildSite:=TAnchorDockHostSite(Control);
         if ChildSite.BoundSplitter<>nil then
-          SplitterWidth:=DockMaster.SplitterWidth;
+          SplitterWidth := DockMaster.ScaledSplitterWidth;
       end;
 
       // shrink Site

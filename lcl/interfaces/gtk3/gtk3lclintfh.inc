@@ -57,7 +57,7 @@ function RawImage_FromDevice(out ARawImage: TRawImage; ADC: HDC; const ARect: TR
 function RawImage_QueryDescription(AFlags: TRawImageQueryFlags; var ADesc: TRawImageDescription): Boolean; override;
 
 procedure RemoveEventHandler(var AHandler: PEventHandler); override;
-// procedure RemovePipeEventHandler(var AHandler: PPipeEventHandler); override;
+procedure RemovePipeEventHandler(var AHandler: PPipeEventHandler); override;
 procedure RemoveProcessEventHandler(var AHandler: PProcessEventHandler); override;
 
 function SetComboMinDropDownSize(Handle: HWND; MinItemsWidth, MinItemsHeight, MinItemCount: integer): boolean; override;

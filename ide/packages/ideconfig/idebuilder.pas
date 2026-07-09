@@ -18,11 +18,13 @@
 *                                                                         *
 ***************************************************************************
 
- Code for building the Lazarus IDE. Split from unit BuildLazDialog.
+ Code for building the Lazarus IDE.
 }
 unit IdeBuilder;
 
 {$mode objfpc}{$H+}
+
+{$DEFINE UseFPCForIDE}
 
 interface
 
@@ -32,7 +34,7 @@ uses
   Windows,
   {$ENDIF}
   // LazUtils
-  FPCAdds, FileUtil, LazFileUtils, LazUTF8, LazLoggerBase, LazFileCache, LazVersion,
+  FPCAdds, FileUtil, LazFileUtils, LazUTF8, LazLoggerBase, LazFileCache, LazVersion, LazVCSUtils,
   // Codetools
   CodeToolManager,
   // BuildIntf
@@ -47,7 +49,8 @@ type
     blfOnlyIDE,             // skip all but IDE (for example build IDE, but not packages, not lazbuild, ...)
     blfDontClean,           // ignore clean up option in profile
     blfUseMakeIDECfg,       // append @idemake.cfg
-    blfBackupOldExe         // rename existing lazarus exe to lazarus.old
+    blfBackupOldExe,        // rename existing lazarus exe to lazarus.old
+    blfKeepInstallPkgs      // compile IDE with -dKeepInstalledPackages
     );
   TBuildLazarusFlags = set of TBuildLazarusFlag;
 
@@ -75,6 +78,7 @@ type
     procedure CleanDir(Dir: string; Recursive: boolean = true);
     procedure CleanLazarusSrcDir;
     procedure CheckRevisionInc;
+    procedure OnLogVCSScout(Msg: string);
     procedure RestoreBackup;
     // Methods used by SaveIDEMakeOptions :
     function BreakExtraOptions: string;
@@ -86,12 +90,11 @@ type
     function BackupExe(var aTargetFilename: string; const aTitle: string; Flags: TBuildLazarusFlags; AllowAltTargetFile: boolean): boolean;
     function CreateAppleBundle: TModalResult;
     procedure AppendExtraOption(const aOption: string; AutoQuote: boolean = True);
+    procedure PrependExtraOption(const aOption: string; AutoQuote: boolean = True);
     // This is used by MakeLazarus and SaveIDEMakeOptions
     function PrepareTargetDir(Flags: TBuildLazarusFlags): TModalResult;
   public
     constructor Create;
-    //function ShowConfigBuildLazDlg(AProfiles: TBuildLazarusProfiles;
-    //                               ADisableCompilation: Boolean): TModalResult;
     function MakeLazarus(Profile: TBuildLazarusProfile; Flags: TBuildLazarusFlags): TModalResult;
     function MakeIDEUsingLazbuild(Clean: boolean): TModalResult;
     function IsWriteProtected(Profile: TBuildLazarusProfile): Boolean;
@@ -101,9 +104,6 @@ type
     property PackageOptions: string read fPackageOptions write fPackageOptions;
     property ProfileChanged: boolean read fProfileChanged write fProfileChanged;
   end;
-
-//function GetMakeIDEConfigFilename: string;
-//function GetBackupExeFilename(Filename: string): string;
 
 
 implementation
@@ -212,15 +212,34 @@ end;
 
 procedure TLazarusBuilder.CheckRevisionInc;
 var
-  RevisionIncFile: String;
+  RevisionIncFile, VersionStr: String;
   sl: TStringList;
+  Scout: TVCSScout;
+  RevFileExists: Boolean;
 begin
   RevisionIncFile:=AppendPathDelim(EnvironmentOptions.GetParsedLazarusDirectory)+'ide'+PathDelim+'revision.inc';
-  if not FileExistsUTF8(RevisionIncFile) then begin
+  VersionStr:=LazarusVersionStr;
+  RevFileExists:=FileExistsUTF8(RevisionIncFile);
+  if not RevFileExists then
     debugln(['Note: (lazarus) revision.inc file missing: ',RevisionIncFile]);
-    sl:=TStringList.Create;
+  if RevFileExists and not fUpdateRevInc then exit;
+
+  if fUpdateRevInc then
+  begin
+    Scout:=TVCSScout.Create(nil);
+    try
+      Scout.OnShow:=@OnLogVCSScout;
+      Scout.SourceDirectory:=fWorkingDir;
+      if Scout.FindRevision then
+        VersionStr:=Scout.RevisionStr;
+    finally
+      Scout.Free;
+    end;
+  end;
+  sl:=TStringList.Create;
+  try
     sl.Add('// Created by lazbuild');
-    sl.Add('const RevisionStr = '''+LazarusVersionStr+''';');
+    sl.Add('const RevisionStr = '''+VersionStr+''';');
     try
       sl.SaveToFile(RevisionIncFile);
     except
@@ -228,8 +247,14 @@ begin
         debugln(['Warning: (lazarus) unable to write ',RevisionIncFile,': ',E.Message]);
       end;
     end;
+  finally
     sl.Free;
   end;
+end;
+
+procedure TLazarusBuilder.OnLogVCSScout(Msg: string);
+begin
+  debugln(['Info: (lazarus) ',Msg]);
 end;
 
 procedure TLazarusBuilder.RestoreBackup;
@@ -290,7 +315,10 @@ var
       Tool.FreeData:=true;
       Tool.Process.Executable:=Executable;
       Tool.AddParsers(SubToolFPC);
+      {$IFDEF UseFPCForIDE}
+      {$ELSE}
       Tool.AddParsers(SubToolMake);
+      {$ENDIF}
       Tool.Process.CurrentDirectory:=fWorkingDir;
       Tool.EnvironmentOverrides:=EnvironmentOverrides;
       Tool.CmdLineParams:=MergeCmdLineParams(CmdLineParams);
@@ -308,11 +336,15 @@ var
 var
   IdeBuildMode: TIdeBuildMode;
   s: String;
+  {$IFDEF UseFPCForIDE}
+  {$ELSE}
   DefaultTargetFilename: String;
+  {$ENDIF}
 begin
   // Get target files and directories.
   Result:=mrCancel;
   fProfile:=Profile;
+  fWorkingDir:=EnvironmentOptions.GetParsedLazarusDirectory;
   if CalcTargets(Flags)<>mrOk then exit;
 
   if Assigned(OnMainTitleChange) then
@@ -329,9 +361,20 @@ begin
     s:=EnvironmentOptions.GetParsedCompilerFilename;
     if s<>'' then
       EnvironmentOverrides.Values['PP']:=s;
-
+    {$IFDEF UseFPCForIDE}
+    // compile using fpc
+    Executable:=s;
+    // append target OS
+    if fTargetOS<>fCompilerTargetOS then begin
+      AddCmdLineParam('-T'+fTargetOS,true);
+    end;
+    // append target CPU
+    if fTargetCPU<>fCompilerTargetCPU then begin
+      AddCmdLineParam('-P'+fTargetCPU,true);
+    end;
+    {$ELSE}
+    // compile using make
     Executable:=SearchMakeExe(true);
-
     // add -w option to print leaving/entering messages of "make"
     AddCmdLineParam('-w',false);
     // append target OS
@@ -344,12 +387,11 @@ begin
       AddCmdLineParam('CPU_TARGET='+fTargetCPU,true);
       AddCmdLineParam('CPU_SOURCE='+fTargetCPU,true);
     end;
+    {$ENDIF}
 
     // create target directory and bundle
     Result:=PrepareTargetDir(Flags);
     if Result<>mrOk then exit;
-
-    fWorkingDir:=EnvironmentOptions.GetParsedLazarusDirectory;
 
     // clean up
     if (IdeBuildMode<>bmBuild) and (not (blfDontClean in Flags)) then begin
@@ -361,6 +403,8 @@ begin
         if (IdeBuildMode=bmCleanAllBuild) and (not (blfOnlyIDE in Flags)) then
           CleanLazarusSrcDir;
 
+        {$IFDEF UseFPCForIDE}
+        {$ELSE}
         // call make to clean up
         if (IdeBuildMode=bmCleanBuild) or (blfOnlyIDE in Flags) then
           Cmd:='cleanide'
@@ -368,6 +412,7 @@ begin
           Cmd:='cleanlaz';
         Result:=Run(lisCleanLazarusSource);
         if Result<>mrOk then exit;
+        {$ENDIF}
       end;
 
       // when cleaning, always clean up fallback output directory too
@@ -387,14 +432,39 @@ begin
     if not (blfDontBuild in Flags) then begin
       if blfDontClean in Flags then
         IdeBuildMode:=bmBuild;
+
+      {$IFDEF UseFPCForIDE}
+      if (fTargetOS='win32') or (fTargetOS='win64') then
+        PrependExtraOption('-WG'); // prepend so it can be overriden with -WC
+      if IdeBuildMode<>bmBuild then
+        AppendExtraOption('-B');
+      {$ELSE}
       if IdeBuildMode=bmBuild then
         Cmd:='ide'
       else
         Cmd:='cleanide ide';
+      {$ENDIF}
 
       if (not fOutputDirRedirected) and (not CheckDirectoryWritable(fWorkingDir)) then
         exit(mrCancel);
 
+      {$IFDEF UseFPCForIDE}
+      CheckRevisionInc;
+      AppendExtraOption('-Fiide'+PathDelim+'include');
+      AppendExtraOption('-Fudesigner');
+      AppendExtraOption('-Fupackager');
+      AppendExtraOption('-Fupackager'+PathDelim+'frames');
+      AppendExtraOption('-Fudebugger');
+      AppendExtraOption('-Fudebugger'+PathDelim+'frames');
+      AppendExtraOption('-Fuconverter');
+      AppendExtraOption('-Fuide'+PathDelim+'frames');
+      AppendExtraOption('-Fuide');
+      if blfKeepInstallPkgs in Flags then
+        AppendExtraOption('-dKeepInstalledPackages');
+      AppendExtraOption('ide'+PathDelim+'lazarus.pp');
+      AppendExtraOption('-o'+fTargetFilename);
+      Cmd:=fExtraOptions;
+      {$ELSE}
       // fTargetFilename may be lazarus.new.exe, append -o
       // Note: FPC automatically changes the last extension (append or replace)
       // For example under linux, where executables don't need any extension
@@ -402,13 +472,13 @@ begin
       DefaultTargetFilename:='lazarus'+GetExecutableExt(fTargetOS);
       if CreateRelativePath(fTargetFilename,fTargetDir) <> DefaultTargetFilename then
         AppendExtraOption('-o'+fTargetFilename);
-
       if fExtraOptions<>'' then
         EnvironmentOverrides.Values['OPT'] := fExtraOptions;
       if not fUpdateRevInc then begin
         CheckRevisionInc;
         EnvironmentOverrides.Values['USESVN2REVISIONINC'] := '0';
       end;
+      {$ENDIF}
       // run
       Result:=Run(lisBuildIDE);
       // clean only once. If building failed the user must first fix the error
@@ -874,6 +944,18 @@ begin
   else
     fExtraOptions:=fExtraOptions+aOption;
   //DebugLn(['AppendExtraOption ',fExtraOptions]);
+end;
+
+procedure TLazarusBuilder.PrependExtraOption(const aOption: string; AutoQuote: boolean);
+begin
+  if aOption='' then exit;
+  if fExtraOptions<>'' then
+    fExtraOptions:=' '+fExtraOptions;
+  if AutoQuote and (pos(' ',aOption)>0) then
+    fExtraOptions:=AnsiQuotedStr(aOption,'"')+fExtraOptions
+  else
+    fExtraOptions:=aOption+fExtraOptions;
+  //DebugLn(['PrependExtraOption ',fExtraOptions]);
 end;
 
 function TLazarusBuilder.PrepareTargetDir(Flags: TBuildLazarusFlags): TModalResult;

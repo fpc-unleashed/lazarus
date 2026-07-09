@@ -71,10 +71,83 @@ type
 
 
 implementation
-uses gtk3widgets, gtk3int;
+uses gtk3widgets, gtk3int, LCLMessageGlue;
 
 var
   MenuWidget: PGtkWidget = nil;
+
+function Gtk3MenuPopupRepositionIdle(data: gpointer): gboolean; cdecl;
+var
+  TopLevel: PGtkWidget;
+  GdkWin: PGdkWindow;
+  Display: PGdkDisplay;
+  Monitor: PGdkMonitor;
+  WorkArea: TGdkRectangle;
+  tlMinW, tlNatW, tlMinH, tlNatH: gint;
+begin
+  Result := False;
+
+  if (data = nil) or not PGtkWidget(data)^.get_mapped then
+    exit;
+
+  TopLevel := PGtkWidget(data)^.get_toplevel;
+  if not Gtk3IsGtkWindow(TopLevel) then
+    exit;
+
+  GdkWin := TopLevel^.get_window;
+
+  if GdkWin = nil then
+    exit;
+
+  TopLevel^.get_preferred_width(@tlMinW, @tlNatW);
+  TopLevel^.get_preferred_height(@tlMinH, @tlNatH);
+
+  Display := GdkWin^.get_display;
+  if Display <> nil then
+  begin
+    Monitor := Display^.get_monitor_at_window(GdkWin);
+    if Monitor <> nil then
+    begin
+      //fit to monitor if natural size is bigger than workarea
+      Monitor^.get_workarea(@WorkArea);
+      if (WorkArea.width > 0) and (tlNatW > WorkArea.width) then
+        tlNatW := WorkArea.width;
+      if (WorkArea.height > 0) and (tlNatH > WorkArea.height) then
+        tlNatH := WorkArea.height;
+    end;
+  end;
+
+  PGtkWindow(TopLevel)^.resize(tlNatW, tlNatH);
+  GdkWin^.resize(tlNatW, tlNatH);
+
+end;
+
+procedure Gtk3MenuPopupSizeFix(widget: PGtkWidget;
+  alloc: PGtkAllocation; {%H-}data: gpointer); cdecl;
+var
+  MinW, NatW, MinH, NatH: gint;
+begin
+  if g_object_get_data(PGObject(widget), 'lcl-popup-szfixed') <> nil then
+    exit;
+  if not widget^.get_mapped then
+    exit;
+
+  widget^.get_preferred_width(@MinW, @NatW);
+  widget^.get_preferred_height(@MinH, @NatH);
+
+  //issue #42237, intercept allocation < natural width for dynamic menus
+  if (NatH > 0) and (NatW > 0) and
+     ((alloc^.height < NatH) or (alloc^.width < NatW)) then
+  begin
+    g_object_set_data(PGObject(widget), 'lcl-popup-szfixed', widget);
+    g_idle_add(@Gtk3MenuPopupRepositionIdle, widget);
+  end;
+end;
+
+procedure Gtk3MenuPopupHide(widget: PGtkWidget; {%H-}data: gpointer); cdecl;
+begin
+  g_object_set_data(PGObject(widget), 'lcl-popup-szfixed', nil);
+end;
 
 { TGtk3WSMenuItem }
 
@@ -154,6 +227,13 @@ begin
         g_object_set_data(ParentMenuWidget, 'ContainerMenu',
                             ContainerMenu);
         PGTKMenuItem(ParentMenuWidget)^.set_submenu(PGtkMenu(ContainerMenu));
+
+        //issue #42237
+        g_signal_connect_data(PGObject(ContainerMenu), 'size-allocate',
+          TGCallback(@Gtk3MenuPopupSizeFix), nil, nil, [G_CONNECT_AFTER]);
+
+        g_signal_connect_data(PGObject(ContainerMenu), 'hide',
+          TGCallback(@Gtk3MenuPopupHide), nil, nil, G_CONNECT_DEFAULT);
       end;
     end;
     PGtkMenu(ContainerMenu)^.insert(MenuItem.Widget, AMenuItem.MenuVisibleIndex);
@@ -453,12 +533,40 @@ end;
 
 class procedure TGtk3WSPopupMenu.Popup(const APopupMenu: TPopupMenu; const X,
   Y: integer);
+
+  procedure SynthesizeRelease(ATarget: TWinControl; AMsgId: Cardinal);
+  var
+    Msg: TLMMouse;
+    Pt: TPoint;
+  begin
+    Pt := ATarget.ScreenToClient(Point(X, Y));
+    FillChar(Msg{%H-}, SizeOf(Msg), 0);
+    Msg.Msg := AMsgId;
+    Msg.XPos := SmallInt(Pt.X);
+    Msg.YPos := SmallInt(Pt.Y);
+    LCLMessageGlue.DeliverMessage(ATarget, TLMessage(Msg));
+  end;
+
 var
   AProc: Pointer;
   ThisMenu: PGtkWidget;
+  ALeftDown, ARightDown, AMiddleDown: Boolean;
+  ASource: TComponent;
+  ASourceWin: TWinControl;
 begin
   TGtk3Menu(APopupMenu.Handle).PopupPoint := Point(X, Y);
   AProc := @GtkWS_Popup;
+
+  ALeftDown := SmallInt(Gtk3WidgetSet.GetKeyState(VK_LBUTTON)) < 0;
+  ARightDown := SmallInt(Gtk3WidgetSet.GetKeyState(VK_RBUTTON)) < 0;
+  AMiddleDown := SmallInt(Gtk3WidgetSet.GetKeyState(VK_MBUTTON)) < 0;
+
+  ASource := APopupMenu.PopupComponent;
+  ASourceWin := nil;
+  if ASource is TWinControl then
+    ASourceWin := TWinControl(ASource);
+  if (ASourceWin = nil) or not ASourceWin.HandleAllocated then
+    ASourceWin := FindLCLWindow(Point(X, Y));
 
   {$IFDEF GTK3DEBUGMENUS}
   DebugLn('TGtk3WSPopupMenu.Popup X=',dbgs(X),' Y=',dbgs(Y));
@@ -481,6 +589,19 @@ begin
     if Application.Terminated then break;
     if not ThisMenu^.get_visible then break;
     Application.Idle(False);
+  end;
+
+  if not (ALeftDown or ARightDown or AMiddleDown) then
+    Exit;
+
+  if (ASourceWin <> nil) and ASourceWin.HandleAllocated then
+  begin
+    if ARightDown then
+      SynthesizeRelease(ASourceWin, LM_RBUTTONUP);
+    if ALeftDown then
+      SynthesizeRelease(ASourceWin, LM_LBUTTONUP);
+    if AMiddleDown then
+      SynthesizeRelease(ASourceWin, LM_MBUTTONUP);
   end;
 end;
 

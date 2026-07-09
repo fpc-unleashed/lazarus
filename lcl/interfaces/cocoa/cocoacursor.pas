@@ -23,7 +23,7 @@ type
     constructor CreateFromBitmap(const ABitmap: TCocoaBitmap; const hotSpot: NSPoint);
     constructor CreateFromCustomCursor(const ACursor: NSCursor);
     destructor Destroy; override;
-    procedure SetCursor;
+    procedure SetCursor; inline;
     property Cursor: NSCursor read FCursor;
     property Standard: Boolean read FStandard;
   end;
@@ -35,7 +35,7 @@ type
     _windowActivating: Boolean;
     _lastCursor: NSCursor;
   public
-    procedure setWindowActivating;
+    procedure setWindowActivating; inline;
     procedure SetNewCursor( newCursor:TCocoaCursor );
     procedure ForceSetDefaultCursor;
     procedure SetCursorOnActive;

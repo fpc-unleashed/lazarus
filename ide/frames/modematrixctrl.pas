@@ -1185,8 +1185,8 @@ begin
       if (aRow<>Row) or (not EditorMode) then
         s+=GroupRow.Value;
       h:=Canvas.TextHeight(s);
-      Canvas.TextRect(aRect,constCellPadding+x,(aRect.Top+aRect.Bottom-h) div 2,s);
-      GroupRow.LastDrawValueX:=constCellPadding+x+Canvas.TextWidth(GroupRow.Caption);
+      Canvas.TextRect(aRect,varCellPadding+x,(aRect.Top+aRect.Bottom-h) div 2,s);
+      GroupRow.LastDrawValueX:=varCellPadding+x+Canvas.TextWidth(GroupRow.Caption);
       // draw focus rect
       if aRow=Row then
         DrawFocusRect(0,aRow,Rect(x,aRect.Top,aRect.Right,aRect.Bottom));
@@ -1308,7 +1308,7 @@ begin
   TitleHeight:=20;
   for i:=0 to Modes.Count-1 do
     TitleHeight:=Max(TitleHeight,Canvas.TextWidth(Modes[i].Caption));
-  RowHeights[0]:=TitleHeight+2*constCellPadding;
+  RowHeights[0]:=TitleHeight+2*varCellPadding;
 
   // tree column width
   ColWidths[0]:=Matrix.GetMaxLevel*Indent;
@@ -1324,7 +1324,7 @@ begin
       W:=Max(W,Canvas.TextWidth(ValueRow.Typ));
     end;
   end;
-  TypeColumn.Width:=W+2*constCellPadding;
+  TypeColumn.Width:=W+2*varCellPadding;
 
   // value width
   W:=0;

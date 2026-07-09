@@ -37,12 +37,12 @@ type
   // Comparing
   TCmpStrType = (cstCaseSensitive, cstCaseInsensitive, cstFilename);
   // Sorting
-  TSortDirection = (sdAscending, sdDescending);
+  TTextSortDirection = (tsdAscending, tsdDescending);
   TSortDomain = (sdWords, sdLines, sdParagraphs);
 
   TShowSortSelectionDialogFunc = function(const TheText: string;
     Highlighter: TObject; var SortedText: string): TModalResult;
-  TSortTextFunc = function(const TheText: string; Direction: TSortDirection;
+  TSortTextFunc = function(const TheText: string; Direction: TTextSortDirection;
     Domain: TSortDomain; CaseSensitive, IgnoreSpace: boolean): string;
 
 var
@@ -1478,7 +1478,8 @@ begin
   Result:=False;
   fs:=TFileStream.Create(aFileName, fmCreate);
   try
-    fs.Write(aString[1], length(aString));
+    if aString <> '' then
+      fs.Write(aString[1], length(aString));
     Result:=True;
   finally
     fs.Free;

@@ -1920,17 +1920,15 @@ makefiles: fpc_makefiles
 ifneq ($(wildcard fpcmake.loc),)
 include fpcmake.loc
 endif
-.PHONY: help clean cleanall lazbuildpackages lazbuildlclpackages idepackages bigide all
+.PHONY: help clean cleanall lazbuildpackages idepackages bigide all
 help:
 	@$(ECHO)
 	@$(ECHO) " Targets"
-	@$(ECHO) "   all         same as lazbuildlclpackages idepackages bigide, requires lazbuildpackages and lcl"
+	@$(ECHO) "   all         same as idepackages bigide, requires lazbuildpackages and lcl"
 	@$(ECHO) "   clean       deletes output files of base and bigide components"
 	@$(ECHO)
 	@$(ECHO) "   lazbuildpackages build non lcl packages needed by lazbuild and"
 	@$(ECHO) "                    the minimal ide, requires packager registration"
-	@$(ECHO) "   lazbuildlclpackages build lcl packages needed by lazbuild and"
-	@$(ECHO) "                 the minimal ide, requires lazbuildpackages and lcl"
 	@$(ECHO) "   idepackages build packages of the minimal ide,"
 	@$(ECHO) "               requires lazbuildpackages and lcl"
 	@$(ECHO) "   bigide      build the extra packages for the bigide, requires lcl"
@@ -1940,8 +1938,10 @@ lazbuildpackages:
 	$(MAKE) -C buildintf
 	$(MAKE) -C lazdebuggers/lazdebuggerintf
 	$(MAKE) -C debuggerintf
+lclpackages:
+	$(MAKE) -C lazutils
 	$(MAKE) -C freetype
-lazbuildlclpackages:
+idepackages:
 	$(MAKE) -C fpdebug
 	$(MAKE) -C lazcontrols
 	$(MAKE) -C lazedit
@@ -1951,7 +1951,6 @@ lazbuildlclpackages:
 	$(MAKE) -C lazdebuggers/lazdebuggerfplldb
 	$(MAKE) -C lazdebuggers/lazdebuggerfp
 	$(MAKE) -C synedit
-idepackages: lazbuildlclpackages
 	$(MAKE) -C lazdebuggergdbmi
 	$(MAKE) -C lazcontrols/design
 	$(MAKE) -C lclextensions
@@ -1996,7 +1995,7 @@ bigide:
 	$(MAKE) -C dockedformeditor
 	$(MAKE) -C anchordocking
 	$(MAKE) -C anchordocking/design
-all: lazbuildlclpackages idepackages bigide
+all: lazbuildpackages idepackages bigide
 clean:
 	$(MAKE) -C lazutils clean
 	$(MAKE) -C lazedit clean

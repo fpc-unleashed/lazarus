@@ -53,6 +53,7 @@ uses
   LazLoggerBase,
   // LazEdit
   LazEditHighlighterUtils, LazEditTextAttributes, LazEditTextGridPainter, LazEditHighlighter,
+  LazEditFoldHighlighter, LazEditHighlighterFoldNodeHighlighter,
   // synedit
   SynEdit, SynEditMiscClasses, SynGutter, SynGutterBase, SynEditMarks,
   SynEditTypes, SynGutterLineNumber, SynGutterCodeFolding, SynGutterMarks,
@@ -269,7 +270,7 @@ type
     FShowTopInfo: boolean;
     FFoldView: TSynEditFoldedView;
     FWrapView: TLazSynEditLineWrapPlugin;
-    FTopInfoNestList: TLazSynEditNestedFoldsList;
+    FTopInfoNestList: TLazEditNestedFoldsList;
     FSyncroEdit: TSynPluginSyncroEdit;
     FTemplateEdit: TSynPluginTemplateEdit;
     FMultiCaret: TSynPluginMultiCaret;
@@ -2121,7 +2122,7 @@ begin
   TSourceLazSynSurfaceManager(FPaintArea).ExtraManager.DisplayView := FTopInfoDisplay;
   RegisterMouseActionSearchHandler(@CatchMouseForTopInforLine);
 
-  FTopInfoNestList := TLazSynEditNestedFoldsList.Create(TextBuffer);
+  FTopInfoNestList := TLazEditNestedFoldsList.Create(TextBuffer);
   FTopInfoNestList.ResetFilter;
   FTopInfoNestList.FoldGroup := FOLDGROUP_PASCAL;
   FTopInfoNestList.FoldFlags := [sfbIncludeDisabled];
@@ -3085,7 +3086,7 @@ procedure TIDESynGutterCodeFolding.UnFoldIfdef(AInclDisabled, AInclEnabled: Bool
 var
   i, j, k, y1, y2: Integer;
   CurTopLine: TSrcSynTopLineInfo;
-  FldInf: TSynFoldNodeInfo;
+  FldInf: TLazEditFoldNodeInfo;
   Tree: TSynMarkupHighIfDefLinesTree;
   IfLineNode: TSynMarkupHighIfDefLinesNodeInfo;
   IsDisabled: Boolean;
@@ -3139,7 +3140,7 @@ procedure TIDESynGutterCodeFolding.FoldIfdef(AInclTemp: Boolean);
 var
   i, j, k, y1, y2: Integer;
   CurTopLine: TSrcSynTopLineInfo;
-  FldInf: TSynFoldNodeInfo;
+  FldInf: TLazEditFoldNodeInfo;
   Tree: TSynMarkupHighIfDefLinesTree;
   IfLineNode: TSynMarkupHighIfDefLinesNodeInfo;
 begin
@@ -3210,7 +3211,7 @@ procedure TIDESynGutterCodeFolding.PopClickedUnfoldComment(Sender: TObject);
 var
   i, j, y1, y2: Integer;
   CurTopLine: TSrcSynTopLineInfo;
-  FldInf: TSynFoldNodeInfo;
+  FldInf: TLazEditFoldNodeInfo;
 begin
   TIDESynEditor(SynEdit).BeginUpdate(False);
   try
@@ -3250,7 +3251,7 @@ procedure TIDESynGutterCodeFolding.PopClickedFoldComment(Sender: TObject);
 var
   i, j, y1, y2: Integer;
   CurTopLine: TSrcSynTopLineInfo;
-  FldInf: TSynFoldNodeInfo;
+  FldInf: TLazEditFoldNodeInfo;
 begin
   TIDESynEditor(SynEdit).BeginUpdate(False);
   try
@@ -3288,7 +3289,7 @@ procedure TIDESynGutterCodeFolding.PopClickedHideComment(Sender: TObject);
 var
   i, j, y1, y2: Integer;
   CurTopLine: TSrcSynTopLineInfo;
-  FldInf: TSynFoldNodeInfo;
+  FldInf: TLazEditFoldNodeInfo;
 begin
   TIDESynEditor(SynEdit).BeginUpdate(False);
   try
@@ -3334,7 +3335,7 @@ var
   Tree: TSynMarkupHighIfDefLinesTree;
   IfLineNode: TSynMarkupHighIfDefLinesNodeInfo;
   FProv: TSynEditFoldProvider;
-  inf: TSynFoldNodeInfo;
+  inf: TLazEditFoldNodeInfo;
   HasComments, HasIfdef: Boolean;
 
   procedure CheckFoldConf(Val: TPascalCodeFoldBlockType);

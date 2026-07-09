@@ -30,36 +30,38 @@
 unit ProjectUserResources;
 
 {$mode objfpc}{$H+}
-{$modeswitch advancedrecords}
 
 interface
 
 uses
   // RTL + FCL
-  Classes, SysUtils,
+  Classes, SysUtils, Contnrs,
   resource, bitmapresource, groupresource, groupiconresource, groupcursorresource,
   // LazUtils
-  LazFileUtils, LazUTF8, Laz2_XMLCfg, LazLoggerBase,
+  LazFileUtils, LazFileCache, LazUTF8, Laz2_XMLCfg, LazLoggerBase,
   // BuildIntf
-  ProjectResourcesIntf, MacroIntf, IDEExternToolIntf,
+  ProjectResourcesIntf, ProjectIntf, MacroIntf, IDEExternToolIntf,
   // IDE
   IdeProjectStrConsts;
 
 type
   TAddIDEMessageEvent = procedure(Urgency: TMessageLineUrgency; Msg: string);
 
-  TUserResourceType = (
-    rtIcon,    // maps to RT_GROUP_ICON
-    rtCursor,  // maps to RT_GROUP_CURSOR
-    rtBitmap,  // maps to RT_BITMAP
-    rtHTML,    // maps to RT_HTML
-    rtRCData   // maps to RT_RCDATA
-  );
-  PResourceItem = ^TResourceItem;
+  TUserResourceType = ProjectResourcesIntf.TUserResourceType;
 
   { TResourceItem }
 
-  TResourceItem = record
+  TResourceItem = class
+  private
+    // Cache of the file content, so that unchanged files are not re-read on
+    // every build. Keyed on the resolved filename and its cached file age.
+    FCacheData: TBytes;
+    FCacheRealFileName: String;
+    FCacheFileAge: Int64;
+    FCacheValid: Boolean;
+    // Returns a stream with the (cached) file content, or nil if the file does
+    // not exist. The caller is responsible for freeing the stream.
+    function GetFileStream(const RealFileName: String): TStream;
   public
     FileName: String;
     ResType: TUserResourceType;
@@ -72,22 +74,24 @@ type
 
   { TResourceList }
 
-  TResourceList = class(TList)
+  TResourceList = class(TFPObjectList)
   private
-    function GetItem(AIndex: Integer): PResourceItem;
-  protected
-    procedure Notify(Ptr: Pointer; Action: TListNotification); override;
+    function GetItem(AIndex: Integer): TResourceItem;
   public
-    function AddItem: PResourceItem;
+    function IndexOfFileName(const AFileName: String): Integer;
+    function AddItem: TResourceItem;
     procedure AddResource(const FileName: String; ResType: TUserResourceType; const ResName: String);
-    property Items[AIndex: Integer]: PResourceItem read GetItem; default;
+    property Items[AIndex: Integer]: TResourceItem read GetItem; default;
   end;
 
   { TProjectUserResources }
 
-  TProjectUserResources = class(TAbstractProjectResource)
+  TProjectUserResources = class(TAbstractProjectUserResources)
   private
     FList: TResourceList;
+  protected
+    function GetCount: integer; override;
+    function GetInfo(AIndex: integer): TProjectUserResourceInfo; override;
   public
     constructor Create; override;
     destructor Destroy; override;
@@ -96,37 +100,26 @@ type
                              const MainFilename: string): Boolean; override;
     procedure WriteToProjectFile(AConfig: TXMLConfig; const Path: String); override;
     procedure ReadFromProjectFile(AConfig: TXMLConfig; const Path: String); override;
-    property List: TResourceList read FList;
-  end;
 
-const
-  ResourceTypeToStr: array[TUserResourceType] of String = (
- { rtIcon   } 'ICON',
- { rtCursor } 'CURSOR',
- { rtBitmap } 'BITMAP',
- { rtHTML   } 'HTML',
- { rtRCData } 'RCDATA'
-  );
+    function IndexOfFileName(const AFileName: string): integer; override;
+    function IndexOfResName(const AResName: string): integer; override;
+    function GetRealFileName(AIndex: integer): string; override;
+    function AddFile(const AFileName: string; AResType: TUserResourceType;
+                     const AResName: string): integer; override;
+    procedure Delete(AIndex: integer); override;
+    function RemoveFile(const AFileName: string): boolean; override;
+    procedure SetFileName(AIndex: integer; const ANewFileName: string); override;
+    procedure SetResName(AIndex: integer; const ANewResName: string); override;
+    procedure SetResType(AIndex: integer; ANewResType: TUserResourceType); override;
+
+    property List: TResourceList read FList;   // internal use (options frame, build)
+  end;
 
 var
   OnAddIDEMessage: TAddIDEMessageEvent;
 
-function StrToResourceType(const AStr: String): TUserResourceType;
-
 
 implementation
-
-function StrToResourceType(const AStr: String): TUserResourceType;
-begin
-  case AStr of
-    'ICON': Result := rtIcon;
-    'CURSOR': Result := rtCursor;
-    'BITMAP': Result := rtBitmap;
-    'HTML': Result := rtHTML;
-  else
-    Result := rtRCData;
-  end;
-end;
 
 { TResourceItem }
 
@@ -144,9 +137,41 @@ begin
   AConfig.SetValue(Path + 'ResourceName', ResName);
 end;
 
+function TResourceItem.GetFileStream(const RealFileName: String): TStream;
+var
+  Age: Int64;
+  FileStream: TFileStream;
+begin
+  Age := FileAgeCached(RealFileName);
+  if Age = -1 then
+  begin
+    // File does not exist -> drop cache and signal "no data".
+    FCacheValid := False;
+    Exit(nil);
+  end;
+  if (not FCacheValid) or (FCacheRealFileName <> RealFileName)
+  or (FCacheFileAge <> Age) then
+  begin
+    // The file is new or has changed since last read -> (re)load it.
+    FileStream := TFileStream.Create(UTF8ToSys(RealFileName), fmOpenRead or fmShareDenyWrite);
+    try
+      SetLength(FCacheData, FileStream.Size);
+      if Length(FCacheData) > 0 then
+        FileStream.ReadBuffer(FCacheData[0], Length(FCacheData));
+    finally
+      FileStream.Free;
+    end;
+    FCacheRealFileName := RealFileName;
+    FCacheFileAge := Age;
+    FCacheValid := True;
+  end;
+  // Shares the cached byte array (reference counted, no copy).
+  Result := TBytesStream.Create(FCacheData);
+end;
+
 function TResourceItem.CreateResource(const ProjectDirectory: String): TAbstractResource;
 var
-  Stream: TFileStream;
+  Stream: TStream;
   TypeDesc, NameDesc: TResourceDesc;
   RealFileName: String;
 begin
@@ -154,9 +179,9 @@ begin
 
   RealFileName := GetRealFileName(ProjectDirectory);
 
-  if FileExistsUTF8(RealFileName) then
+  Stream := GetFileStream(RealFileName);
+  if Stream <> nil then
   begin
-    Stream := TFileStream.Create(UTF8ToSys(RealFileName), fmOpenRead or fmShareDenyWrite);
     try
       NameDesc := TResourceDesc.Create(ResName);
       case ResType of
@@ -196,7 +221,7 @@ begin
     end;
   end
   else if Assigned(OnAddIDEMessage) then
-    OnAddIDEMessage(mluError, Format(lisFileNotFound2,[Filename]));
+    OnAddIDEMessage(mluError, Format(lisFileNotFound2,[FileName]));
 end;
 
 function TResourceItem.GetRealFileName(const ProjectDirectory: String): String;
@@ -212,34 +237,34 @@ end;
 
 { TResourceList }
 
-function TResourceList.GetItem(AIndex: Integer): PResourceItem;
+function TResourceList.GetItem(AIndex: Integer): TResourceItem;
 begin
-  Result := PResourceItem(inherited Get(AIndex));
+  Result := TResourceItem(inherited Items[AIndex]);
 end;
 
-procedure TResourceList.Notify(Ptr: Pointer; Action: TListNotification);
+function TResourceList.IndexOfFileName(const AFileName: String): Integer;
 begin
-  if Action = lnDeleted then
-    Dispose(PResourceItem(Ptr))
-  else
-    inherited Notify(Ptr, Action);
+  for Result := 0 to Count - 1 do
+    if CompareFilenames(Items[Result].FileName, AFileName) = 0 then
+      Exit;
+  Result := -1;
 end;
 
-function TResourceList.AddItem: PResourceItem;
+function TResourceList.AddItem: TResourceItem;
 begin
-  New(Result);
+  Result := TResourceItem.Create;
   Add(Result);
 end;
 
 procedure TResourceList.AddResource(const FileName: String;
   ResType: TUserResourceType; const ResName: String);
 var
-  Data: PResourceItem;
+  Data: TResourceItem;
 begin
   Data := AddItem;
-  Data^.FileName := FileName;
-  Data^.ResType := ResType;
-  Data^.ResName := ResName;
+  Data.FileName := FileName;
+  Data.ResType := ResType;
+  Data.ResName := ResName;
 end;
 
 function TProjectUserResources.UpdateResources(AResources: TAbstractProjectResources; const MainFilename: string): Boolean;
@@ -252,7 +277,7 @@ begin
   ProjectDirectory := ExtractFilePath(MainFileName);
   for I := 0 to List.Count - 1 do
   begin
-    ARes := List[I]^.CreateResource(ProjectDirectory);
+    ARes := List[I].CreateResource(ProjectDirectory);
     if Assigned(ARes) then
       AResources.AddSystemResource(ARes);
   end;
@@ -264,17 +289,17 @@ var
 begin
   AConfig.SetDeleteValue(Path+'General/Resources/Count', List.Count, 0);
   for I := 0 to List.Count - 1 do
-    List[I]^.WriteToProjectFile(TXMLConfig(AConfig), Path + 'General/Resources/Resource_' + IntToStr(I) + '/')
+    List[I].WriteToProjectFile(TXMLConfig(AConfig), Path + 'General/Resources/Resource_' + IntToStr(I) + '/')
 end;
 
 procedure TProjectUserResources.ReadFromProjectFile(AConfig: TXMLConfig; const Path: String);
 var
-  I, Count: Integer;
+  I, ACount: Integer;
 begin
   List.Clear;
-  Count := AConfig.GetValue(Path+'General/Resources/Count', 0);
-  for I := 0 to Count - 1 do
-    List.AddItem^.ReadFromProjectFile(TXMLConfig(AConfig), Path + 'General/Resources/Resource_' + IntToStr(I) + '/')
+  ACount := AConfig.GetValue(Path+'General/Resources/Count', 0);
+  for I := 0 to ACount - 1 do
+    List.AddItem.ReadFromProjectFile(TXMLConfig(AConfig), Path + 'General/Resources/Resource_' + IntToStr(I) + '/')
 end;
 
 constructor TProjectUserResources.Create;
@@ -287,6 +312,93 @@ destructor TProjectUserResources.Destroy;
 begin
   FList.Free;
   inherited Destroy;
+end;
+
+function TProjectUserResources.GetCount: integer;
+begin
+  Result := FList.Count;
+end;
+
+function TProjectUserResources.GetInfo(AIndex: integer): TProjectUserResourceInfo;
+begin
+  Result.FileName := FList[AIndex].FileName;
+  Result.ResType  := FList[AIndex].ResType;
+  Result.ResName  := FList[AIndex].ResName;
+end;
+
+function TProjectUserResources.IndexOfFileName(const AFileName: string): integer;
+begin
+  Result := FList.IndexOfFileName(AFileName);
+end;
+
+function TProjectUserResources.IndexOfResName(const AResName: string): integer;
+begin
+  for Result := 0 to FList.Count - 1 do
+    if FList[Result].ResName = AResName then
+      Exit;
+  Result := -1;
+end;
+
+function TProjectUserResources.AddFile(const AFileName: string;
+  AResType: TUserResourceType; const AResName: string): integer;
+begin
+  CheckCanAdd(AFileName, AResName);   // raises EProjectUserResourceError on collision
+  FList.AddResource(AFileName, AResType, AResName);
+  Result := FList.Count - 1;
+  Changed;
+end;
+
+procedure TProjectUserResources.Delete(AIndex: integer);
+begin
+  FList.Delete(AIndex);               // TFPObjectList frees the item + its cache
+  Changed;
+end;
+
+function TProjectUserResources.RemoveFile(const AFileName: string): boolean;
+var
+  I: Integer;
+begin
+  I := FList.IndexOfFileName(AFileName);
+  Result := I >= 0;
+  if Result then
+    Delete(I);
+end;
+
+function TProjectUserResources.GetRealFileName(AIndex: integer): string;
+var
+  ProjectDirectory: String;
+begin
+  // The user resources always belong to the active project (LazProject1).
+  if LazProject1 <> nil then
+    ProjectDirectory := LazProject1.Directory
+  else
+    ProjectDirectory := '';
+  Result := FList[AIndex].GetRealFileName(ProjectDirectory);
+end;
+
+procedure TProjectUserResources.SetFileName(AIndex: integer; const ANewFileName: string);
+begin
+  if CompareFilenames(FList[AIndex].FileName, ANewFileName) = 0 then
+    Exit;
+  FList[AIndex].FileName := ANewFileName; // content cache self-invalidates on next build
+  Changed;
+end;
+
+procedure TProjectUserResources.SetResName(AIndex: integer; const ANewResName: string);
+begin
+  if FList[AIndex].ResName = ANewResName then
+    Exit;
+  CheckCanRename(AIndex, ANewResName);    // raises EProjectUserResourceError on collision
+  FList[AIndex].ResName := ANewResName;
+  Changed;
+end;
+
+procedure TProjectUserResources.SetResType(AIndex: integer; ANewResType: TUserResourceType);
+begin
+  if FList[AIndex].ResType = ANewResType then
+    Exit;
+  FList[AIndex].ResType := ANewResType;
+  Changed;
 end;
 
 initialization

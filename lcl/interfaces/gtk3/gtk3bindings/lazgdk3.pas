@@ -4825,6 +4825,9 @@ function gdk_screen_get_type: TGType; cdecl; external LazGdk3_library name 'gdk_
 function gdk_screen_get_window_stack(screen: PGdkScreen): PGList; cdecl; external LazGdk3_library name 'gdk_screen_get_window_stack';
 function gdk_screen_is_composited(screen: PGdkScreen): gboolean; cdecl; external LazGdk3_library name 'gdk_screen_is_composited';
 function gdk_screen_list_visuals(screen: PGdkScreen): PGList; cdecl; external LazGdk3_library name 'gdk_screen_list_visuals';
+{$IFDEF UNIX}
+function gdk_x11_screen_get_window_manager_name(screen: PGdkScreen): Pgchar; cdecl; external LazGdk3_library name 'gdk_x11_screen_get_window_manager_name';
+{$ENDIF}
 function gdk_seat_get_capabilities(seat: PGdkSeat): TGdkSeatCapabilities; cdecl; external LazGdk3_library name 'gdk_seat_get_capabilities';
 function gdk_seat_get_display(seat: PGdkSeat): PGdkDisplay; cdecl; external LazGdk3_library name 'gdk_seat_get_display';
 function gdk_seat_get_keyboard(seat: PGdkSeat): PGdkDevice; cdecl; external LazGdk3_library name 'gdk_seat_get_keyboard';
@@ -5081,6 +5084,7 @@ procedure gdk_window_set_type_hint(window: PGdkWindow; hint: TGdkWindowTypeHint)
 procedure gdk_window_set_urgency_hint(window: PGdkWindow; urgent: gboolean); cdecl; external LazGdk3_library name 'gdk_window_set_urgency_hint';
 procedure gdk_window_set_user_data(window: PGdkWindow; user_data: PGObject); cdecl; external LazGdk3_library name 'gdk_window_set_user_data';
 procedure gdk_window_shape_combine_region(window: PGdkWindow; shape_region: Pcairo_region_t; offset_x: gint; offset_y: gint); cdecl; external LazGdk3_library name 'gdk_window_shape_combine_region';
+procedure gdk_wayland_window_announce_csd(window: PGdkWindow); cdecl; external LazGdk3_library name 'gdk_wayland_window_announce_csd';
 procedure gdk_window_show(window: PGdkWindow); cdecl; external LazGdk3_library name 'gdk_window_show';
 procedure gdk_window_show_unraised(window: PGdkWindow); cdecl; external LazGdk3_library name 'gdk_window_show_unraised';
 procedure gdk_window_stick(window: PGdkWindow); cdecl; external LazGdk3_library name 'gdk_window_stick';

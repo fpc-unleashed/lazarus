@@ -1088,6 +1088,14 @@ msgstr "Kódsablon fájl választása (*.dci)"
 msgid "Show close buttons in notebook"
 msgstr "Bezáró gomb megjelenítése a lapfüleken"
 
+#: lazarusidestrconsts.dlgcloseotherpagesmod
+msgid "Close all other tabs"
+msgstr ""
+
+#: lazarusidestrconsts.dlgcloserightpagesmod
+msgid "Close tabs on the right"
+msgstr ""
+
 #: lazarusidestrconsts.dlgclrscheme
 msgid "Color Scheme"
 msgstr "Színséma"
@@ -1434,8 +1442,16 @@ msgstr "Dwarf készletekkel"
 #: lazarusidestrconsts.dlgcosymboltypedwarf3
 #, fuzzy
 #| msgid "Dwarf3 (beta)"
-msgid "Dwarf 3 (beta)"
+msgid "Dwarf 3"
 msgstr "Dwarf3 (béta)"
+
+#: lazarusidestrconsts.dlgcosymboltypedwarf4
+msgid "Dwarf 4"
+msgstr ""
+
+#: lazarusidestrconsts.dlgcosymboltypedwarf5
+msgid "Dwarf 5 (FPC 3.3.1)"
+msgstr ""
 
 #: lazarusidestrconsts.dlgcosymboltypestabs
 msgid "Stabs"
@@ -1879,10 +1895,6 @@ msgctxt "lazarusidestrconsts.dlgenvtype"
 msgid "Type"
 msgstr "Típus"
 
-#: lazarusidestrconsts.dlgeofocusmessagesatcompilation
-msgid "Focus messages at compilation"
-msgstr "Üzenetek előtérbe hozása fordításkor"
-
 #: lazarusidestrconsts.dlgextracharspacing
 msgid "Extra character spacing"
 msgstr "Extra karakterköz"
@@ -2106,6 +2118,10 @@ msgstr "Megjegyzés { }"
 msgid "Case"
 msgstr "Case"
 
+#: lazarusidestrconsts.dlgfoldpascaseelse
+msgid "Otherwise/Else (Case)"
+msgstr ""
+
 #: lazarusidestrconsts.dlgfoldpasclass
 msgid "Class/Object"
 msgstr "Class/Object"
@@ -2290,6 +2306,12 @@ msgstr "&Elejétől"
 #| msgid "&From cursor"
 msgid "From c&ursor"
 msgstr "Beszúrási jeltől"
+
+#: lazarusidestrconsts.dlggeneral
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlggeneral"
+msgid "General"
+msgstr "Általános"
 
 #: lazarusidestrconsts.dlgglobal
 msgid "&Global"
@@ -2797,10 +2819,6 @@ msgstr "\"Make\" program"
 msgid "Manage desktops"
 msgstr "Felületek kezelése"
 
-#: lazarusidestrconsts.dlgmargingutter
-msgid "Margin and gutter"
-msgstr "Margó és hasábköz"
-
 #: lazarusidestrconsts.dlgmarkercolor
 msgid "Marker color"
 msgstr "Jelző színe"
@@ -3001,14 +3019,6 @@ msgstr "A 0 érték korlátlant jelent."
 #: lazarusidestrconsts.dlgmaxrecentprojs
 msgid "Max recent project files"
 msgstr "Legutóbbi projektek maximális száma"
-
-#: lazarusidestrconsts.dlgmiddletabcloseotherpagesmod
-msgid "Middle-click-modifier to close all other tabs"
-msgstr "Középső gomb módosítója minden más lap bezárásához"
-
-#: lazarusidestrconsts.dlgmiddletabcloserightpagesmod
-msgid "Middle-click-modifier to close tabs on the right"
-msgstr "Középső gomb módosítója a jobbra lévő lapok bezárásához"
 
 #: lazarusidestrconsts.dlgmixmethodsandproperties
 msgid "Mix methods and properties"
@@ -4361,10 +4371,6 @@ msgstr "Ablakok megjelenítése"
 msgctxt "lazarusidestrconsts.dlgshowlinenumbers"
 msgid "Show line numbers"
 msgstr "Sorszámok megjelenítése"
-
-#: lazarusidestrconsts.dlgshowmessagesicons
-msgid "Show Messages Icons"
-msgstr "Üzenetikonok megjelenítése"
 
 #: lazarusidestrconsts.dlgshownotes
 msgid "Show notes"
@@ -6558,6 +6564,11 @@ msgstr "Kódolás módosítása"
 msgid "Change file"
 msgstr "Fájl módosítása"
 
+#: lazarusidestrconsts.lischangemethodvisibilityto
+#, object-pascal-format
+msgid "Change method visibility to \"%s\""
+msgstr ""
+
 #: lazarusidestrconsts.lischangeparent
 msgid "Change Parent"
 msgstr "Szülő módosítása"
@@ -8681,7 +8692,7 @@ msgid "Additional search path"
 msgstr "További keresési útvonal"
 
 #: lazarusidestrconsts.lisdebugoptionsfrmallowfunctioncalls
-msgid "BETA: Allow function calls in watches (if supported by backend)"
+msgid "Allow function calls in watches (if supported by backend)"
 msgstr ""
 
 #: lazarusidestrconsts.lisdebugoptionsfrmautocloseasm
@@ -8940,10 +8951,6 @@ msgstr "Elválasztás pontosvesszővel."
 #: lazarusidestrconsts.lisdelphicompatibleresources
 msgid "Delphi compatible resources. Recommended."
 msgstr "Delphi kompatibilis erőforrások. Ajánlott."
-
-#: lazarusidestrconsts.lisdesignerhasunsavedchanges
-msgid "Designer has unsaved changes"
-msgstr ""
 
 #: lazarusidestrconsts.lisdesigntimeonlypkg
 msgid "Designtime-only package"
@@ -9524,6 +9531,14 @@ msgstr "Dwarf 2 készletekkel"
 #: lazarusidestrconsts.lisenableoptiondwarf3
 msgid "Enable Dwarf 3 (-gw3)"
 msgstr "Dwarf 3 (-gw3) engedélyezése"
+
+#: lazarusidestrconsts.lisenableoptiondwarf4
+msgid "Enable Dwarf 4 (-gw4)"
+msgstr ""
+
+#: lazarusidestrconsts.lisenableoptiondwarf5
+msgid "Enable Dwarf 5 [FPC 3.3.1] (-gw5)"
+msgstr ""
 
 #: lazarusidestrconsts.lisenableoptionxg
 msgid "Enable Option -Xg?"
@@ -10193,6 +10208,10 @@ msgstr "Első teszt"
 msgid "Fix LFM file"
 msgstr "LFM fájl javítása"
 
+#: lazarusidestrconsts.lisfocusatcompilation
+msgid "Focus at compilation"
+msgstr ""
+
 #: lazarusidestrconsts.lisfocushint
 msgid "Focus hint"
 msgstr "Fókusz tipp"
@@ -10409,9 +10428,17 @@ msgstr "Azonosító: %s"
 msgid "in all open packages and projects"
 msgstr "minden megnyitott csomagban és projektben"
 
+#: lazarusidestrconsts.lisfriincurrentmethod
+msgid "in current method"
+msgstr ""
+
 #: lazarusidestrconsts.lisfriincurrentunit
 msgid "in current unit"
 msgstr "az aktuális unit-ban"
+
+#: lazarusidestrconsts.lisfriinlocalfunction
+msgid "in local function"
+msgstr ""
 
 #: lazarusidestrconsts.lisfriinmainproject
 msgid "in main project"
@@ -10420,10 +10447,6 @@ msgstr "fő projektben"
 #: lazarusidestrconsts.lisfriinprojectpackageowningcurrentunit
 msgid "in project/package owning current unit"
 msgstr "az aktuális unit-ot birtokló csomagban/projektben"
-
-#: lazarusidestrconsts.lisfriinvalididentifier
-msgid "Invalid Identifier"
-msgstr "Érvénytelen azonosító"
 
 #: lazarusidestrconsts.lisfrirenameallreferences
 msgid "Rename all References"
@@ -13618,6 +13641,10 @@ msgstr "Üzenetek ablaka"
 msgid "Method class not found"
 msgstr "Metódus osztálya nem található"
 
+#: lazarusidestrconsts.lismiddleclickmodifiers
+msgid "Middle-click-modifiers"
+msgstr ""
+
 #: lazarusidestrconsts.lismissingevents
 msgid "Missing Events"
 msgstr "Hiányzó események"
@@ -14002,6 +14029,10 @@ msgstr "Üzenetek színei"
 #: lazarusidestrconsts.lismultipledirectoriesareseparatedwithsemicolons
 msgid "Multiple directories are separated with semicolons"
 msgstr "Több könyvtárat pontosvesszővel kell elválasztani"
+
+#: lazarusidestrconsts.lismustbeopenedmanually
+msgid "Must be opened manually from View -> Messages."
+msgstr ""
 
 #: lazarusidestrconsts.lismvsavemessagestofiletxt
 msgid "Save messages to file (*.txt)"
@@ -14598,11 +14629,6 @@ msgstr ""
 #: lazarusidestrconsts.lisoverridetheprojectwidgetsetegdefault
 #, object-pascal-format
 msgid "Override the project widgetset. For example: %s. Default: %s."
-msgstr ""
-
-#: lazarusidestrconsts.lisoverwritedesignerchangesanyway
-#, object-pascal-format
-msgid "Unsaved designer changes for file \"%s\" will be lost. Overwrite anyway?"
 msgstr ""
 
 #: lazarusidestrconsts.lisownerisalreadyusedbytreadertwriterpleasechooseanot
@@ -17029,6 +17055,24 @@ msgstr "Megjelenítés"
 msgid "Show abstract methods of \"%s\""
 msgstr "\"%s\" absztrakt metódusainak megjelenítése"
 
+#: lazarusidestrconsts.lisshowautomatically
+msgid "Show automatically"
+msgstr ""
+
+#: lazarusidestrconsts.lisshowautonever
+#, fuzzy
+msgctxt "lazarusidestrconsts.lisshowautonever"
+msgid "Never"
+msgstr "Soha"
+
+#: lazarusidestrconsts.lisshowautoonlywhenerrorsoccur
+msgid "Only when errors occur"
+msgstr ""
+
+#: lazarusidestrconsts.lisshowautowhencompiling
+msgid "When compiling"
+msgstr ""
+
 #: lazarusidestrconsts.lisshowcomponenttreeinobjectinspector
 msgid "Show component tree"
 msgstr "Komponensfa megjelenítése"
@@ -17069,6 +17113,10 @@ msgstr "Súgó megjelenítése"
 msgctxt "lazarusidestrconsts.lisshowhintsinobjectinspector"
 msgid "Show hints"
 msgstr "Tippek megjelenítése"
+
+#: lazarusidestrconsts.lisshowicons
+msgid "Show Icons"
+msgstr ""
 
 #: lazarusidestrconsts.lisshowidentifiers
 msgid "Show identifiers"
@@ -17364,6 +17412,10 @@ msgstr "Induljon új projekttel"
 #: lazarusidestrconsts.lisstatusbarshowspropertysnameandclass
 msgid "Statusbar shows the property's name and the class where it is published."
 msgstr "Az állapotsor megjeleníti a tulajdonság nevét és az osztályt amelyben közzé lett téve."
+
+#: lazarusidestrconsts.lisstayontop
+msgid "Stay on top"
+msgstr ""
 
 #: lazarusidestrconsts.lisstop
 msgctxt "lazarusidestrconsts.lisstop"
@@ -18652,6 +18704,11 @@ msgstr "Nem lehet eltávolítani a projekt méretezését a forrásból.%s%s"
 msgid "Unable to remove project title from source.%s%s"
 msgstr "Nem lehet eltávolítani a projekt címét a forrásból.%s%s"
 
+#: lazarusidestrconsts.lisunabletorenamefileto
+#, object-pascal-format
+msgid "Unable to rename file \"%s\" to \"%s\"."
+msgstr ""
+
 #: lazarusidestrconsts.lisunabletorenameforminsource
 msgid "Unable to rename form in source."
 msgstr "Nem nevezhető át a form a forrásban."
@@ -19087,10 +19144,6 @@ msgstr "Az Ablak menü a tervezett form nevét jeleníti meg a címe helyett"
 #: lazarusidestrconsts.liswindowmenuwithnamefordesignedformhint
 msgid "Useful especially if the caption is left empty."
 msgstr "Különösen hasznos ha a cím üresen maradt."
-
-#: lazarusidestrconsts.liswindowstaysontop
-msgid "Window stays on top"
-msgstr "Az ablak legfelül marad"
 
 #: lazarusidestrconsts.liswithincludes2
 msgid ", with includes "

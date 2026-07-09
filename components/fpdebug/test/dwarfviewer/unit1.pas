@@ -504,6 +504,12 @@ var
           Result := Result + 'DW_OP_bit_piece, ULEB(' + IntToStr(ULEB128toOrdinal(AData)) + '), ULEB(' + IntToStr(ULEB128toOrdinal(AData)) + ')';
           Dec(AData);
         end;
+        DW_OP_bit_offset: begin
+          Result := Result + 'DW_OP_bit_offset';
+        end;
+        DW_OP_offset: begin
+          Result := Result + 'DW_OP_offset';
+        end;
         DW_OP_lo_user..DW_OP_hi_user: begin
           Result := Result + 'DW_OP_user, ' + IntToStr(AData^);
         end;

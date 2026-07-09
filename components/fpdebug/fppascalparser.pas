@@ -36,7 +36,7 @@ interface
 uses
   Classes, sysutils, math, fgl, DbgIntfBaseTypes, LazDebuggerIntfFloatTypes, LazDebuggerIntf,
   FpDbgInfo, FpdMemoryTools, FpErrorMessages,
-  FpDbgDwarf, FpWatchResultData, FpDbgClasses, FpDbgCommon,
+  FpDbgDwarf, FpDbgClasses, FpDbgCommon,
   {$ifdef FORCE_LAZLOGGER_DUMMY} LazLoggerDummy {$else} LazLoggerBase {$endif},
   LazClasses;
 
@@ -44,8 +44,6 @@ const
   MAX_ERR_EXPR_QUOTE_LEN = 200;
 
 type
-
-  TFpPascalExpressionPartList= class;
 
   TFpPascalExpression = class;
   TFpPascalExpressionPart = class;
@@ -64,7 +62,7 @@ type
 
   TFpIntrinsicFunc = (
     ifErrorNotFound,
-    ifChildClass,
+    ifChildClass, ifClassName,
     ifTry, ifTryN,
     ifObj,
     ifFlatten, ifFlattenPlaceholder,
@@ -77,8 +75,10 @@ type
   TFpPascalParserGetIntrinsicForIdentProc = function(AnExpression: TFpPascalExpression; AStart: PChar; ALen: Integer): TFpPascalExpressionPartIntrinsicBase of object;
 
   TFpPascalParserCallFunctionProc = function (AnExpressionPart: TFpPascalExpressionPart;
-    AFunctionValue: TFpValue; ASelfValue: TFpValue; AParams: TFpPascalExpressionPartList;
+    AFunctionValue: TFpValue; ASelfValue: TFpValue; AParams: TFpValueListIntf;
     out AResult: TFpValue; var AnError: TFpError): boolean of object;
+  TFpPascalParserResolvePropertyProc = procedure(APropValue, ASelfValue: TFpValue;
+    AParams: TFpValueListIntf; out AnErr: TFpError) of object;
 
   { TFpPascalExpressionSharedData }
 
@@ -105,6 +105,8 @@ type
 
     function GetDbgSymbolForIdentifier({%H-}AnIdent: String; AFindFlags: TFindExportedSymbolsFlags = []): TFpValue;
     function GetRegisterValue({%H-}AnIdent: String): TFpValue;
+    procedure ResolveProperty(APropValue, ASelfValue: TFpValue; AParams: TFpValueListIntf; out AnErr: TFpError);
+
 
     procedure SetError(AMsg: String; AnErrKind: TLzDbgErrorKind = dekUnknown);  // deprecated;
     procedure SetError(AnErrorCode: TFpErrorCode; const AnNestedErr: TFpError = nil; AnErrKind: TLzDbgErrorKind = dekUnknown);
@@ -167,6 +169,7 @@ type
     procedure Parse;
     function DebugDump(AWithResults: Boolean = False): String;
     procedure ResetEvaluation;
+    procedure ResolveProperty(APropValue, ASelfValue: TFpValue; AParams: TFpValueListIntf; out AnErr: TFpError);
 //    property TextExpression: String read GetTextExpression;
     property Error: TFpError read GetError;
     property ErrorKind: TLzDbgErrorKind read GetErrorKind;
@@ -191,23 +194,6 @@ type
     property SharedData: TFpPascalExpressionSharedData read FSharedData;
   end;
 
-
-  { TFpPascalExpressionPartList }
-
-  TFpPascalExpressionPartList = class(TStrings)
-  public // TStrings
-    procedure Clear; override;
-    procedure Delete(Index: Integer); override;
-    procedure Insert(Index: Integer; const S: string); override;
-  protected // TStrings
-    function Get(Index: Integer): string; override;
-    //function GetCount: Integer; virtual; abstract;
-  protected
-    function GetItems(AIndex: Integer): TFpPascalExpressionPart; virtual; abstract;
-  public
-    //property Count: Integer read GetCount;
-    property Items[AIndex: Integer]: TFpPascalExpressionPart read GetItems;
-  end;
 
   TFindInParentsFlag = (fipIncludeBracketFunction);
   TFindInParentsFlags = set of TFindInParentsFlag;
@@ -381,6 +367,7 @@ type
     function DoOrd(AParams: TFpPascalExpressionPartBracketArgumentList): TFpValue;
     function DoLength(AParams: TFpPascalExpressionPartBracketArgumentList): TFpValue;
     function DoChildClass(AParams: TFpPascalExpressionPartBracketArgumentList): TFpValue;
+    function DoClassName(AParams: TFpPascalExpressionPartBracketArgumentList): TFpValue;
     function DoFlatten(AParams: TFpPascalExpressionPartBracketArgumentList): TFpValue;
     function DoFlattenPlaceholder(AParams: TFpPascalExpressionPartBracketArgumentList): TFpValue;
     function DoRefCnt(AParams: TFpPascalExpressionPartBracketArgumentList): TFpValue;
@@ -536,8 +523,14 @@ type
 
   { TFpPascalExpressionPartBracketIndex }
 
-  TFpPascalExpressionPartBracketIndex = class(TFpPascalExpressionPartSquareBracket)
+  TFpPascalExpressionPartBracketIndex = class(TFpPascalExpressionPartSquareBracket, TFpValueListIntf)
   // array[1]
+  protected
+    FUsedByFirstChild: boolean;
+    function GetValueItems(AnIndex: Integer): TFpValue;
+    function GetValueCount: integer;
+    function TFpValueListIntf.GetItems = GetValueItems;
+    function TFpValueListIntf.Count = GetValueCount;
   protected
     procedure Init; override;
     function DoGetResultValue: TFpValue; override;
@@ -904,15 +897,15 @@ type
 
   { TFpPascalExpressionPartListForwarder }
 
-  TFpPascalExpressionPartListForwarder = class(TFpPascalExpressionPartList)
+  TFpPascalExpressionPartListForwarder = class(TObject, TFpValueListIntf)
   private
     FExpressionPart: TFpPascalExpressionPartContainer;
     FListOffset, FCount: Integer;
   protected
-    function GetCount: Integer; override;
-    function GetItems(AIndex: Integer): TFpPascalExpressionPart; override;
+    function GetItems(AIndex: Integer): TFpValue;
   public
     constructor Create(AnExpressionPart: TFpPascalExpressionPartContainer; AListOffset, ACount: Integer);
+    function Count: Integer;
   end;
 
   {%region  DebugSymbol }
@@ -1171,37 +1164,16 @@ begin
     ATarget.SetLastError(ASrc.LastError);
 end;
 
-procedure TFpPascalExpressionPartList.Clear;
-begin
-  assert(False, 'TFpPascalExpressionPartList.Clear: False');
-end;
-
-procedure TFpPascalExpressionPartList.Delete(Index: Integer);
-begin
-  assert(False, 'TFpPascalExpressionPartList.Delete: False');
-end;
-
-procedure TFpPascalExpressionPartList.Insert(Index: Integer; const S: string);
-begin
-  assert(False, 'TFpPascalExpressionPartList.Insert: False');
-end;
-
-function TFpPascalExpressionPartList.Get(Index: Integer): string;
-begin
-  Result := Items[Index].GetText();
-end;
-
 { TFpPascalExpressionPartListForwarder }
 
-function TFpPascalExpressionPartListForwarder.GetCount: Integer;
+function TFpPascalExpressionPartListForwarder.Count: Integer;
 begin
   Result := FCount;
 end;
 
-function TFpPascalExpressionPartListForwarder.GetItems(AIndex: Integer
-  ): TFpPascalExpressionPart;
+function TFpPascalExpressionPartListForwarder.GetItems(AIndex: Integer): TFpValue;
 begin
-  Result := FExpressionPart.Items[AIndex + FListOffset];
+  Result := FExpressionPart.Items[AIndex + FListOffset].ResultValue;
 end;
 
 constructor TFpPascalExpressionPartListForwarder.Create(
@@ -2012,6 +1984,16 @@ end;
 
 { TFpPascalExpressionPartBracketIndex }
 
+function TFpPascalExpressionPartBracketIndex.GetValueItems(AnIndex: Integer): TFpValue;
+begin
+  Result := Items[AnIndex+1].ResultValue;
+end;
+
+function TFpPascalExpressionPartBracketIndex.GetValueCount: integer;
+begin
+  Result := Count - 1;
+end;
+
 procedure TFpPascalExpressionPartBracketIndex.Init;
 begin
   FPrecedence := PRECEDENCE_ARRAY_IDX;
@@ -2030,6 +2012,7 @@ var
   a: TFpDbgMemLocation;
 begin
   Result := nil;
+  FUsedByFirstChild := False;
   assert(Count >= 2, 'TFpPascalExpressionPartBracketIndex.DoGetResultValue: Count >= 2');
   if Count < 2 then begin
     SetError(fpErrPasParserMissingIndexExpression, [GetFullText(MAX_ERR_EXPR_QUOTE_LEN), GetPos, dekParser]);
@@ -2038,6 +2021,11 @@ begin
 
   TmpVal := Items[0].ResultValue;
   if TmpVal = nil then exit;
+  if FUsedByFirstChild then begin
+    Result := TmpVal;
+    Result.AddReference;
+    exit; // property that used the indices
+  end;
 
   TmpVal.AddReference;
   for i := 1 to Count - 1 do begin
@@ -2104,11 +2092,12 @@ begin
           end;
 
           ti := TmpVal.TypeInfo;
-          if (ti <> nil) then ti := ti.TypeInfo;
-          IsPChar := (ti <> nil) and (ti.Kind in [skChar]) and (Offs > 0) and
-                     (not(TmpVal is TFpPasParserValueAddressOf)) and
-                     (not(TmpVal is TFpPasParserValueCastToPointer)) and
-                     (not(TmpVal is TFpPasParserValueMakeReftype));
+          // If Offs = 0 then it must be pchar, since this is not allowed for string
+          // If this is azero-based string, then it does not matter if it is.
+          IsPChar := (Offs > 0) and (sfMaybeString in ti.Flags);
+                     //(not(TmpVal is TFpPasParserValueAddressOf)) and
+                     //(not(TmpVal is TFpPasParserValueCastToPointer)) and
+                     //(not(TmpVal is TFpPasParserValueMakeReftype));
           if IsPChar then ExpressionData.FHasPCharIndexAccess := True;
           if IsPChar and ExpressionData.FixPCharIndexAccess then begin
             // fix for string in dwarf 2
@@ -3028,6 +3017,31 @@ begin
     Result.ReleaseReference;
     Result := NewResult;
   end;
+end;
+
+function TFpPascalExpressionPartIntrinsic.DoClassName(
+  AParams: TFpPascalExpressionPartBracketArgumentList): TFpValue;
+var
+  AClassName: String;
+  Arg: TFpValue;
+begin
+  Result := nil;
+  if not CheckArgumentCount(AParams, 1) then
+    exit;
+
+  if not GetArg(AParams, 1, Arg, 'argument required') then
+    exit;
+  if (Arg.Kind <> skClass) or (Arg.AsCardinal = 0)
+  then begin
+    if (Arg.TypeInfo <> nil) and (Arg.TypeInfo.Name <> '') then
+      Result := TFpValueConstString.Create(Arg.TypeInfo.Name);
+    exit;
+  end;
+
+  if not Arg.GetInstanceClassName(AClassName) then
+    exit;
+
+  Result := TFpValueConstString.Create(AClassName);
 end;
 
 function TFpPascalExpressionPartIntrinsic.DoFlatten(
@@ -4101,6 +4115,7 @@ begin
     ifOrd:        Result := DoOrd(AParams);
     ifLength:     Result := DoLength(AParams);
     ifChildClass: Result := DoChildClass(AParams);
+    ifClassName:  Result := DoClassName(AParams);
     ifRefCount:   Result := DoRefCnt(AParams);
     ifPos:        Result := DoPos(AParams);
     ifFlatten:    Result := DoFlatten(AParams);
@@ -4148,7 +4163,7 @@ end;
 function TFpPascalExpressionPartIntrinsic.ReturnsVariant: boolean;
 begin
   Result := (inherited ReturnsVariant) or
-            (FIntrinsic in [ifChildClass, ifTry, ifTryN]);
+            (FIntrinsic in [ifChildClass, ifClassName, ifTry, ifTryN]);
             // TODO: compare types of each argument for ifTry/N
 end;
 
@@ -4410,6 +4425,82 @@ begin
     if Reg <> nil then
       Result := TFpValueConstString.Create(Reg.StrValue);
   end;
+end;
+
+procedure TFpPascalExpressionSharedData.ResolveProperty(APropValue, ASelfValue: TFpValue;
+  AParams: TFpValueListIntf; out AnErr: TFpError);
+var
+  ThePropValue: TFpValueDwarfProperty absolute APropValue;
+  r: TFpValue;
+  NewCallParam: TFpValueList;
+  DefCallParam: TFpPropCallInfoArray;
+  DefCallParamCnt, i, j, UsrParamCnt: Integer;
+begin
+  AnErr := NoError;
+  if (not(vfProperty in APropValue.Flags)) or
+     (not (APropValue is TFpValueDwarfProperty)) or
+     (APropValue.Kind <> skFunction) or
+     (OnFunctionCall = nil) or
+     (vpGetterResolved in ThePropValue.PropValueFlags) or
+     (not (ThePropValue.GetterValue.TypeInfo is TFpSymbolDwarfTypeProc)) or
+     (TFpSymbolDwarfTypeProc(ThePropValue.GetterValue.TypeInfo).ParamCount < 1) // self
+  then
+    exit;
+
+  DefCallParamCnt := ThePropValue.GetGetterCallParamDefCount;
+  if DefCallParamCnt < 0 then begin
+    debugln(DBG_WARNINGS, 'Prop getter call param def cnt not avail');
+    exit; // TODO: set internal error
+  end;
+
+  i := ThePropValue.IndexParamCount - DefCallParamCnt;
+  if (i < 0) then
+    exit; // TODO : error
+  if (i > 0) and (AParams = nil) then
+    exit; // don't cause an error
+
+  NewCallParam := nil;
+  if DefCallParamCnt > 0 then begin
+    ThePropValue.GetGetterCallParamInfo(DefCallParam);
+    NewCallParam := TFpValueList.Create;
+    j := 0;
+    UsrParamCnt := 0;
+    if AParams <> nil then
+      UsrParamCnt := AParams.Count;
+    { Copy params without extra reference / they are hold by their original lists }
+    for i := 1 to Length(DefCallParam) - 1 do begin // start at 1, ignore SELF
+      if DefCallParam[i] = nil then begin
+        if j >= UsrParamCnt then begin
+          debugln(DBG_WARNINGS, 'Prop getter call param def wrong (miss)');
+          exit;
+        end;
+        NewCallParam.Add(AParams[j]);
+        inc(j);
+      end
+      else begin
+        NewCallParam.Add(DefCallParam[i]);
+        dec(DefCallParamCnt);
+      end;
+    end;
+    if (DefCallParamCnt <> 0) then begin
+      debugln(DBG_WARNINGS, 'Prop getter call param def wrong');
+      exit; // TODO: set internal error
+    end;
+
+    for i := j to UsrParamCnt - 1 do
+      NewCallParam.Add(AParams[i]);
+
+    AParams := NewCallParam;
+  end;
+
+
+  if OnFunctionCall(nil, ThePropValue.GetterValue, ASelfValue, AParams, r, AnErr) then begin
+    TFpValueDwarfProperty(APropValue).SetResolvedGetter(r);
+    r.ReleaseReference;
+  end;
+  if IsError(AnErr) then
+    SetError(AnErr, dekEvaluation);
+  NewCallParam.Free;
 end;
 
 { TFpPascalExpression }
@@ -5005,6 +5096,7 @@ begin
         't', 'T': if strlicomp(AStart, 'TRUNC', 5) = 0 then Intr := ifTrunc
                   else
                   if strlicomp(AStart, 'TRYNN', 5) = 0 then Intr := ifTryN;
+        'c', 'C': if strlicomp(AStart, 'CNAME', 5) = 0 then Intr := ifClassName;
        end;
     6: case AStart^ of
         'l', 'L': if strlicomp(AStart, 'LENGTH', 6) = 0 then Intr := ifLength;
@@ -5013,6 +5105,9 @@ begin
       end;
     7: case AStart^ of
         'f', 'F': if strlicomp(AStart, 'FLATTEN', 7) = 0 then Intr := ifFlatten;
+      end;
+    9: case AStart^ of
+        'c', 'C': if strlicomp(AStart, 'CLASSNAME', 9) = 0 then Intr := ifClassName;
       end;
   end;
   if Intr <> ifErrorNotFound then begin
@@ -5068,6 +5163,12 @@ end;
 procedure TFpPascalExpression.ResetEvaluation;
 begin
   FExpressionPart.ResetEvaluationRecursive;
+end;
+
+procedure TFpPascalExpression.ResolveProperty(APropValue, ASelfValue: TFpValue;
+  AParams: TFpValueListIntf; out AnErr: TFpError);
+begin
+  SharedData.ResolveProperty(APropValue, ASelfValue, AParams, AnErr);
 end;
 
 { TFpPascalExpressionPart }
@@ -6247,8 +6348,13 @@ function TFpPascalExpressionPartOperatorPlusMinus.DoGetResultValue: TFpValue;
     Result := nil;
     case AOtherVal.Kind of
       skPointer: if ADoSubtract then begin
-          if ( (APointerVal.TypeInfo = nil) or (APointerVal.TypeInfo.TypeInfo = nil) ) and
-             ( (AOtherVal.TypeInfo = nil)   or (AOtherVal.TypeInfo.TypeInfo = nil) )
+          if ( (APointerVal.TypeInfo = nil) or (APointerVal.TypeInfo.TypeInfo = nil) or
+               ( (APointerVal.TypeInfo.TypeInfo.ReadSize(nil, s1)) and (SizeToFullBytes(s1) = 1) )
+             )
+             and
+             ( (AOtherVal.TypeInfo = nil)   or (AOtherVal.TypeInfo.TypeInfo = nil) or
+               ( (AOtherVal.TypeInfo.TypeInfo.ReadSize(nil, s2)) and (SizeToFullBytes(s2) = 1) )
+             )
           then begin
             Idx := APointerVal.AsCardinal - AOtherVal.AsCardinal;
             Result := TFpValueConstNumber.Create(Idx, True);
@@ -7383,9 +7489,10 @@ end;
 
 function TFpPascalExpressionPartOperatorMemberOf.DoGetResultValue: TFpValue;
 var
-  tmp, AutoDereVal: TFpValue;
+  tmp,  AutoDereVal: TFpValue;
   MemberName: String;
   MemberSym: TFpSymbol;
+  e: TFpError;
 begin
   Result := nil;
   if Count <> 2 then exit;
@@ -7421,6 +7528,19 @@ begin
         exit;
       end;
       {$IFDEF WITH_REFCOUNT_DEBUG}Result.DbgRenameReference(nil, 'DoGetResultValue'){$ENDIF};
+      if (vfProperty in Result.Flags) then begin
+        if (Parent is TFpPascalExpressionPartBracketIndex) and
+           (Result is TFpValueDwarfProperty) and
+           (TFpValueDwarfProperty(Result).IndexParamCount > 0)
+        then begin
+          ExpressionData.ResolveProperty(Result, tmp, TFpPascalExpressionPartBracketIndex(Parent), e);
+          TFpPascalExpressionPartBracketIndex(Parent).FUsedByFirstChild := True;
+        end
+        else
+          ExpressionData.ResolveProperty(Result, tmp, nil, e);
+        if IsError(e) then
+          SetError(e, dekEvaluation);
+      end;
       Assert((Result.DbgSymbol=nil)or(Result.DbgSymbol.SymbolType=stValue), 'member is value');
       exit;
     end;
@@ -7894,7 +8014,6 @@ end;
 function TFpPascalExpressionPartOperatorArraySlice.EndValue: Int64;
 var
   tmp: TFpValue;
-  i: Int64;
 begin
   Result := 0;
   if Count < 2 then exit;

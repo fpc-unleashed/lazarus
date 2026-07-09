@@ -799,11 +799,11 @@ begin
       PassCapt := DoDefaultFilterItem(Node.Text, Node.Data);
     if (PassCapt or PassEvent) and (fFirstPassedNode=Nil) then
       fFirstPassedNode:=Node;
-    //DebugLn(['FilterTree: Pass Caption/Event=',PassCapt,'/',PassEvent, ', Done=', Done,
-    //  ', IsFirstUpdate=', fIsFirstUpdate, ', ShowChildrenOfMatch=', fShowChildrenOfMatch,
-    //  ', ExpandAllInitially=', fExpandAllInitially, ', Filter="', Filter, '", Node=',Node.Text]);
+    //DebugLn(['FilterTree: Pass Caption/Event=',PassCapt,'/',PassEvent, ', Done=',Done,
+    //  ', IsFirstUpdate=',fIsFirstUpdate, ', ShowChildrenOfMatch=',fShowChildrenOfMatch,
+    //  ', ExpandAllInitially=',fExpandAllInitially, ', Filter="',Filter, '", Node=',Node.Text]);
     // ShowChildrenOfMatch affects only if the Node.Text matched.
-    if PassCapt and fShowChildrenOfMatch and (Filter<>'') then
+    if (PassCapt or PassEvent) and fShowChildrenOfMatch and (Filter<>'') then
       Result := ShowAllChildren(Node)
     else begin
       // Recursive call for child nodes.

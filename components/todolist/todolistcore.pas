@@ -200,7 +200,8 @@ begin
     DebugLn(['ScanFile failed loading ',FN]);
     exit;
   end;
-  Assert(aFilename=Code.Filename, 'ScanFile: aFileName <> Code.Filename');
+  if aFilename<>Code.Filename then
+    debugln(['ToDoList ScanFile: aFileName (',aFileName,') <> Code.Filename (',Code.Filename,')']);
   CodeToolBoss.Explore(Code,Tool,false,false); // Parse Pascal code, ignore Result
   AVLNode:=aScannedFiles.FindKey(Pointer(aFilename),
                                 @CompareAnsiStringWithTLScannedFile);
@@ -223,7 +224,9 @@ begin
     CurFile.ScanToDoFile;
   end
   else begin
-    Assert(aFileName=Tool.MainFilename, 'ScanFile: aFileName <> Tool.MainFilename');
+    if aFileName<>Tool.MainFilename then
+      DebugLn(Format('ScanFile: aFileName (%s) <> Tool.MainFilename (%s)!',
+                     [aFileName,Tool.MainFilename]));
     // save ChangeStep
     CurFile.FCodeChangeStep:=Tool.Scanner.ChangeStep;
     //DebugLn(['ScanFile saved ChangeStep ',CurFile.FCodeChangeStep,' ',Tool.Scanner.ChangeStep]);
@@ -374,7 +377,9 @@ var
   ToDoItem: TTodoItem;
 begin
   Src:=FTool.Src;
-  Assert(FCode.Filename=FTool.MainFilename, 'TTLScannedFile.ScanPascalToDos: aCode.Filename<>FTool.MainFilename');
+  if FCode.Filename<>FTool.MainFilename then
+    DebugLn(Format('TTLScannedFile.ScanPascalToDos: FCode.Filename (%s) <> FTool.MainFilename (%s)!',
+                   [FCode.Filename, FTool.MainFilename]));
   pStart:=1;
   NestedComment:=CodeToolBoss.GetNestedCommentsFlagForFile(FCode.Filename);
   repeat

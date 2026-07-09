@@ -738,7 +738,7 @@ begin
         QtListWidget.setWrapping(IconOptions.AutoArrange);
         QtListWidget.setViewFlow(IconArngToQListFlow[IconOptions.Arrangement]);
         QtListWidget.setWordWrap(IconOptions.WrapText);
-        QtListWidget.setUniformItemSizes(IconOptions.WrapText);
+        QtListWidget.setUniformItemSizes(True);
       end;
 
       if ALV.ViewStyle = vsIcon then
@@ -1620,13 +1620,16 @@ begin
     if ASubIndex >0 Then exit;
     QtListWidget := TQtListWidget(ALV.Handle);
 
-    if not QtListWidget.Checkable and (TCustomListViewHack(ALV).ViewStyle = vsIcon) then
-      AAlignment := QtAlignHCenter or QtAlignBottom
+    if not QtListWidget.Checkable and (TCustomListViewHack(ALV).ViewStyle in [vsIcon, vsSmallIcon]) then
+      AAlignment := QtAlignHCenter or QtAlignTop
     else
     if (TCustomListViewHack(ALV).Columns.Count > 0) and (ASubIndex < TCustomListViewHack(ALV).Columns.Count)  then
       AAlignment := AlignmentToQtAlignmentMap[ALV.Column[ASubIndex].Alignment]
     else
       AAlignment := QtAlignLeft;
+
+    if TCustomListViewHack(ALV).ViewStyle = vsList then
+      AAlignment := AAlignment or QtAlignVCenter;
 
     QtListWidget.setItemText(AIndex, AText, AAlignment);
   end else

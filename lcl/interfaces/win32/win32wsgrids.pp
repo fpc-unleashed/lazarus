@@ -56,13 +56,13 @@ begin
   Result:=ACellRect;
   Dec(Result.Right);
   Dec(Result.Bottom);
-  Inc(Result.Left, constCellPadding);
-  Dec(Result.Right, constCellPadding);
+  Inc(Result.Left, varCellPadding);
+  Dec(Result.Right, varCellPadding);
   TextHeight := ACanvas.TextHeight(' ');
   case AColumnLayout of
-    tlTop: EditorTop:=Result.Top+constCellPadding;
+    tlTop: EditorTop:=Result.Top+varCellPadding;
     tlCenter: EditorTop:=Result.Top+Round((Result.Bottom-Result.Top-TextHeight) / 2);
-    tlBottom: EditorTop:=Result.Bottom-constCellPadding-TextHeight+1;
+    tlBottom: EditorTop:=Result.Bottom-varCellPadding-TextHeight+1;
   end;
   if EditorTop>Result.Top then Result.Top:=EditorTop;
   Result.Bottom:=Result.Top+TextHeight;

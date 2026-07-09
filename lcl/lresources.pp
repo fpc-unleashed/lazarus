@@ -451,8 +451,8 @@ function FindResourceLFM(ResName: string): HRSRC;
 procedure DefineRectProperty(Filer: TFiler; const Name: string;
                              ARect, DefaultRect: PRect);
 
-procedure ReverseBytes(p: Pointer; Count: integer);
-procedure ReverseByteOrderInWords(p: PWord; Count: integer);
+procedure ReverseBytes(p: Pointer; Count: integer); deprecated 'Use from unit ProjResProc instead.';
+procedure ReverseByteOrderInWords(p: PWord; Count: integer); deprecated 'Use from unit ProjResProc instead.';
 procedure ConvertEndianBigDoubleToLRSExtended(BigEndianDouble,LRSExtended: Pointer);
                                   deprecated 'Use from unit ProjResProc instead.';
 //function ConvertLRSExtendedToDouble(p: Pointer): Double; deprecated 'Use from unit ProjResProc instead.';
@@ -486,22 +486,24 @@ procedure WriteLRSCurrency(s: TStream; const c: Currency); deprecated 'Use from 
 procedure WriteLRSWideStringContent(s: TStream; const w: WideString); deprecated 'Use from unit ProjResProc instead.';
 procedure WriteLRSInt64MB(s: TStream; const Value: int64); deprecated 'Use from unit ProjResProc instead.';
 
-procedure WriteLRSReversedWord(s: TStream; w: word);
-procedure WriteLRS4BytesReversed(s: TStream; p: Pointer);
-procedure WriteLRS8BytesReversed(s: TStream; p: Pointer);
-procedure WriteLRS10BytesReversed(s: TStream; p: Pointer);
-procedure WriteLRSNull(s: TStream; Count: integer);
-procedure WriteLRSEndianBigDoubleAsEndianLittleExtended(s: TStream;
-  EndBigDouble: PByte);
-procedure WriteLRSDoubleAsExtended(s: TStream; ADouble: PByte); deprecated 'Use from unit ProjResProc instead.';
+procedure WriteLRSReversedWord(s: TStream; w: word); deprecated 'Use from unit ProjResProc instead.';
+procedure WriteLRS4BytesReversed(s: TStream; p: Pointer); deprecated 'Use from unit ProjResProc instead.';
+procedure WriteLRS8BytesReversed(s: TStream; p: Pointer); deprecated 'Use from unit ProjResProc instead.';
+procedure WriteLRS10BytesReversed(s: TStream; p: Pointer); deprecated 'Use from unit ProjResProc instead.';
+procedure WriteLRSNull(s: TStream; Count: integer); deprecated 'Use from unit ProjResProc instead.';
+procedure WriteLRSEndianBigDoubleAsEndianLittleExtended(s: TStream; EndBigDouble: PByte);
+                                 deprecated 'Use from unit ProjResProc instead.';
+procedure WriteLRSDoubleAsExtended(s: TStream; ADouble: PByte);
+                                 deprecated 'Use from unit ProjResProc instead.';
 procedure WriteLRSReversedWords(s: TStream; p: Pointer; Count: integer);
+                                 deprecated 'Use from unit ProjResProc instead.';
 
 function FloatToLFMStr(const Value: extended; Precision, Digits: Integer): string;
 
 procedure RegisterPropertyToSkip(PersistentClass: TPersistentClass;
   const PropertyName, Note, HelpKeyWord: string);
-
 procedure Register;
+
 
 implementation
 
@@ -2174,32 +2176,13 @@ end;
 { LRS format converter functions }
 
 procedure ReverseBytes(p: Pointer; Count: integer);
-var
-  p1: PChar;
-  p2: PChar;
-  c: Char;
 begin
-  p1:=PChar(p);
-  p2:=PChar(p)+Count-1;
-  while p1<p2 do begin
-    c:=p1^;
-    p1^:=p2^;
-    p2^:=c;
-    inc(p1);
-    dec(p2);
-  end;
+  ProjResProc.ReverseBytes(p, Count);
 end;
 
 procedure ReverseByteOrderInWords(p: PWord; Count: integer);
-var
-  i: Integer;
-  w: Word;
 begin
-  for i:=0 to Count-1 do begin
-    w:=p[i];
-    w:=(w shr 8) or ((w and $ff) shl 8);
-    p[i]:=w;
-  end;
+  ProjResProc.ReverseByteOrderInWords(p, Count);
 end;
 
 procedure ConvertEndianBigDoubleToLRSExtended(BigEndianDouble, LRSExtended: Pointer);
@@ -2380,50 +2363,42 @@ end;
 
 procedure WriteLRSReversedWord(s: TStream; w: word);
 begin
-  w:=(w shr 8) or ((w and $ff) shl 8);
-  s.Write(w,2);
+  ProjResProc.WriteLRSReversedWord(s, w);
 end;
 
 procedure WriteLRS4BytesReversed(s: TStream; p: Pointer);
-var
-  a: array[0..3] of char;
-  i: Integer;
 begin
-  for i:=0 to 3 do
-    a[i]:=PChar(p)[3-i];
-  s.Write(a[0],4);
+  ProjResProc.WriteLRS4BytesReversed(s, p);
 end;
 
 procedure WriteLRS8BytesReversed(s: TStream; p: Pointer);
-var
-  a: array[0..7] of char;
-  i: Integer;
 begin
-  for i:=0 to 7 do
-    a[i]:=PChar(p)[7-i];
-  s.Write(a[0],8);
+  ProjResProc.WriteLRS8BytesReversed(s, p);
 end;
 
 procedure WriteLRS10BytesReversed(s: TStream; p: Pointer);
-var
-  a: array[0..9] of char;
-  i: Integer;
 begin
-  for i:=0 to 9 do
-    a[i]:=PChar(p)[9-i];
-  s.Write(a[0],10);
+  ProjResProc.WriteLRS10BytesReversed(s, p);
+end;
+
+procedure WriteLRSNull(s: TStream; Count: integer);
+begin
+  ProjResProc.WriteLRSNull(s, Count);
+end;
+
+procedure WriteLRSEndianBigDoubleAsEndianLittleExtended(s: TStream; EndBigDouble: PByte);
+begin
+  ProjResProc.WriteLRSEndianBigDoubleAsEndianLittleExtended(s, EndBigDouble);
+end;
+
+procedure WriteLRSDoubleAsExtended(s: TStream; ADouble: PByte);
+begin
+  ProjResProc.WriteLRSDoubleAsExtended(s, ADouble);
 end;
 
 procedure WriteLRSReversedWords(s: TStream; p: Pointer; Count: integer);
-var
-  w: Word;
-  i: Integer;
 begin
-  for i:=0 to Count-1 do begin
-    w:=PWord(P)[i];
-    w:=(w shr 8) or ((w and $ff) shl 8);
-    s.Write(w,2);
-  end;
+  ProjResProc.WriteLRSReversedWords(s, p, Count);
 end;
 
 function FloatToLFMStr(const Value: extended; Precision, Digits: Integer): string;
@@ -2494,30 +2469,6 @@ end;
 procedure Register;
 begin
   RegisterComponents('System',[TLazComponentQueue]);
-end;
-
-procedure WriteLRSNull(s: TStream; Count: integer);
-var
-  c: char;
-  i: Integer;
-begin
-  c:=#0;
-  for i:=0 to Count-1 do
-    s.Write(c,1);
-end;
-
-procedure WriteLRSEndianBigDoubleAsEndianLittleExtended(s: TStream;
-  EndBigDouble: PByte);
-var
-  e: array[0..9] of byte;
-begin
-  ProjResProc.ConvertEndianBigDoubleToLRSExtended(EndBigDouble,@e);
-  s.Write(e[0],10);
-end;
-
-procedure WriteLRSDoubleAsExtended(s: TStream; ADouble: PByte);
-begin
-  ProjResProc.WriteLRSDoubleAsExtended(s, ADouble);
 end;
 
 { TLRSObjectReader }

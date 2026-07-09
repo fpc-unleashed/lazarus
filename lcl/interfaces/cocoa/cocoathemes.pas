@@ -90,6 +90,7 @@ type
     class procedure removeObserver( const observer: ICocoaThemeObserver );
     class procedure darwinThemeChangedNotify;
     class function isDark: Boolean;
+    function IsDarkTheme: boolean; override;
   end;
 
 implementation
@@ -429,12 +430,12 @@ begin
     TVP_TREEITEM:
     begin
       case Details.State of
-        TREIS_NORMAL: lColor := TCocoaColorUtil.toColor(ColorToRGB(clWindow));
-        TREIS_HOT: lColor := TCocoaColorUtil.toColor(ColorToRGB(clHotLight));
+        TREIS_NORMAL: lColor := TCocoaColorUtil.toColor(clWindow);
+        TREIS_HOT: lColor := TCocoaColorUtil.toColor(clHotLight);
         TREIS_SELECTED: lColor := NSColor.alternateSelectedControlColor;
-        TREIS_DISABLED: lColor := TCocoaColorUtil.toColor(ColorToRGB(clWindow));
+        TREIS_DISABLED: lColor := TCocoaColorUtil.toColor(clWindow);
         TREIS_SELECTEDNOTFOCUS: lColor := NSColor.secondarySelectedControlColor;
-        TREIS_HOTSELECTED: lColor := TCocoaColorUtil.toColor(ColorToRGB(clHighlight));
+        TREIS_HOTSELECTED: lColor := TCocoaColorUtil.toColor(clHighlight);
       else
         lColor := NSColor.blackColor;
       end;
@@ -1003,7 +1004,7 @@ var
   i: Integer;
 begin
   self.UpdateThemes;
-  Graphics.UpdateHandleObjects;
+  Graphics.UpdateHandleObjects(True);
   self.IntfDoOnThemeChange;
 
   for i:= 0 to _observers.Count-1 do begin
@@ -1017,6 +1018,11 @@ begin
 end;
 
 class function TCocoaThemeServices.isDark: Boolean;
+begin
+  Result:= TCocoaThemeUtil.isDark;
+end;
+
+function TCocoaThemeServices.IsDarkTheme: boolean;
 begin
   Result:= TCocoaThemeUtil.isDark;
 end;

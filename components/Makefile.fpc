@@ -18,37 +18,39 @@ files=$(wildcard ./units/*$(OEXT)) \
       $(wildcard ./custom/*$(RSTEXT))
 
 [rules]
-.PHONY: help clean cleanall lazbuildpackages lazbuildlclpackages idepackages bigide all
+.PHONY: help clean cleanall lazbuildpackages idepackages bigide all
 
 #-----------------------------------------------------------------------------
 help:
 	@$(ECHO)
 	@$(ECHO) " Targets"
-	@$(ECHO) "   all         same as lazbuildlclpackages idepackages bigide, requires lazbuildpackages and lcl"
+	@$(ECHO) "   all         same as idepackages bigide, requires lazbuildpackages and lcl"
 	@$(ECHO) "   clean       deletes output files of base and bigide components"
 	@$(ECHO)
 	@$(ECHO) "   lazbuildpackages build non lcl packages needed by lazbuild and"
 	@$(ECHO) "                    the minimal ide, requires packager registration"
-	@$(ECHO) "   lazbuildlclpackages build lcl packages needed by lazbuild and"
-	@$(ECHO) "                 the minimal ide, requires lazbuildpackages and lcl"
 	@$(ECHO) "   idepackages build packages of the minimal ide,"
 	@$(ECHO) "               requires lazbuildpackages and lcl"
 	@$(ECHO) "   bigide      build the extra packages for the bigide, requires lcl"
 
 #-----------------------------------------------------------------------------
-# build lazbuild non lcl packages, requires packager/registration
+# build packages needed by lazbuild, requires packager/registration
 lazbuildpackages:
 	$(MAKE) -C lazutils
 	$(MAKE) -C codetools
 	$(MAKE) -C buildintf
 	$(MAKE) -C lazdebuggers/lazdebuggerintf
 	$(MAKE) -C debuggerintf
+
+#-----------------------------------------------------------------------------
+# build packages needed by the lcl, requires packager/registration
+lclpackages:
+	$(MAKE) -C lazutils
 	$(MAKE) -C freetype
 
 #-----------------------------------------------------------------------------
-# build lazbuild lcl packages, requires lclbase and lazbuildpackages
-# Note: when building lazbuild the LCL_PLATFORM=nogui, when building the ide LCL_PLATFORM=
-lazbuildlclpackages:
+# build packages of the minimal ide, requires lcl
+idepackages:
 	$(MAKE) -C fpdebug
 	$(MAKE) -C lazcontrols
 	$(MAKE) -C lazedit
@@ -58,10 +60,6 @@ lazbuildlclpackages:
 	$(MAKE) -C lazdebuggers/lazdebuggerfplldb
 	$(MAKE) -C lazdebuggers/lazdebuggerfp
 	$(MAKE) -C synedit
-
-#-----------------------------------------------------------------------------
-# build packages of the minimal ide, requires lazbuildpackages and lcl
-idepackages: lazbuildlclpackages
 	$(MAKE) -C lazdebuggergdbmi
 	$(MAKE) -C lazcontrols/design
 	$(MAKE) -C lclextensions
@@ -110,7 +108,7 @@ bigide:
 	$(MAKE) -C anchordocking
 	$(MAKE) -C anchordocking/design
 
-all: lazbuildlclpackages idepackages bigide
+all: lazbuildpackages idepackages bigide
 
 clean:
 	$(MAKE) -C lazutils clean

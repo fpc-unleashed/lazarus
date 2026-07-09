@@ -49,9 +49,9 @@ uses
   SynEdit,
   // IdeIntf
   IDEWindowIntf, IDEImagesIntf, IdeIntfStrConsts, IdeDebuggerWatchValueIntf, SrcEditorIntf,
-  EditorOptionsIntf,
+  EditorOptionsIntf, EditorSyntaxHighlighterDef,
   // DebuggerIntf
-  DbgIntfBaseTypes, DbgIntfDebuggerBase, DbgIntfMiscClasses,
+  DbgIntfBaseTypes, DbgIntfDebuggerBase, DbgIntfMiscClasses, LazEditTextAttributes,
   // LazDebuggerIntf
   LazDebuggerIntf, LazDebuggerIntfBaseTypes,
   // IdeDebugger
@@ -189,6 +189,7 @@ type
     FSelectedForDrag: TNodeArray;
 
     procedure ApplyPreset(APreset: TWatchDisplayFormatPreset);
+    procedure DoBeforeFreeNode(Sender: TBaseVirtualTree; ANode: PVirtualNode);
     procedure DoEditorOptsChanged(Sender: TObject);
     procedure DoFormatPresetClickedIde(Sender: TObject);
     procedure DoFormatPresetClickedProject(Sender: TObject);
@@ -218,6 +219,8 @@ type
     procedure WatchUpdate(const ASender: TIdeWatches; const AWatch: TIdeWatch);
     procedure WatchRemove(const {%H-}ASender: TIdeWatches; const AWatch: TIdeWatch);
 
+    function  CanCallWatchGetValue: Boolean;
+    function  GetFoundInFramePrefix(AWatchAbleResult: IWatchAbleResultIntf; AnAppendLineBreak: boolean = False): String;
     procedure UpdateInspectPane;
     procedure UpdateItem(const VNode: PVirtualNode; const AWatch: TIdeWatch);
     procedure UpdateAll;
@@ -248,6 +251,7 @@ type
   TDbgTreeViewWatchValueMgr = class(TDbgTreeViewWatchDataMgr)
   private
     FQueuedUnLockCommandProcessing: Boolean;
+    FAttributeMergeRes: TLazEditTextAttributeMergeResult;
     procedure DoUnLockCommandProcessing(Data: PtrInt);
   protected
     FWatchDlg: TWatchesDlg;
@@ -267,6 +271,9 @@ type
     procedure UpdateSubItemsLocked(AWatchAble: TObject; AWatchAbleResult: IWatchAbleResultIntf;
       AVNode: PVirtualNode; out ChildCount: LongWord); override;
     function CompareExpandingWatchAbleResult(ACurrent, AnExpanding: TObject): boolean; override;
+  public
+    constructor Create(ATreeView: TDbgTreeView);
+    destructor Destroy; override;
   end;
 
 
@@ -368,7 +375,7 @@ begin
   popupWatchFormatPresets.Caption := liswlQuickFormat;
 
   actToggleInspectSite.Caption:= liswlInspectPane;
-  actToggleInspectSite.ImageIndex := IDEImages.LoadImage('debugger_inspect');
+  actToggleInspectSite.ImageIndex := IDEImages.LoadImage('TListBox');
 
   actAddWatchPoint.Caption := lisWatchToWatchPoint;
 
@@ -380,8 +387,11 @@ begin
   actCopyAll.Caption      := lisLocalsDlgCopyAll;
 
   actInspect.Caption := lisInspect;
+  actInspect.ImageIndex := IDEImages.LoadImage('debugger_inspect');
   actEvaluate.Caption := lisEvaluateModify;
+  actEvaluate.ImageIndex := IDEImages.LoadImage('debugger_evaluate');
   actMemView.Caption := lisMenuViewMemViewer;
+  actMemView.ImageIndex := IDEImages.LoadImage('debugger_mem_viewer');
 
   btnShowDataAddr.ImageIndex := IDEImages.LoadImage('address');
   tbWordWrap.ImageIndex := IDEImages.LoadImage('line_wrap');
@@ -403,6 +413,7 @@ begin
   dec(FInSetup);
 
   //tvWatches.OnItemRemoved := @DoItemRemovedFromView;
+  tvWatches.OnBeforeFreeNode := @DoBeforeFreeNode;
   DebugConfigChanged;
 end;
 
@@ -683,9 +694,6 @@ begin
 
   if Source = tvWatches then begin
     if (not (FWatchesInView is TCurrentWatches)) or (GetSelectedSnapshot <> nil) then
-      exit;
-
-    if (Target = nil) then
       exit;
 
     Nodes := tvWatches.GetSortedSelection(True);
@@ -1241,6 +1249,17 @@ begin
   end;
 end;
 
+procedure TWatchesDlg.DoBeforeFreeNode(Sender: TBaseVirtualTree; ANode: PVirtualNode);
+var
+  c: IWatchAbleResultIntf;
+begin
+  c := IWatchAbleResultIntf(tvWatches.NodeItem2[ANode]);
+  if c <> nil then begin
+    c.ReleaseReference;
+    tvWatches.NodeItem2[ANode] := nil;
+  end;
+end;
+
 procedure TWatchesDlg.DoEditorOptsChanged(Sender: TObject);
 begin
   IDEEditorOptions.GetHighlighterObjSettings(WatchesColorsHL);
@@ -1462,7 +1481,9 @@ begin
     else begin
       Watch := TCurrentWatch(GetSelected);
       if (Watch <> nil) and (Watch.TopParentWatch = Watch) then begin
-        d := Watch.Values[GetThreadId, GetStackframe];
+        d := nil;
+        if CanCallWatchGetValue then
+          d := Watch.GetResolvedParentFrameValue(GetThreadId, GetStackframe);
         dk := rdkUnknown;
         if (d <> nil) and (d.Validity = ddsValid) and (d.ResultData <> nil) then
           dk := d.ResultData.ValueKind;
@@ -1477,7 +1498,7 @@ end;
 procedure TWatchesDlg.UpdateInspectPane;
 var
   Watch: TIdeWatch;
-  i: integer;
+  i, tid, stf: integer;
   d: TIdeWatchValue;
   t: TDBGType;
   s, FldName: String;
@@ -1490,18 +1511,36 @@ begin
   InspectLabel.Caption := '...';
 
   Watch:=GetSelected;
-  if Watch = nil then
+  if Watch = nil then begin
+    InspectLabel.Caption := '';
+    InspectMemo.Clear;
     exit;
+  end;
   InspectLabel.Caption := Watch.Expression;
 
-  if not(Watch.Enabled and Watch.HasAllValidParents(GetThreadId, GetStackframe)) then begin
-    InspectMemo.Text := '<evaluating>';
+  if not CanCallWatchGetValue then begin
+    // TODO: last cached
+    InspectMemo.Text := '<'+DbgValueInvalid+'>';
+    exit;
+  end;
+  tid := GetThreadId;
+  stf := GetStackframe;
+  if not(Watch.Enabled and Watch.HasAllValidParents(tid, stf, True)) then begin
+    InspectMemo.Text := '<'+DbgValueEvaluating+'>';
     exit;
   end;
 
-  d := Watch.Values[GetThreadId, GetStackframe];
+  if Watch.TopParentWatch <> Watch then begin
+    d := Watch.TopParentWatch.Values[tid, stf];
+    if (d <> nil) and (d.ParentFrameFound >= 0) then
+      d := Watch.GetResolvedParentFrameValue(tid, d.ParentFrameFound)
+    else
+      d := Watch.GetResolvedParentFrameValue(tid, stf)
+  end
+  else
+    d := Watch.GetResolvedParentFrameValue(tid, stf);
   if d = nil then begin
-    InspectMemo.Text := '<evaluating>';
+    InspectMemo.Text := '<'+DbgValueEvaluating+'>';
     exit;
   end;
   d.StartEval;
@@ -1517,7 +1556,7 @@ begin
       FWatchPrinter.FormatFlags := [rpfIndent, rpfMultiLine, rpfSkipValueFormatter];
     FWatchPrinter.OnlyValueFormatter := Watch.DbgValueFormatter;
     s := FWatchPrinter.PrintWatchValue(d.ResultData, Watch.DisplayFormat, Watch.Expression);
-    InspectMemo.Text := s;
+    InspectMemo.Text := GetFoundInFramePrefix(d, True) + s;
     exit;
   end;
 
@@ -1525,7 +1564,7 @@ begin
   if (t <> nil) and
      GlobalValueFormatterSelectorList.FormatValue(t, d.Value, Watch.DisplayFormat, s, AnsiUpperCase(Watch.Expression), AnsiUpperCase(Watch.Expression))
   then begin
-    InspectMemo.Text := s;
+    InspectMemo.Text := GetFoundInFramePrefix(d, True) + s;
     exit;
   end;
 
@@ -1534,6 +1573,9 @@ begin
   then begin
     InspectMemo.Lines.BeginUpdate;
     try
+      s := GetFoundInFramePrefix(d);
+      if s <> '' then
+        InspectMemo.Lines.Append(s);
       for i := 0 to t.Fields.Count - 1 do
         FldName := '';
         if Watch.DisplayFormat.Struct.DataFormat in [vdfStructFields, vdfStructFull] then
@@ -1560,7 +1602,7 @@ begin
     exit;
   end;
 
-  InspectMemo.Text := d.Value;
+  InspectMemo.Text := GetFoundInFramePrefix(d, True) + d.Value;
   finally
     FWatchPrinter.FormatFlags := [rpfClearMultiLine];
     DebugBoss.UnLockCommandProcessing;
@@ -1732,6 +1774,48 @@ begin
   tvWatchesChange(nil, nil);
 end;
 
+function TWatchesDlg.CanCallWatchGetValue: Boolean;
+begin
+  Result := (GetSelectedSnapshot <> nil) or
+            (DebugBoss.State in [dsPause, dsInternalPause]);
+end;
+
+function TWatchesDlg.GetFoundInFramePrefix(AWatchAbleResult: IWatchAbleResultIntf;
+  AnAppendLineBreak: boolean): String;
+var
+  st, stw: Integer;
+  s: String;
+  CurStackList: TIdeCallStack;
+  CurStack: TIdeCallStackEntry;
+  i: SizeInt;
+begin
+  Result := '';
+  st := GetStackframe;
+  stw := AWatchAbleResult.GetStackFrame;
+  if stw <> st then begin
+    s := '';
+    if CanCallWatchGetValue then begin
+      CurStackList := DebugBoss.CallStack.CurrentCallStackList.EntriesForThreads[AWatchAbleResult.GetThreadId];
+      CurStack := nil;
+      if (CurStackList <> nil) and (stw < CurStackList.CountLimited(stw+1)) then
+        CurStack := CurStackList.Entries[stw];
+      if CurStack <> nil then begin
+        s := CurStack.FunctionName;
+        i := pos('(', s);
+        if i > 0 then delete(s,i,Length(s));
+        if s <> '' then s := ' "'+s+'"';
+      end;
+    end;
+
+    if st > 0 then
+      Result := format('Stackframe %d (+%d)%s: ', [stw, stw-st, s])
+    else
+      Result := format('Stackframe %d%s: ', [stw, s]);
+    if AnAppendLineBreak then
+      Result := Result + LineEnding;
+  end;
+end;
+
 { TDbgTreeViewWatchValueMgr }
 
 procedure TDbgTreeViewWatchValueMgr.DoUnLockCommandProcessing(Data: PtrInt);
@@ -1741,35 +1825,28 @@ begin
 end;
 
 function TDbgTreeViewWatchValueMgr.WatchAbleResultFromNode(AVNode: PVirtualNode): IWatchAbleResultIntf;
-var
-  AWatchAble: TObject;
-  st: Integer;
-  WatchVal: TIdeWatchValue;
 begin
-  AWatchAble := TreeView.NodeItem[AVNode];
-  if AWatchAble = nil then exit(nil);
-
-  WatchVal := TIdeWatch(AWatchAble).Values[FWatchDlg.GetThreadId, FWatchDlg.GetStackframe];
-  WatchVal.StartEval;
-  st := WatchVal.ParentFrameFound;
-  if st >= 0 then
-    WatchVal := TIdeWatch(AWatchAble).Values[FWatchDlg.GetThreadId, st];
-  Result := WatchVal;
+  Result := WatchAbleResultFromObject(TreeView.NodeItem[AVNode]);
 end;
 
 function TDbgTreeViewWatchValueMgr.WatchAbleResultFromObject(AWatchAble: TObject): IWatchAbleResultIntf;
 var
-  st: Integer;
-  WatchVal: TIdeWatchValue;
+  TheWatch: TIdeWatch absolute AWatchAble;
+  st, st2: Integer;
 begin
-  if AWatchAble = nil then exit(nil);
+  Result := nil;
+  if (AWatchAble = nil) or (not FWatchDlg.CanCallWatchGetValue) then
+    exit;
 
-  WatchVal := TIdeWatch(AWatchAble).Values[FWatchDlg.GetThreadId, FWatchDlg.GetStackframe];
-  WatchVal.StartEval;
-  st := WatchVal.ParentFrameFound;
-  if st >= 0 then
-    WatchVal := TIdeWatch(AWatchAble).Values[FWatchDlg.GetThreadId, st];
-  Result := WatchVal;
+  st := FWatchDlg.GetStackframe;
+  if TheWatch.TopParentWatch <> TheWatch then begin
+    st2 := TheWatch.TopParentWatch.Values[FWatchDlg.GetThreadId, st].ParentFrameFound;
+      if st2 >= 0 then
+        st := st2;
+    Result := TheWatch.Values[FWatchDlg.GetThreadId, st];
+  end
+  else
+    Result := TheWatch.GetResolvedParentFrameValue(FWatchDlg.GetThreadId, st);
 end;
 
 function TDbgTreeViewWatchValueMgr.GetTrackingIdFor(AWatchAble: TObject): string;
@@ -1815,14 +1892,18 @@ begin
   case AField of
     vdfName:
       if AWatchAble <> nil then
-        Result := TheWatch.Expression;
+        Result := TheWatch.Expression
+      else
+        exit(inherited);
     vdfValue: begin
+        if AWatchAble = nil then
+          exit(inherited);
         if AWatchAbleResult = nil then begin
-          Result := '<not evaluated>';
+          Result := '<'+DbgValueNotEvaluated+'>';
           exit;
         end;
         if not AWatchAbleResult.Enabled then begin
-          Result := '<disabled>';
+          Result := '<'+DbgValueDisabled+'>';
           exit;
         end;
         if vdoUnQuoted in AnOpts then begin
@@ -1889,49 +1970,86 @@ end;
 
 procedure TDbgTreeViewWatchValueMgr.UpdateColumnsText(AWatchAble: TObject;
   AWatchAbleResult: IWatchAbleResultIntf; AVNode: PVirtualNode);
+
 var
   TheWatch: TIdeWatch absolute AWatchAble;
   ResData: TWatchResultData;
   WatchValueStr, s, StackPre: String;
   da: TDBGPtr;
   DispFormat: TWatchDisplayFormat;
-  st, stw: Integer;
-  CurStackList: TIdeCallStack;
-  CurStack: TIdeCallStackEntry;
-  i: SizeInt;
+  CachedResIntf: IWatchAbleResultIntf;
+  CacheColor: TIdeCustomHighlighterAttributesModifier;
+  IsCached, CanCache: Boolean;
+
+  function AdjustColor(AColor: TColor): TColor;
+  begin
+    Result := AColor;
+    if not IsCached then
+      exit;
+    FAttributeMergeRes.Clear;
+    FAttributeMergeRes.Foreground := AColor;
+    FAttributeMergeRes.Merge(CacheColor);
+    FAttributeMergeRes.FinishMerge;
+    Result := FAttributeMergeRes.Foreground;
+  end;
+
 begin
   TreeView.NodeText[AVNode, COL_WATCH_EXPR-1]:= TIdeWatch(AWatchAble).DisplayName;
   TreeView.NodeText[AVNode, 2] := '';
 
+  IsCached := False;
+  CacheColor := WatchesColorsHL.AttrShadowLastValue;
+  CanCache := (CacheColor.Foreground <> clNone);
+  CachedResIntf := IWatchAbleResultIntf(TreeView.NodeItem2[AVNode]);
+  if CanCache and (FWatchDlg.FWatchesInView is TCurrentWatches) and (FWatchDlg.GetSelectedSnapshot = nil) then begin
+    if (CachedResIntf <> nil) and (DebugBoss.State in [dsRun, dsError, dsStop])
+    then begin
+      AWatchAbleResult := CachedResIntf;
+      CachedResIntf := nil;
+      IsCached := True;
+    end
+    else
+    if (AWatchAble <> nil) and (AWatchAbleResult <> nil) and
+       (DebugBoss.State in [dsPause, dsInternalPause]) and
+       (FWatchDlg.GetStackframe = 0) and
+       (AWatchAbleResult.Enabled)
+    then begin
+      if (AWatchAbleResult.Validity in [ddsValid, ddsError]) then begin
+        AWatchAbleResult.AddReference;
+        TreeView.NodeItem2[AVNode] := AWatchAbleResult;
+        if CachedResIntf <> nil then
+          CachedResIntf.ReleaseReference;
+        CachedResIntf := nil;
+      end
+      else
+      if (CachedResIntf <> nil) and (AWatchAbleResult.Validity in [ddsEvaluating, ddsRequested]) and
+         (AWatchAbleResult.GetThreadId = CachedResIntf.GetThreadId)
+      then begin
+        AWatchAbleResult := CachedResIntf;
+        CachedResIntf := nil;
+        IsCached := True;
+      end;
+    end;
+  end;
+  if CachedResIntf <> nil then begin
+    CachedResIntf.ReleaseReference;
+    TreeView.NodeItem2[AVNode] := nil;
+  end;
+
   if (AWatchAbleResult = nil) then begin
-    TreeView.NodeText[AVNode, COL_WATCH_VALUE-1]:= '<not evaluated>';
-    TreeView.SetNodeTextColor(AVNode, COL_WATCH_VALUE-1, WatchesColorsHL.AttrUnknown.Foreground);
+    if TheWatch.Enabled then begin
+      TreeView.NodeText[AVNode, COL_WATCH_VALUE-1]:= '<'+DbgValueNotEvaluated+'>';
+      TreeView.SetNodeTextColor(AVNode, COL_WATCH_VALUE-1, WatchesColorsHL.AttrUnknown.Foreground);
+    end
+    else begin
+      TreeView.NodeText[AVNode, COL_WATCH_VALUE-1]:= '<'+DbgValueDisabled+'>';
+      TreeView.SetNodeTextColor(AVNode, COL_WATCH_VALUE-1, WatchesColorsHL.AttrDisabled.Foreground);
+    end;
     exit;
   end;
 
-
-  if AWatchAbleResult.Enabled then begin
-      StackPre := '';
-    st := FWatchDlg.GetStackframe;
-    stw := AWatchAbleResult.GetStackFrame;
-    if stw <> st then begin
-      CurStackList := DebugBoss.CallStack.CurrentCallStackList.EntriesForThreads[AWatchAbleResult.GetThreadId];
-      CurStack := nil;
-      if CurStackList <> nil then
-        CurStack := CurStackList.Entries[stw];
-      s := '';
-      if CurStack <> nil then begin
-        s := CurStack.FunctionName;
-        i := pos('(', s);
-        if i > 0 then delete(s,i,Length(s));
-        if s <> '' then s := ' "'+s+'"';
-      end;
-      if st > 0 then
-        StackPre := format('Stackframe %d (+%d)%s: ', [stw, stw-st, s])
-      else
-        StackPre := format('Stackframe %d%s: ', [stw, s]);
-    end;
-
+  if AWatchAbleResult.Enabled or (IsCached and TheWatch.Enabled) then begin
+    StackPre := FWatchDlg.GetFoundInFramePrefix(AWatchAbleResult);
     if (FWatchDlg.GetSelectedSnapshot = nil) or  // live watch
        (AWatchAbleResult.Validity in [ddsValid, ddsInvalid, ddsError]) or // snapshot
        (AWatchAbleResult.ResultData <> nil)
@@ -1981,27 +2099,29 @@ begin
         ddsRequested, ddsEvaluating:
           TreeView.SetNodeTextColor(AVNode, COL_WATCH_VALUE-1, WatchesColorsHL.AttrEvaluating.Foreground);
         ddsError:
-          TreeView.SetNodeTextColor(AVNode, COL_WATCH_VALUE-1, WatchesColorsHL.AttrError.Foreground);
+          TreeView.SetNodeTextColor(AVNode, COL_WATCH_VALUE-1, AdjustColor(WatchesColorsHL.AttrError.Foreground));
+        else
+          TreeView.SetNodeTextColor(AVNode, COL_WATCH_VALUE-1, AdjustColor(TreeView.Font.Color));
       end;
     end
     else begin
       if (FWatchDlg.GetSelectedSnapshot = nil) and
          (DebugBoss <> nil) and (DebugBoss.State in [dsPause, dsInternalPause])
       then begin
-        TreeView.NodeText[AVNode, COL_WATCH_VALUE-1]:= StackPre+'<evaluating>';
+        TreeView.NodeText[AVNode, COL_WATCH_VALUE-1]:= StackPre+'<'+DbgValueEvaluating+'>';
         TreeView.SetNodeTextColor(AVNode, COL_WATCH_VALUE-1, WatchesColorsHL.AttrEvaluating.Foreground);
       end
       else begin
-        TreeView.NodeText[AVNode, COL_WATCH_VALUE-1]:= StackPre+'<not evaluated>';
+        TreeView.NodeText[AVNode, COL_WATCH_VALUE-1]:= StackPre+'<'+DbgValueNotEvaluated+'>';
         TreeView.SetNodeTextColor(AVNode, COL_WATCH_VALUE-1, WatchesColorsHL.AttrUnknown.Foreground);
       end;
     end;
     if StackPre <> '' then begin
-      TreeView.AddNodeTextColor(AVNode, COL_WATCH_VALUE-1, 1, Length(StackPre), WatchesColorsHL.AttrFoundStackFrame.Foreground);
+      TreeView.AddNodeTextColor(AVNode, COL_WATCH_VALUE-1, 1, Length(StackPre), AdjustColor(WatchesColorsHL.AttrFoundStackFrame.Foreground));
     end;
   end
   else begin
-    TreeView.NodeText[AVNode, COL_WATCH_VALUE-1]:= '<disabled>';
+    TreeView.NodeText[AVNode, COL_WATCH_VALUE-1]:= '<'+DbgValueDisabled+'>';
     TreeView.SetNodeTextColor(AVNode, COL_WATCH_VALUE-1, WatchesColorsHL.AttrDisabled.Foreground);
   end;
 
@@ -2048,6 +2168,18 @@ begin
      (ACurrent is TIdeWatch) and (AnExpanding is TIdeWatch)
   then
     Result := TIdeWatch(ACurrent).TopParentWatch = TIdeWatch(AnExpanding).TopParentWatch;
+end;
+
+constructor TDbgTreeViewWatchValueMgr.Create(ATreeView: TDbgTreeView);
+begin
+  FAttributeMergeRes := TLazEditTextAttributeMergeResult.Create;
+  inherited Create(ATreeView);
+end;
+
+destructor TDbgTreeViewWatchValueMgr.Destroy;
+begin
+  inherited Destroy;
+  FAttributeMergeRes.Free;
 end;
 
 initialization

@@ -40,6 +40,18 @@ const
     'Full'      // mwfsFull
     );
 type
+  TMsgWndShowAutomatically = (
+    mwsaCompiling,
+    mwsaError,
+    mwsaNever
+  );
+const
+  MsgWndShowAutoNames: array[TMsgWndShowAutomatically] of string = (
+    'Compiling', // mwsaCompiling
+    'Error',     // mwsaError
+    'Never'      // mwsaNever
+    );
+type
   TMsgWndColor = (
     mwBackground,
     mwRunning,
@@ -239,6 +251,8 @@ type
   TEnvGuiOptions = class(TIDESubOptions)
   private
     FConfigStorage: TXMLOptionsStorage;
+    // mouse action
+    FPreferDoubleClick: boolean;
     // hints
     FShowHintsForComponentPalette: boolean;
     FShowHintsForMainSpeedButtons: boolean;
@@ -281,12 +295,12 @@ type
     // object inspector
     FObjectInspectorOptions: TOIOptions;
     // messages
-    FMsgViewDblClickJumps: boolean;
-    FMsgViewFocus: boolean;
-    FShowMessagesIcons: boolean;
     FMsgViewStayOnTop: boolean;
-    FMsgViewShowTranslations: boolean;
+    FMsgViewFocus: boolean;
     FMsgViewAlwaysDrawFocused: boolean;
+    FShowMessagesIcons: boolean;
+    FMsgViewShowAutomatically: TMsgWndShowAutomatically;
+    FMsgViewShowTranslations: boolean;
     FMsgViewFilenameStyle: TMsgWndFileNameStyle;
     FMsgViewColors: array[TMsgWndColor] of TColor;
     FMsgColors: array[TMessageLineUrgency] of TColor;
@@ -316,7 +330,9 @@ type
     procedure EnableDebugDesktop;
     procedure DisableDebugDesktop;
     class function DesktopCanBeLoaded(const aDockMaster: string): Boolean;
-
+    // mouse action
+    // true=double click, false=single click
+    property PreferDoubleClick: boolean read FPreferDoubleClick write FPreferDoubleClick;
     // hints
     property ShowHintsForComponentPalette: boolean read FShowHintsForComponentPalette
                                                   write FShowHintsForComponentPalette;
@@ -377,16 +393,15 @@ type
     // object inspector
     property ObjectInspectorOptions: TOIOptions read FObjectInspectorOptions;
     // messages view
-    property MsgViewDblClickJumps: boolean read FMsgViewDblClickJumps
-      write FMsgViewDblClickJumps; // true=dbl click jump to error, false=single click jumps
-    property MsgViewFocus: boolean read FMsgViewFocus
-      write FMsgViewFocus; // when showing the message window, focus it
-    property ShowMessagesIcons: boolean read FShowMessagesIcons write FShowMessagesIcons;
     property MsgViewStayOnTop: boolean read FMsgViewStayOnTop write FMsgViewStayOnTop;
-    property MsgViewShowTranslations: boolean read FMsgViewShowTranslations
-             write FMsgViewShowTranslations;
+    property MsgViewFocus: boolean read FMsgViewFocus write FMsgViewFocus; // when showing the window, focus it
     property MsgViewAlwaysDrawFocused: boolean read FMsgViewAlwaysDrawFocused
-             write FMsgViewAlwaysDrawFocused;
+                                              write FMsgViewAlwaysDrawFocused;
+    property ShowMessagesIcons: boolean read FShowMessagesIcons write FShowMessagesIcons;
+    property MsgViewShowAutomatically: TMsgWndShowAutomatically read FMsgViewShowAutomatically
+                                                               write FMsgViewShowAutomatically;
+    property MsgViewShowTranslations: boolean read FMsgViewShowTranslations
+                                             write FMsgViewShowTranslations;
     property MsgViewFilenameStyle: TMsgWndFileNameStyle read FMsgViewFilenameStyle
                                                        write FMsgViewFilenameStyle;
     property MsgViewColors[c: TMsgWndColor]: TColor read GetMsgViewColors write SetMsgViewColors;
@@ -411,11 +426,21 @@ var
 
 implementation
 
+const
+  DefaultMsgViewFocus = {$IFDEF Windows}true{$ELSE}false{$ENDIF};
+
 function StrToMsgWndFilenameStyle(const s: string): TMsgWndFileNameStyle;
 begin
   for Result in TMsgWndFileNameStyle do
     if CompareText(s,MsgWndFileNameStyleNames[Result])=0 then exit;
   Result:=mwfsShort;
+end;
+
+function StrToMsgWndShowAuto(const s: string): TMsgWndShowAutomatically;
+begin
+  for Result in TMsgWndShowAutomatically do
+    if CompareText(s,MsgWndShowAutoNames[Result])=0 then exit;
+  Result:=mwsaCompiling;
 end;
 
 { TCustomDesktopOpt }
@@ -946,6 +971,7 @@ var
   c: TMsgWndColor;
   u: TMessageLineUrgency;
 begin
+  FPreferDoubleClick:=true;
   FShowHintsForComponentPalette:=true;
   FShowHintsForMainSpeedButtons:=true;
   // glyphs
@@ -981,10 +1007,10 @@ begin
   // object inspector
   FObjectInspectorOptions:=TOIOptions.Create;
   // messages view
-  fMsgViewDblClickJumps:=true;
+  FMsgViewStayOnTop:=false;
   fMsgViewFocus:=DefaultMsgViewFocus;
   FShowMessagesIcons:=true;
-  FMsgViewStayOnTop:=false;
+  FMsgViewShowAutomatically:=mwsaCompiling;
   FMsgViewShowTranslations:=false;
   FMsgViewAlwaysDrawFocused:=false;
   FMsgViewFilenameStyle:=mwfsShort;
@@ -1019,6 +1045,10 @@ var
   i, j: Integer;
 begin
   Path:='EnvironmentOptions/';
+  // mouse action
+  // Key changed to PreferDoubleClick in Lazarus 4.99
+  FPreferDoubleClick:=XMLCfg.GetValue(Path+'MsgViewDblClickJumps/Value',false); // Old key
+  FPreferDoubleClick:=XMLCfg.GetValue(Path+'PreferDoubleClick/Value',FPreferDoubleClick);
   // hints
   FShowHintsForComponentPalette:=XMLCfg.GetValue(Path+'ShowHintsForComponentPalette/Value',true);
   FShowHintsForMainSpeedButtons:=XMLCfg.GetValue(Path+'ShowHintsForMainSpeedButtons/Value',true);
@@ -1070,10 +1100,13 @@ begin
   FObjectInspectorOptions.Load;
   FObjectInspectorOptions.SaveBounds:=false;
   // messages view
-  fMsgViewDblClickJumps:=XMLCfg.GetValue(Path+'MsgViewDblClickJumps/Value',false);
-  fMsgViewFocus:=XMLCfg.GetValue(Path+'MsgViewFocus/Value',DefaultMsgViewFocus);
-  FShowMessagesIcons:=XMLCfg.GetValue(Path+'MsgView/ShowMessagesIcons/Value',true);
   FMsgViewStayOnTop:=XMLCfg.GetValue(Path+'MsgView/StayOnTop/Value',false);
+  // Key changed to MsgView/Focus in Lazarus 4.99
+  fMsgViewFocus:=XMLCfg.GetValue(Path+'MsgViewFocus/Value',DefaultMsgViewFocus); // Old key
+  fMsgViewFocus:=XMLCfg.GetValue(Path+'MsgView/Focus/Value',FMsgViewFocus);
+  FShowMessagesIcons:=XMLCfg.GetValue(Path+'MsgView/ShowMessagesIcons/Value',true);
+  FMsgViewShowAutomatically:=StrToMsgWndShowAuto(XMLCfg.GetValue(
+    Path+'MsgView/ShowAutomatically/Value',MsgWndShowAutoNames[mwsaCompiling]));
   FMsgViewShowTranslations:=XMLCfg.GetValue(Path+'MsgView/ShowTranslations/Value',false);
   FMsgViewAlwaysDrawFocused:=XMLCfg.GetValue(Path+'MsgView/AlwaysDrawFocused/Value',false);
   FMsgViewFilenameStyle:=StrToMsgWndFilenameStyle(XMLCfg.GetValue(
@@ -1148,6 +1181,8 @@ var
   xActiveDesktopName: string;
 begin
   Path:='EnvironmentOptions/';
+  // mouse action
+  XMLCfg.SetDeleteValue(Path+'PreferDoubleClick/Value',FPreferDoubleClick,false);
   // hints
   XMLCfg.SetDeleteValue(Path+'ShowHintsForComponentPalette/Value',FShowHintsForComponentPalette,true);
   XMLCfg.SetDeleteValue(Path+'ShowHintsForMainSpeedButtons/Value',FShowHintsForMainSpeedButtons,true);
@@ -1197,10 +1232,12 @@ begin
   FObjectInspectorOptions.SaveBounds:=false;
   FObjectInspectorOptions.Save;
   // messages view
-  XMLCfg.SetDeleteValue(Path+'MsgViewDblClickJumps/Value',fMsgViewDblClickJumps,false);
-  XMLCfg.SetDeleteValue(Path+'MsgViewFocus/Value',fMsgViewFocus,DefaultMsgViewFocus);
-  XMLCfg.SetDeleteValue(Path+'MsgView/ShowMessagesIcons/Value',FShowMessagesIcons,true);
   XMLCfg.SetDeleteValue(Path+'MsgView/StayOnTop/Value',FMsgViewStayOnTop,false);
+  XMLCfg.SetDeleteValue(Path+'MsgView/Focus/Value',fMsgViewFocus,DefaultMsgViewFocus);
+  XMLCfg.SetDeleteValue(Path+'MsgView/ShowMessagesIcons/Value',FShowMessagesIcons,true);
+  XMLCfg.SetDeleteValue(Path+'MsgView/ShowAutomatically/Value',
+    MsgWndShowAutoNames[FMsgViewShowAutomatically],
+    MsgWndShowAutoNames[mwsaCompiling]);
   XMLCfg.SetDeleteValue(Path+'MsgView/ShowTranslations/Value',FMsgViewShowTranslations,false);
   XMLCfg.SetDeleteValue(Path+'MsgView/AlwaysDrawFocused/Value',FMsgViewAlwaysDrawFocused,false);
   XMLCfg.SetDeleteValue(Path+'MsgView/Filename/Style',

@@ -1,13 +1,15 @@
 msgid ""
 msgstr ""
-"Content-Type: text/plain; charset=UTF-8\n"
 "Project-Id-Version: \n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: \n"
-"Last-Translator: Swen Heinig <swen.heinig@freenet.de>\n"
+"Last-Translator: Karl-Michael Schindler <tonne1.schindler@web.de>\n"
 "Language-Team: \n"
+"Language: de\n"
 "MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.9\n"
 
 #: eduoptions.edurseducation
 msgid "Education"
@@ -131,7 +133,7 @@ msgstr ""
 
 #: eduoptions.ersrdbtnfull
 msgid "Show All"
-msgstr "Alle zeigen"
+msgstr "Alle anzeigen"
 
 #: eduoptions.ersrdgrpeventscaption
 msgid "Events"
@@ -151,11 +153,11 @@ msgstr ""
 
 #: eduoptions.ersshowall
 msgid "Show all"
-msgstr "Alle zeigen"
+msgstr "Alle anzeigen"
 
 #: eduoptions.ersshowallchilds
 msgid "Show all children"
-msgstr ""
+msgstr "Alle untergeordneten Objekte anzeigen"
 
 #: eduoptions.ersshowextended
 msgid "Show Extended"
@@ -167,11 +169,11 @@ msgstr ""
 
 #: eduoptions.ersshowoipages
 msgid "Show Object Inspector Pages"
-msgstr "Zeige Objektinspektor-Seiten"
+msgstr "Objektinspektor-Seiten anzeigen"
 
 #: eduoptions.ersshowselection
 msgid "Show Selection"
-msgstr "Auswahl zeigen"
+msgstr "Auswahl anzeigen"
 
 #: eduoptions.erssinglefileprogram
 msgid "Single file program"

@@ -1647,8 +1647,7 @@ begin
   //DebugLn('trace:[TGtk2WidgetSet.CreatePalette]');
 
   GObject := NewGDIObject(gdiPalette);
-  GObject^.SystemPalette := False;
-  GObject^.PaletteRealized := False;
+  GObject^.SystemPaletteVisual := False;
   GObject^.VisualType := GDK_VISUAL_PSEUDO_COLOR;
   GObject^.PaletteVisual := nil;
 
@@ -1660,8 +1659,8 @@ begin
   if GObject^.PaletteVisual = nil
   then begin
     GObject^.PaletteVisual := GDK_Visual_Get_System;
-    GDK_Visual_Ref(GObject^.PaletteVisual);
   end;
+  GObject^.SystemPaletteVisual := True; { This visual should not be referenced }
   GObject^.PaletteColormap := GDK_Colormap_new(GObject^.PaletteVisual, GdkTrue);
 
   {$IFDEF DebugGDKTraps}
@@ -2537,7 +2536,10 @@ var
           begin
             TextExtentPoint(Lines[J], StrLen(Lines[J]), AP);
             LineWidth := Max(LineWidth, AP.cX);
-            Inc(ActualHeight, AP.cY);
+            if StrLen(Lines[J]) = 0 then
+              Inc(ActualHeight, TM.tmHeight)
+            else
+              Inc(ActualHeight, AP.cY);
           end;
         end;
         LineWidth := Min(MaxWidth, LineWidth);
@@ -2810,8 +2812,13 @@ begin
         l:=StrLen(Lines[i]);
         DrawLine(Lines[i], l, theRect.Top);
         dec(pIndex,l+length(LineEnding));
-        GetTextExtentPoint(DC, Lines[i], l, Size{%H-});
-        LineHeight := Size.cY;
+        if l = 0 then
+          LineHeight := TM.tmHeight
+        else
+        begin
+          GetTextExtentPoint(DC, Lines[i], l, Size{%H-});
+          LineHeight := Size.cY;
+        end;
       end
       else
         LineHeight := TM.tmHeight;
@@ -4215,6 +4222,79 @@ begin
     DebugLn('WARNING: [TGtk2WidgetSet.GetDIBits] invalid Bitmap!');
 end;
 
+//GTK 2.14+
+function gdk_screen_get_monitor_width_mm(screen: PGdkScreen; monitor_num: gint): gint; cdecl; external gdklib;
+function gdk_screen_get_monitor_height_mm(screen: PGdkScreen; monitor_num: gint): gint; cdecl; external gdklib;
+
+function TGtk2WidgetSet.GetDpiForMonitor(hmonitor: HMONITOR;
+  dpiType: TMonitorDpiType; out dpiX: UINT; out dpiY: UINT): HRESULT;
+var
+  AScreen: PGdkScreen;
+  AMonitorRect: TGdkRectangle;
+  AWmm, AHmm, AMonitorIdx, ANMon: gint;
+  AScreenDpi: gdouble;
+  AFallback: UINT;
+begin
+  Result := S_OK;
+  AScreen := gdk_screen_get_default;
+  AScreenDpi := gdk_screen_get_resolution(AScreen);
+
+  if AScreenDpi > 0 then
+    AFallback := Round(AScreenDpi)
+  else
+    AFallback := 96;
+
+  dpiX := AFallback;
+  dpiY := AFallback;
+
+  if hmonitor = 0 then
+    exit;
+
+  AMonitorIdx := Integer(hmonitor) - 1;
+  ANMon := gdk_screen_get_n_monitors(AScreen);
+  if (AMonitorIdx < 0) or (AMonitorIdx >= ANMon) then
+  begin
+    Result := S_FALSE;
+    exit;
+  end;
+
+  gdk_screen_get_monitor_geometry(AScreen, AMonitorIdx, @AMonitorRect);
+  AWmm := gdk_screen_get_monitor_width_mm(AScreen, AMonitorIdx);
+  AHmm := gdk_screen_get_monitor_height_mm(AScreen, AMonitorIdx);
+
+  case dpiType of
+    MDT_RAW_DPI:
+    begin
+      if AWmm > 0 then
+        dpiX := Round(AMonitorRect.width * 25.4 / AWmm)
+      else
+        dpiX := 96;
+      if AHmm > 0 then
+        dpiY := Round(AMonitorRect.height * 25.4 / AHmm)
+      else
+        dpiY := 96;
+    end;
+    MDT_EFFECTIVE_DPI, MDT_ANGULAR_DPI:
+    begin
+      if AFallback > 96 then
+      begin
+        dpiX := AFallback;
+        dpiY := AFallback;
+      end else
+      begin
+        if AWmm > 0 then
+          dpiX := Round(AMonitorRect.width * 25.4 / AWmm)
+        else
+          dpiX := AFallback;
+        if AHmm > 0 then
+          dpiY := Round(AMonitorRect.height * 25.4 / AHmm)
+        else
+          dpiY := AFallback;
+      end;
+    end;
+  end;
+end;
+
 {------------------------------------------------------------------------------
   Function: GetBitmapBits
   Params:
@@ -5136,7 +5216,7 @@ function TGtk2WidgetSet.GetObject(GDIObj: HGDIOBJ; BufSize: Integer; Buf: Pointe
           Visual := gdk_visual_get_system;
         SystemVisual := True; { This visual should not be referenced }
 
-        if Colormap <> nil then
+        if (Colormap <> nil) and (not SystemColormap) then
           gdk_colormap_unref(Colormap);
         ColorMap := gdk_colormap_new(Visual, GdkTrue);
       end
@@ -9037,12 +9117,21 @@ begin
 
   for n := 0 to cElements - 1 do
   begin
-    Element := PInteger(lpaElements)[n];
-    if (Element > MAX_SYS_COLORS) or (Element < 0) then 
+    Element := PInteger(@lpaElements)[n];
+    if (Element > MAX_SYS_COLORS) or (Element < 0) then
       Exit;
     SysColorMap[Element] := PDword(@lpaRgbValues)[n];
     //DebugLn(Format('Trace:[TGtk2WidgetSet.SetSysColor] Index %d (%8x) --> %8x', [PLongArray(lpaElements)^[n], SysColorMap[PLongArray(lpaElements)^[n]], PLongArray(lpaRgbValues)^[n]]));
   end;
+
+  Graphics.UpdateHandleObjects(True);
+
+  FreeSystemBrushes;
+  InitSystemBrushes;
+
+  for n := 0 to Screen.CustomFormCount - 1 do
+    if Screen.CustomForms[n].HandleAllocated then
+      Screen.CustomForms[n].Invalidate;
 
   //TODO send WM_SYSCOLORCHANGE
   Result := True;

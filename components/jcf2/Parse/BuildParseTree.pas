@@ -2677,6 +2677,14 @@ const
 var
   lc: TSourceToken;
   lct: TTokenType;
+
+  procedure RecogniseExternal;
+  begin
+    Recognise(fcTokenList.FirstSolidTokenType);
+    if fcTokenList.FirstSolidTokenType in [ttIdentifier,ttQuotedLiteralString] then
+      RecogniseConstantExpression;  //can be a literal string or constant.
+  end;
+
 begin
   // (* attempted EBNF definition of a variable definition *)
   // named : 'name' var_name
@@ -2745,11 +2753,7 @@ begin
     begin
       RecogniseOptionalSemicolon;
       if fcTokenList.FirstSolidTokenType=ttExternal then
-      begin
-        Recognise(fcTokenList.FirstSolidTokenType);
-        if fcTokenList.FirstSolidTokenType in [ttIdentifier,ttQuotedLiteralString] then
-          RecogniseConstantExpression;  //can be a literal string or constant.
-      end
+        RecogniseExternal
       else
         Recognise(fcTokenList.FirstSolidTokenType);
       if fcTokenList.FirstSolidTokenType=ttName then
@@ -2767,6 +2771,8 @@ begin
   repeat
     if IsProcedureHintOrDirective([ttExternal,ttOpenSquareBracket]) then
       RecogniseHintDirectives([ttExternal,ttOpenSquareBracket])
+    else if lct=ttEXternal then
+      RecogniseExternal
     else if lct=ttExport then
       RecogniseVarExpPubDir
     else if (lct=ttPublic) and (Not (aVarType in [vtInClassBody,vtInExternalClassBody])) then
@@ -4575,7 +4581,7 @@ begin
     begin
       if fcTokenList.SolidTokenType(liIndex + 1) = ttSemicolon then
         Inc(liIndex);
-      if (fcTokenList.SolidTokenType(liIndex + 1) = ttEquals) and (TopNode.NodeType = nTypeDecl) then
+      if (fcTokenList.SolidTokenType(liIndex + 1) = ttEquals) and TopNode.HasParentNode([nTypeDecl]) then
         liIndex := 0
       else
       if fcTokenList.SolidTokenType(liIndex + 1) in [ttComma, ttColon] then
@@ -6089,7 +6095,7 @@ begin
   begin
     RecogniseOptionalSemicolon;
     PushNode(nHintDirectives);
-    while IsProcedureHintOrDirective do
+    while IsProcedureHintOrDirective(aExcludeTokens) do
     begin
       RecogniseOptionalSemicolon;
       if fcTokenList.FirstSolidTokenType = ttDeprecated then

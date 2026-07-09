@@ -80,7 +80,7 @@ uses
   SynEditTypes,
   // BuildIntf
   BaseIDEIntf, MacroIntf, NewItemIntf, IDEExternToolIntf, LazMsgWorker, ComponentReg,
-  PackageIntf, ProjectIntf, ProjectResourcesIntf, CompOptsIntf, IDEOptionsIntf,
+  ProjPackIntf, PackageIntf, ProjectIntf, ProjectResourcesIntf, CompOptsIntf, IDEOptionsIntf,
   // IDE interface
   IDEIntf, ObjectInspector, PropEdits, PropEditUtils, EditorSyntaxHighlighterDef,
   IDECommands, IDEWindowIntf, IDEDialogs, SrcEditorIntf, IDEMsgIntf,
@@ -144,7 +144,6 @@ uses
   codetools_wordpolicy_options, codetools_linesplitting_options,
   codetools_space_options, codetools_identifiercompletion_options,
   debugger_general_options, debugger_class_options, debugger_eventlog_options,
-  debugger_language_exceptions_options, debugger_signals_options,
   codeexplorer_update_options, codeexplorer_categories_options,
   codeobserver_options, help_general_options, env_file_filters,
   // project option frames
@@ -784,11 +783,16 @@ type
     function DoAddUnitToProject(AEditor: TSourceEditorInterface): TModalResult; override;
     function DoNewFile(NewFileDescriptor: TProjectFileDescriptor;
         var NewFilename: string; NewSource: string;
-        NewFlags: TNewFlags; NewOwner: TObject): TModalResult; override;
+        NewFlags: TNewFlags; NewOwner: TIDEProjPackBase): TModalResult; override;
 
     function DoSaveEditorFile(AEditor: TSourceEditorInterface;
                               Flags: TSaveFlags): TModalResult; override;
     function DoSaveEditorFile(const Filename: string;
+                              Flags: TSaveFlags): TModalResult; override;
+    function DoSaveEditorFileAs(AEditor: TSourceEditorInterface;
+                              NewFilename: string;
+                              Flags: TSaveFlags): TModalResult; override;
+    function RenameIDEFile(OldFilename, NewFilename: string;
                               Flags: TSaveFlags): TModalResult; override;
 
     function DoCloseEditorFile(AEditor: TSourceEditorInterface;
@@ -832,7 +836,7 @@ type
     procedure CreateIDEWindow(Sender: TObject; aFormName: string;
                           var AForm: TCustomForm; DoDisableAutoSizing: boolean);
     function CreateNewUniqueFilename(const Prefix, Ext: string;
-       NewOwner: TObject; Flags: TSearchIDEFileFlags; TryWithoutNumber: boolean
+       NewOwner: TIDEProjPackBase; Flags: TSearchIDEFileFlags; TryWithoutNumber: boolean
        ): string; override;
     procedure MarkUnitsModifiedUsingSubComponent(SubComponent: TComponent);
 
@@ -841,6 +845,8 @@ type
                       FallbackProjectDesc: TProjectDescriptor): TProject; override;
     function DoNewProject(ProjectDesc: TProjectDescriptor): TModalResult; override;
     function DoSaveProject(Flags: TSaveFlags): TModalResult; override;
+    function DoSaveProjectAs(NewFilename: string;
+                             Flags: TSaveFlags): TModalResult; override;
     function DoCloseProject: TModalResult; override;
     procedure DoNoProjectWizard(Sender: TObject);
     function DoOpenProjectFile(AFileName: string;
@@ -912,7 +918,7 @@ type
     procedure UpdateSaveMenuItemsAndButtons(UpdateSaveAll: boolean); override;
 
     // useful file methods
-    function FindUnitFile(const AFilename: string; TheOwner: TObject = nil;
+    function FindUnitFile(const AFilename: string; TheOwner: TIDEProjPackBase = nil;
                           IgnoreUninstallPkgs: boolean = false): string; override;
     function FindSourceFile(const AFilename, BaseDirectory: string;
                             Flags: TFindSourceFlags): string; override;
@@ -944,7 +950,8 @@ type
     procedure DoJumpToCodeToolBossError; override;
     function NeedSaveSourceEditorChangesToCodeCache(AEditor: TSourceEditorInterface): boolean; override;
     function SaveSourceEditorChangesToCodeCache(AEditor: TSourceEditorInterface): boolean; override;
-    function FindUnitsOfOwner(TheOwner: TObject; Flags: TFindUnitsOfOwnerFlags): TStrings; override;
+    function FindUnitsOfOwner(TheOwner: TIDEProjPackBase;
+                              Flags: TFindUnitsOfOwnerFlags): TStrings; override;
     procedure ApplyCodeToolChanges;
     procedure DoJumpToOtherProcedureSection;
     procedure DoFindDeclarationAtCursor;
@@ -3919,13 +3926,12 @@ begin
     TControl(AComponent).ControlStyle:=
       TControl(AComponent).ControlStyle-[csNoDesignVisible];
   // create designer
-  aDesigner:=TDesigner.Create(DesignerForm, TheControlSelection);;
+  aDesigner:=TDesigner.Create(DesignerForm, AnUnitInfo, TheControlSelection);;
   DesignerForm.Designer := aDesigner;
-  aDesigner.SetProjectFile(AnUnitInfo);
   {$IFDEF IDE_DEBUG}
   debugln('[TMainIDE.CreateDesignerForComponent] B');
   {$ENDIF}
-  with TDesigner(DesignerForm.Designer) do begin
+  with aDesigner do begin
     TheFormEditor := FormEditor1;
     OnActivated:=@DesignerActivated;
     OnCloseQuery:=@DesignerCloseQuery;
@@ -3952,6 +3958,7 @@ begin
     ShowNonVisualComponents:=EnvironmentGuiOpts.ShowNonVisualComponents;
     ShowComponentCaptions:=EnvironmentGuiOpts.ShowComponentCaptions;
   end;
+
   if AnUnitInfo<>nil then
     AnUnitInfo.LoadedDesigner:=true;
 end;
@@ -5096,8 +5103,8 @@ begin
     DebugLn(['Hint: (lazarus) TMainIDE.LoadDesktopSettings']);
   if ObjectInspector1<>nil then
     aOptions.ObjectInspectorOptions.AssignTo(ObjectInspector1);
-  if MessagesView<>nil then
-    MessagesView.ApplyIDEOptions;
+  Assert(Assigned(MessagesView), 'MessagesView=Nil');
+  MessagesView.ApplyIDEOptions;
 end;
 
 procedure TMainIDE.SaveDesktopSettings(aOptions: TEnvGuiOptions);
@@ -5871,8 +5878,8 @@ begin
 end;
 
 function TMainIDE.DoNewFile(NewFileDescriptor: TProjectFileDescriptor;
-  var NewFilename: string; NewSource: string;
-  NewFlags: TNewFlags; NewOwner: TObject): TModalResult;
+  var NewFilename: string; NewSource: string; NewFlags: TNewFlags;
+  NewOwner: TIDEProjPackBase): TModalResult;
 begin
   Result := NewFile(NewFileDescriptor, NewFilename, NewSource, NewFlags, NewOwner);
 end;
@@ -5885,6 +5892,14 @@ end;
 function TMainIDE.DoSaveEditorFile(const Filename: string; Flags: TSaveFlags): TModalResult;
 begin
   Result:=SaveEditorFile(Filename, Flags);
+end;
+
+function TMainIDE.DoSaveEditorFileAs(AEditor: TSourceEditorInterface;
+  NewFilename: string; Flags: TSaveFlags): TModalResult;
+begin
+  if not FilenameIsAbsolute(NewFilename) then
+    raise Exception.Create('TMainIDE.DoSaveEditorFileAs: NewFilename must be absolute: '+NewFilename);
+  Result:=SaveEditorFile(AEditor, Flags+[sfSaveAs], NewFilename);
 end;
 
 function TMainIDE.DoCloseEditorFile(const Filename: string; Flags: TCloseFlags): TModalResult;
@@ -6354,7 +6369,7 @@ begin
 end;
 
 function TMainIDE.CreateNewUniqueFilename(const Prefix, Ext: string;
-  NewOwner: TObject; Flags: TSearchIDEFileFlags; TryWithoutNumber: boolean): string;
+  NewOwner: TIDEProjPackBase; Flags: TSearchIDEFileFlags; TryWithoutNumber: boolean): string;
 
   function FileIsUnique(const ShortFilename: string): boolean;
   var
@@ -6576,6 +6591,20 @@ end;
 function TMainIDE.DoSaveProject(Flags: TSaveFlags): TModalResult;
 begin
   Result:=SaveProject(Flags);
+end;
+
+function TMainIDE.DoSaveProjectAs(NewFilename: string;
+  Flags: TSaveFlags): TModalResult;
+begin
+  if not FilenameIsAbsolute(NewFilename) then
+    raise Exception.Create('TMainIDE.DoSaveProjectAs: NewFilename must be absolute: '+NewFilename);
+  Result:=SaveProject(Flags+[sfSaveAs], NewFilename);
+end;
+
+function TMainIDE.RenameIDEFile(OldFilename, NewFilename: string;
+  Flags: TSaveFlags): TModalResult;
+begin
+  Result:=SourceFileManager.RenameIDEFile(OldFilename, NewFilename, Flags);
 end;
 
 function TMainIDE.DoCloseProject: TModalResult;
@@ -7021,11 +7050,11 @@ begin
   end;
 
   // show messages
-  IDEWindowCreators.ShowForm(MessagesView,EnvironmentGuiOpts.MsgViewFocus);
-
+  MessagesView.ApplyIDEOptions;
+  if EnvironmentGuiOpts.MsgViewShowAutomatically = mwsaCompiling then
+    IDEWindowCreators.ShowForm(MessagesView,EnvironmentGuiOpts.MsgViewFocus);
   // clear old error lines
   SourceEditorManager.ClearErrorLines;
-  ArrangeSourceEditorAndMessageView(false);
 
   // check common mistakes in search paths
   Result:=PkgBoss.CheckUserSearchPaths(Project1.CompilerOptions);
@@ -7342,7 +7371,8 @@ begin
     // check sources
     DoCheckFilesOnDisk;
   end;
-  IDEWindowCreators.ShowForm(MessagesView,EnvironmentGuiOpts.MsgViewFocus);
+  if EnvironmentGuiOpts.MsgViewShowAutomatically = mwsaCompiling then
+    IDEWindowCreators.ShowForm(MessagesView,EnvironmentGuiOpts.MsgViewFocus);
   if ConsoleVerbosity>=0 then
     debugln(['Info: (lazarus) [TMainIDE.DoBuildProject] Success']);
   Result:=mrOk;
@@ -7532,6 +7562,16 @@ begin
           ModalResult := 13;
           Caption := lisEnableOptionDwarf3;
         end;
+        with ChangeDebugInfoFormatDialog.RadioButtons.Add do begin
+          ModalResult := 14;
+          Caption := lisEnableOptionDwarf4;
+        end;
+        {$IFDEF IDE_WITH_DWARF5}
+        with ChangeDebugInfoFormatDialog.RadioButtons.Add do begin
+          ModalResult := 15;
+          Caption := lisEnableOptionDwarf5;
+        end;
+        {$ENDIF}
 
         with ChangeDebugInfoFormatDialog.Buttons.Add do begin
           ModalResult := 500;
@@ -7559,6 +7599,8 @@ begin
           1:  Project1.CompilerOptions.DebugInfoType := dsDwarf2Set;
           12: Project1.CompilerOptions.DebugInfoType := dsDwarf2;
           13: Project1.CompilerOptions.DebugInfoType := dsDwarf3;
+          14: Project1.CompilerOptions.DebugInfoType := dsDwarf4;
+          15: Project1.CompilerOptions.DebugInfoType := dsDwarf5;
           400: SkipDebuggerThisTime := True;
           else
             exit;
@@ -8099,11 +8141,11 @@ begin
   if DoAbortBuild(true)<>mrOK then exit;
 
   // show messages
-  IDEWindowCreators.ShowForm(MessagesView,EnvironmentGuiOpts.MsgViewFocus);
-
+  MessagesView.ApplyIDEOptions;
+  if EnvironmentGuiOpts.MsgViewShowAutomatically = mwsaCompiling then
+    IDEWindowCreators.ShowForm(MessagesView,EnvironmentGuiOpts.MsgViewFocus);
   // clear old error lines
   SourceEditorManager.ClearErrorLines;
-  ArrangeSourceEditorAndMessageView(false);
 
   Result:=DoSaveAll([sfDoNotSaveVirtualFiles]);
   if Result<>mrOk then begin
@@ -8715,7 +8757,8 @@ begin
   if CodeToolBoss.CheckSyntax(ActiveUnitInfo.Source,NewCode,NewX,NewY,
     NewTopLine,ErrorMsg) then
   begin
-    ArrangeSourceEditorAndMessageView(false);
+    if EnvironmentGuiOpts.MsgViewShowAutomatically = mwsaCompiling then
+      DoShowMessagesView(false);
     MessagesView.ClearCustomMessages;
     MessagesView.AddCustomMessage(mluImportant,lisMenuQuickSyntaxCheckOk);
   end else begin
@@ -9489,7 +9532,8 @@ begin
       TopLine:=LogCaretXY.Y-(SrcEdit.EditorComponent.LinesInWindow div 2);
       if TopLine<1 then TopLine:=1;
       if FocusEditor then begin
-        IDEWindowCreators.ShowForm(MessagesView,true);
+        if EnvironmentGuiOpts.MsgViewShowAutomatically <> mwsaNever then
+          DoShowMessagesView(true);
         SourceEditorManager.ShowActiveWindowOnTop(True);
       end;
       if IDETabMaster <> nil then
@@ -9653,7 +9697,7 @@ begin
   Result:=MainBuildBoss.GetFPCFrontEndOptions;
 end;
 
-function TMainIDE.FindUnitFile(const AFilename: string; TheOwner: TObject;
+function TMainIDE.FindUnitFile(const AFilename: string; TheOwner: TIDEProjPackBase;
   IgnoreUninstallPkgs: boolean): string;
 begin
   Result:=FindProjPackUnitFile(AFilename, TheOwner, IgnoreUninstallPkgs);
@@ -10313,7 +10357,7 @@ begin
   Result:=SaveEditorChangesToCodeCache(AEditor);
 end;
 
-function TMainIDE.FindUnitsOfOwner(TheOwner: TObject; Flags: TFindUnitsOfOwnerFlags): TStrings;
+function TMainIDE.FindUnitsOfOwner(TheOwner: TIDEProjPackBase; Flags: TFindUnitsOfOwnerFlags): TStrings;
 begin
   Result:=FindUnitsOfOwnerImpl(TheOwner,Flags);
 end;
@@ -10574,9 +10618,9 @@ begin
       debugln('Note: (lazarus) TMainIDE.DoJumpToCodeToolBossError No errormessage');
     exit;
   end;
-  // syntax error -> show error and jump
-  // show error in message view
-  ArrangeSourceEditorAndMessageView(false);
+  // syntax error -> show error in message view and jump
+  if EnvironmentGuiOpts.MsgViewShowAutomatically <> mwsaNever then
+    DoShowMessagesView(false);
   DoShowCodeToolBossError;
 
   // jump to error in source editor
@@ -10602,7 +10646,8 @@ begin
         ActiveSrcEdit:=SourceEditorManager.ActiveEditor;
     end;
     if ActiveSrcEdit<> nil then begin
-      IDEWindowCreators.ShowForm(MessagesView,true);
+      if EnvironmentGuiOpts.MsgViewShowAutomatically <> mwsaNever then
+        IDEWindowCreators.ShowForm(MessagesView,true);
       with ActiveSrcEdit.EditorComponent do begin
         LogicalCaretXY:=ErrorCaret;
         if ErrorTopLine>0 then
@@ -12973,7 +13018,7 @@ begin
           Project1.MainUnitInfo.Modified:=true;
         end else begin
           DoJumpToCodeToolBossError;
-          Result:=mrCancel;
+          // this does not stop adding the unit to the project, keep Result=mrOk
         end;
       end;
     end;

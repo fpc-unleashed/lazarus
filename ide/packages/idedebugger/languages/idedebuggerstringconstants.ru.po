@@ -138,6 +138,37 @@ msgstr "Имя:"
 msgid "Please choose the formatter to add."
 msgstr "Выберите средство форматирования для добавления."
 
+#: idedebuggerstringconstants.dbgvaluedisabled
+msgctxt "idedebuggerstringconstants.dbgvaluedisabled"
+msgid "Disabled"
+msgstr "Отключено"
+
+#: idedebuggerstringconstants.dbgvalueerror
+#, object-pascal-format
+msgid "Error: %s"
+msgstr "Ошибка: %s"
+
+#: idedebuggerstringconstants.dbgvalueevaluating
+msgctxt "idedebuggerstringconstants.dbgvalueevaluating"
+msgid "Evaluating"
+msgstr "Вычисляется"
+
+#: idedebuggerstringconstants.dbgvalueinvalid
+msgid "Invalid"
+msgstr "Недопустимо"
+
+#: idedebuggerstringconstants.dbgvaluenotevaluated
+msgid "Not evaluated"
+msgstr "Не вычислялось"
+
+#: idedebuggerstringconstants.dbgvalueunavailable
+msgid "Unavailable"
+msgstr "Недоступно"
+
+#: idedebuggerstringconstants.dbgwatchcolorautoopenconsolewindowlinu
+msgid "Auto open console Window (Linux):"
+msgstr "Автооткрытие окна консоли (Linux):"
+
 #: idedebuggerstringconstants.dbgwatchcolordisabled
 msgctxt "idedebuggerstringconstants.dbgwatchcolordisabled"
 msgid "Disabled"
@@ -153,12 +184,30 @@ msgid "Error"
 msgstr "Ошибки"
 
 #: idedebuggerstringconstants.dbgwatchcolorevaluating
+msgctxt "idedebuggerstringconstants.dbgwatchcolorevaluating"
 msgid "Evaluating"
 msgstr "Вычисляющиеся"
+
+#: idedebuggerstringconstants.dbgwatchcolornever
+msgctxt "idedebuggerstringconstants.dbgwatchcolornever"
+msgid "Never"
+msgstr "Никогда"
+
+#: idedebuggerstringconstants.dbgwatchcoloronoutputalways
+msgid "On output (always)"
+msgstr "При выводе (всегда)"
+
+#: idedebuggerstringconstants.dbgwatchcoloronoutputonceperdebugsessi
+msgid "On output (once per debug session)"
+msgstr "При выводе (один раз за сеанс отладки)"
 
 #: idedebuggerstringconstants.dbgwatchcolors
 msgid "Watches/Locals"
 msgstr "Наблюдения / локальные переменные"
+
+#: idedebuggerstringconstants.dbgwatchcolorshadowlast
+msgid "From previous pause"
+msgstr "С предыдущей приостановки"
 
 #: idedebuggerstringconstants.dbgwatchcolorunknown
 msgid "Unknown"
@@ -279,6 +328,7 @@ msgid "Dynamic"
 msgstr "Для динамических"
 
 #: idedebuggerstringconstants.dispformatdlgarraycombinenone
+msgctxt "idedebuggerstringconstants.dispformatdlgarraycombinenone"
 msgid "Never"
 msgstr "Никогда"
 
@@ -1164,6 +1214,18 @@ msgctxt "idedebuggerstringconstants.lisbrkpointstate"
 msgid "State"
 msgstr "Состояние"
 
+#: idedebuggerstringconstants.lisc0ascontrolpictures
+msgid "C0 as Control Pictures"
+msgstr "C0 в виде пиктограмм"
+
+#: idedebuggerstringconstants.lisc0asiso2047
+msgid "C0 as ISO 2047"
+msgstr "C0 в виде ISO 2047"
+
+#: idedebuggerstringconstants.lisc1asc0underbar
+msgid "C1 as C0 + Underbar"
+msgstr "C1 в виде C0 с подчёркиванием"
+
 #: idedebuggerstringconstants.liscallstacknotevaluated
 msgid "Stack not evaluated"
 msgstr "Стек не определён"
@@ -1362,6 +1424,10 @@ msgstr "Продолжить при обработанных"
 msgid "Resume Unhandled"
 msgstr "Продолжить при необработанных"
 
+#: idedebuggerstringconstants.lisdecorations
+msgid "Decorations"
+msgstr "Оформление"
+
 #: idedebuggerstringconstants.lisdeleteall
 msgid "&Delete All"
 msgstr "&Удалить все"
@@ -1401,6 +1467,11 @@ msgstr "Удалить точку останова по адресу %s?"
 #, object-pascal-format
 msgid "Delete watchpoint for \"%s\"?"
 msgstr "Удалить наблюдение для \"%s\"?"
+
+#: idedebuggerstringconstants.lisdeletetracepointforexception
+#, object-pascal-format
+msgid "Delete exception filter for \"%s\"?"
+msgstr "Удалить фильтр исключений для \"%s\"?"
 
 #: idedebuggerstringconstants.lisdigits
 msgid "Digits:"
@@ -1496,9 +1567,17 @@ msgstr "Добавить комментарий ..."
 msgid "Add Comment"
 msgstr "Добавление комментария"
 
+#: idedebuggerstringconstants.lisexceptionclass
+msgid "Class:"
+msgstr "Класс:"
+
 #: idedebuggerstringconstants.lisexceptiondialog
 msgid "Debugger Exception Notification"
 msgstr "Уведомление об исключении отладчика"
+
+#: idedebuggerstringconstants.lisexceptionfilter
+msgid "&Exception filter ..."
+msgstr "Фильтр и&сключений ..."
 
 #: idedebuggerstringconstants.lisexport
 msgctxt "lazarusidestrconsts.lisexport"
@@ -1561,6 +1640,10 @@ msgstr "Назначить группу ..."
 #: idedebuggerstringconstants.lisgroupsetnone
 msgid "Clear group(s)"
 msgstr "Убрать привязку к группе"
+
+#: idedebuggerstringconstants.lishexascii
+msgid "Hex + ASCII"
+msgstr "Шестнадцатеричный + ASCII"
 
 #: idedebuggerstringconstants.lishitcount
 msgid "Hitcount"
@@ -1670,6 +1753,14 @@ msgstr "Строка:"
 #: idedebuggerstringconstants.lislinelength
 msgid "Line/Length"
 msgstr "Строка/Длина"
+
+#: idedebuggerstringconstants.lislinelimit
+msgid "Line limit"
+msgstr "Максимум строк"
+
+#: idedebuggerstringconstants.lislinenumbers
+msgid "Line numbers"
+msgstr "Номера строк"
 
 #: idedebuggerstringconstants.lislocals
 msgctxt "lazarusidestrconsts.lislocals"
@@ -1791,9 +1882,9 @@ msgctxt "idedebuggerstringconstants.lismenuviewassembler"
 msgid "Assembler"
 msgstr "Ассемблер"
 
-#: idedebuggerstringconstants.lismenuviewbreakpoints
-msgid "BreakPoints"
-msgstr "Точки останова"
+#: idedebuggerstringconstants.lismenuviewbreakpointsandexceptions
+msgid "BreakPoints/Exceptions"
+msgstr "Точки останова и исключения"
 
 #: idedebuggerstringconstants.lismenuviewcallstack
 msgid "Call Stack"
@@ -1838,6 +1929,10 @@ msgstr "? (Выкл.)"
 msgid "? (On)"
 msgstr "? (Вкл.)"
 
+#: idedebuggerstringconstants.lisoutputstyle
+msgid "Output Style"
+msgstr "Стиль вывода"
+
 #: idedebuggerstringconstants.lispasscount
 msgid "Pass Count"
 msgstr "Число проходов"
@@ -1849,6 +1944,10 @@ msgstr "Имя файла:"
 #: idedebuggerstringconstants.lispendingon
 msgid "Pending (On)"
 msgstr "Отложенная (Вкл.)"
+
+#: idedebuggerstringconstants.lisrawoutput
+msgid "Raw Output"
+msgstr "Необработанный вывод"
 
 #: idedebuggerstringconstants.lisregisters
 msgctxt "lazarusidestrconsts.lisregisters"
@@ -1870,6 +1969,10 @@ msgstr "Предел для стека поиска некорректен."
 #: idedebuggerstringconstants.lissearchparenthint
 msgid "MaxCount:NamePattern"
 msgstr "ПределКоличества:ШаблонИмени"
+
+#: idedebuggerstringconstants.lisskipexception
+msgid "Continue"
+msgstr "Продолжить"
 
 #: idedebuggerstringconstants.lissourcebreakpoint
 msgid "&Source Breakpoint ..."
@@ -1935,6 +2038,10 @@ msgstr "Файл исходного кода"
 msgctxt "lazarusidestrconsts.listhreadsstate"
 msgid "State"
 msgstr "Состояние"
+
+#: idedebuggerstringconstants.lisunformatted
+msgid "Unformatted"
+msgstr "Неформатированный"
 
 #: idedebuggerstringconstants.lisvalue
 msgctxt "idedebuggerstringconstants.lisvalue"

@@ -35,13 +35,14 @@ unit FpDbgInfo;
 
 *)
 {$mode objfpc}{$H+}
+{$Interfaces CORBA}
 {$TYPEDADDRESS on}
 {$IFDEF INLINE_OFF}{$INLINE OFF}{$ENDIF}
 
 interface
 
 uses
-  Classes, SysUtils, DbgIntfBaseTypes, FpDbgLoader, FpdMemoryTools, FpErrorMessages,
+  Classes, SysUtils, fgl, DbgIntfBaseTypes, FpDbgLoader, FpdMemoryTools, FpErrorMessages,
   {$ifdef FORCE_LAZLOGGER_DUMMY} LazLoggerDummy {$else} LazLoggerBase {$endif}, LazClasses, FpDbgCommon,
   // Register all image reader classes
   FpImgReaderWinPE, FpImgReaderElf, FpImgReaderMacho, LazDebuggerIntfFloatTypes;
@@ -76,7 +77,8 @@ type
     sfPropSet,
     sfPropStored,
     sfHasLine,
-    sfHasLineAddrRng
+    sfHasLineAddrRng,
+    sfMaybeString
   );
   TDbgSymbolFlags = set of TDbgSymbolFlag;
 
@@ -107,7 +109,8 @@ type
   TFpValueFlag = (
     vfVariant,
     vfArrayOfVariant,
-    vfArrayUpperBoundLimit // can not get members past upper bound
+    vfArrayUpperBoundLimit, // can not get members past upper bound
+    vfProperty
   );
   TFpValueFlags = set of TFpValueFlag;
 
@@ -252,6 +255,8 @@ type
     property MemberCount: Integer read GetMemberCount;
     property Member[AIndex: Int64]: TFpValue read GetMember;
     property MemberByName[AIndex: String]: TFpValue read GetMemberByName; // Includes inheritance
+    property MemberCountEx[const AIndex: array of Int64]: Integer read GetMemberCountEx;
+    property MemberEx[const AIndex: array of Int64]: TFpValue read GetMemberEx;
     //  For Arrays (TODO pointers) only, the values stored in the array
     property IndexTypeCount: Integer read GetIndexTypeCount;
     property IndexType[AIndex: Integer]: TFpSymbol read GetIndexType;
@@ -265,6 +270,22 @@ type
     property LastError: TFpError read GetLastError;
     procedure SetLastError(ALastError: TFpError);
     procedure ResetError;
+  end;
+
+  { TFpValueList }
+
+  TFpValueListIntf = interface ['{BA5A7076-9854-4B33-83AD-D14041EA27F8}']
+    function GetItems(AnIndex: Integer): TFpValue;
+    function Count: Integer;
+    property Items[AnIndex: Integer]: TFpValue read GetItems; default;
+  end;
+
+  TFpValueList = class(specialize TFPGList<TFpValue>, TFpValueListIntf)
+  protected
+    function GetItems(AnIndex: Integer): TFpValue;
+  public
+    function Count: integer;
+    property Items[AnIndex: Integer]: TFpValue read GetItems; default;
   end;
 
   { TFpValueConstWithType }
@@ -741,9 +762,12 @@ type
     function ReadMemory(AnAddress: TDbgPtr; ASize: Cardinal; ADest: Pointer): Boolean; override;
     function ReadMemory(AnAddress: TDbgPtr; ASize: Cardinal; ADest: Pointer; out ABytesRead: Cardinal): Boolean; override;
     function ReadMemoryEx(AnAddress, AnAddressSpace: TDbgPtr; ASize: Cardinal; ADest: Pointer): Boolean; override;
+    function WriteMemory(AnAddress: TDbgPtr; ASize: Cardinal; ASource: Pointer): Boolean; override; overload;
     function ReadRegister(ARegNum: Cardinal; out AValue: TDbgPtr; AContext: TFpDbgLocationContext): Boolean; override;
     function WriteRegister(ARegNum: Cardinal; const AValue: TDbgPtr; AContext: TFpDbgLocationContext): Boolean; override;
     function RegisterSize(ARegNum: Cardinal): Integer; override;
+    function RegisterNumber(ARegName: String; out ARegNum: Cardinal): Boolean; override;
+    function GetRegister(const ARegNum: Cardinal; AContext: TFpDbgLocationContext): TDbgRegisterValue; override;
     procedure SetRegisterValue(ARegNum: Cardinal; AValue: TDbgPtr);
   end;
 
@@ -844,6 +868,11 @@ begin
   Result := FBaseMemReader.ReadMemoryEx(AnAddress, AnAddressSpace, ASize, ADest);
 end;
 
+function TFpDbgCallMemReader.WriteMemory(AnAddress: TDbgPtr; ASize: Cardinal; ASource: Pointer): Boolean;
+begin
+  Result := FBaseMemReader.WriteMemory(AnAddress, ASize, ASource);
+end;
+
 function TFpDbgCallMemReader.ReadRegister(ARegNum: Cardinal; out AValue: TDbgPtr; AContext: TFpDbgLocationContext): Boolean;
 begin
   if (ARegNum < Length(FRegisterCache)) and (FRegisterCache[ARegNum].IsSet) then
@@ -878,6 +907,17 @@ end;
 function TFpDbgCallMemReader.WriteRegister(ARegNum: Cardinal; const AValue: TDbgPtr; AContext: TFpDbgLocationContext): Boolean;
 begin
   Result := FBaseMemReader.WriteRegister(ARegNum, AValue, AContext);
+end;
+
+function TFpDbgCallMemReader.RegisterNumber(ARegName: String; out ARegNum: Cardinal): Boolean;
+begin
+  Result := FBaseMemReader.RegisterNumber(ARegName, ARegNum);
+end;
+
+function TFpDbgCallMemReader.GetRegister(const ARegNum: Cardinal; AContext: TFpDbgLocationContext): TDbgRegisterValue;
+begin
+  raise Exception.Create('');
+  Result := FBaseMemReader.GetRegister(ARegNum, AContext);
 end;
 
 constructor TFpDbgAbstractCallContext.Create(
@@ -1381,6 +1421,18 @@ end;
 procedure TFpValue.SetAsString(AValue: AnsiString);
 begin
   SetLastError(CreateError(fpErrChangeVariableNotSupported));
+end;
+
+{ TFpValueList }
+
+function TFpValueList.GetItems(AnIndex: Integer): TFpValue;
+begin
+  Result := inherited Items[AnIndex];
+end;
+
+function TFpValueList.Count: integer;
+begin
+  Result := inherited Count;
 end;
 
 { TFpValueConstWithType }

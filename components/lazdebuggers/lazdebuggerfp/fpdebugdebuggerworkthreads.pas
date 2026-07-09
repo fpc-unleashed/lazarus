@@ -231,7 +231,7 @@ type
     function DoFindIntrinsic(AnExpression: TFpPascalExpression; AStart: PChar; ALen: Integer
       ): TFpPascalExpressionPartIntrinsicBase;
     function DoWatchFunctionCall(AnExpressionPart: TFpPascalExpressionPart;
-      AFunctionValue, ASelfValue: TFpValue; AParams: TFpPascalExpressionPartList;
+      AFunctionValue, ASelfValue: TFpValue; AParams: TFpValueListIntf;
       out AResult: TFpValue; var AnError: TFpError): boolean;
   protected
     FWatchValue: IDbgWatchValueIntf;
@@ -872,10 +872,9 @@ end;
 
 { TFpThreadWorkerEvaluate }
 
-function TFpThreadWorkerEvaluate.DoWatchFunctionCall(
-  AnExpressionPart: TFpPascalExpressionPart; AFunctionValue,
-  ASelfValue: TFpValue; AParams: TFpPascalExpressionPartList; out
-  AResult: TFpValue; var AnError: TFpError): boolean;
+function TFpThreadWorkerEvaluate.DoWatchFunctionCall(AnExpressionPart: TFpPascalExpressionPart;
+  AFunctionValue, ASelfValue: TFpValue; AParams: TFpValueListIntf; out AResult: TFpValue;
+  var AnError: TFpError): boolean;
 var
   FunctionSymbolData, FunctionSymbolType, FunctionResultSymbolType,
   TempSymbol, StringSymbol: TFpSymbol;
@@ -899,6 +898,7 @@ var
   ParRes: Boolean;
 begin
   Result := False;
+  AnError := NoError;
   if FExpressionScope = nil then
     exit;
 (*
@@ -977,7 +977,9 @@ begin
       exit;
     end;
 
-    PCnt := AParams.Count;
+    PCnt := 0;
+    if AParams <> nil then
+      PCnt := AParams.Count;
     FoundIdx := 0;
     if ASelfValue <> nil then
       FoundIdx := -1;
@@ -1005,10 +1007,11 @@ begin
           SelfTypeSym.AddReference;
         end
         else begin
-          ExprParamVal := AParams.Items[FoundIdx].ResultValue;
+          ExprParamVal := AParams.Items[FoundIdx];
           if (ExprParamVal = nil) then begin
             DebugLn(FPDBG_FUNCCALL or DBG_WARNINGS, 'Internal error for arg %d ', [FoundIdx]);
-            AnError := AnExpressionPart.ExpressionData.Error;
+            if AnExpressionPart <> nil then
+              AnError := AnExpressionPart.ExpressionData.Error;
             if not IsError(AnError) then
               AnError := CreateError(fpErrAnyError, ['internal error, computing parameter']);
             exit;
@@ -1296,11 +1299,14 @@ begin
         PasExpr2.IntrinsicPrefix := TFpDebugDebuggerProperties(FDebugger.GetProperties).IntrinsicPrefix;
         PasExpr2.AutoDeref := TFpDebugDebuggerProperties(FDebugger.GetProperties).AutoDeref;
         PasExpr2.GlobalCache := FDebugger.DbgController.CurrentProcess.GlobalCache;
+        PasExpr2.OnFindIntrinsc := @DoFindIntrinsic;
         PasExpr2.Parse;
         PasExpr2.ResultValue;
         if PasExpr2.Valid then begin
           APasExpr.Free;
           APasExpr := PasExpr2;
+          if FAllowFunctions and (dfEvalFunctionCalls in FDebugger.EnabledFeatures) then
+            APasExpr.OnFunctionCall  := @DoWatchFunctionCall;
           ResValue := APasExpr.ResultValue;
         end
         else
@@ -1339,6 +1345,8 @@ begin
       WatchResConv.MaxTotalConv := TFpDebugDebuggerProperties(FDebugger.GetProperties).MemLimits.MaxTotalConversionCnt;
       WatchResConv.ExtraDepth := defExtraDepth in FWatchValue.EvaluateFlags;
       WatchResConv.FirstIndexOffs := FWatchValue.FirstIndexOffs;
+      if FAllowFunctions and (dfEvalFunctionCalls in FDebugger.EnabledFeatures) then
+        WatchResConv.OnResolveProperty := @APasExpr.ResolveProperty;
       if not (defSkipValConv in AnEvalFlags) then begin
         if (FWatchValue.GetDbgValConverter <> nil) and
            (FWatchValue.GetDbgValConverter.GetConverter.GetObject is TFpDbgValueConverter)

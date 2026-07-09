@@ -60,6 +60,7 @@ uses
   SynEditMarkupSpecialChar,
   // LazEdit
   TextMateGrammar, LazEditTextAttributes, LazEditHighlighter, LazEditHighlighterUtils,
+  LazEditFoldHighlighter,
   // SynEdit Highlighters
   SynEditHighlighterFoldBase, SynHighlighterCPP, SynHighlighterHTML,
   SynHighlighterJava, SynHighlighterLFM, SynHighlighterPas, SynHighlighterPerl, SynHighlighterPHP,
@@ -385,6 +386,7 @@ type
     property MarkupFoldLineAlpha: Byte read FMarkupFoldLineAlpha write SetMarkupFoldLineAlpha default 0;
     // For overview gutter (MarkupHighlightAll)
     property MarkupAllOverviewColor: TColor read FMarkupAllOverviewColor write SetMarkupAllOverviewColor default clNone;
+    property Features;
   end;
 
   { TColorSchemeLanguage }
@@ -676,7 +678,7 @@ type
 const
 
   (* When adding new entries, ensure that resourcestrings are re-assigned in InitLocale *)
-  EditorOptionsFoldInfoPas: Array [0..29] of TEditorOptionsFoldInfo
+  EditorOptionsFoldInfoPas: Array [0..30] of TEditorOptionsFoldInfo
   = (
       (Name:  dlgFoldPasProcedure;     Xml:     'Procedure';
        Index: ord(cfbtProcedure);    Enabled: True),
@@ -692,6 +694,8 @@ const
        Index: ord(cfbtRepeat);       Enabled: False),
       (Name:  dlgFoldPasCase;          Xml:     'Case';
        Index: ord(cfbtCase);         Enabled: False),
+      (Name:  dlgFoldPasCaseElse;      Xml:     'CaseOtherwise';
+       Index: ord(cfbtCaseElse);     Enabled: False),
       (Name:  dlgFoldPasTry;           Xml:     'Try';
        Index: ord(cfbtTry);          Enabled: False),
       (Name:  dlgFoldPasExcept;        Xml:     'Except';
@@ -836,8 +840,8 @@ const
   EditorOptionsFoldDefaults: array[TLazSyntaxHighlighter] of TEditorOptionsFoldRecord =
     ( (Count:  0; HasMarkup: False; Info: nil), // none
       (Count:  0; HasMarkup: False; Info: nil), // text
-      (Count: 30; HasMarkup: True; Info: @EditorOptionsFoldInfoPas[0]), // Freepas
-      (Count: 30; HasMarkup: True; Info: @EditorOptionsFoldInfoPas[0]), // pas
+      (Count: 31; HasMarkup: True; Info: @EditorOptionsFoldInfoPas[0]), // Freepas
+      (Count: 31; HasMarkup: True; Info: @EditorOptionsFoldInfoPas[0]), // pas
       (Count:  3; HasMarkup: True; Info: @EditorOptionsFoldInfoLFM[0]), // lfm
       (Count:  5; HasMarkup: True; Info: @EditorOptionsFoldInfoXML[0]), // xml
       (Count:  3; HasMarkup: True; Info: @EditorOptionsFoldInfoHTML[0]), // html
@@ -3105,29 +3109,30 @@ begin
   EditorOptionsFoldInfoPas[ 4].Name := dlgFoldPasBeginEnd;
   EditorOptionsFoldInfoPas[ 5].Name := dlgFoldPasRepeat;
   EditorOptionsFoldInfoPas[ 6].Name := dlgFoldPasCase;
-  EditorOptionsFoldInfoPas[ 7].Name := dlgFoldPasTry;
-  EditorOptionsFoldInfoPas[ 8].Name := dlgFoldPasExcept;
-  EditorOptionsFoldInfoPas[ 9].Name := dlgFoldPasAsm;
-  EditorOptionsFoldInfoPas[10].Name := dlgFoldPasProgram;
-  EditorOptionsFoldInfoPas[11].Name := dlgFoldPasUnit;
-  EditorOptionsFoldInfoPas[12].Name := dlgFoldPasUnitSection;
-  EditorOptionsFoldInfoPas[13].Name := dlgFoldPasUses;
-  EditorOptionsFoldInfoPas[14].Name := dlgFoldPasVarType;
-  EditorOptionsFoldInfoPas[15].Name := dlgFoldPasClass;
-  EditorOptionsFoldInfoPas[16].Name := dlgFoldPasClassSection;
-  EditorOptionsFoldInfoPas[17].Name := dlgFoldPasRecord;
-  EditorOptionsFoldInfoPas[18].Name := dlgFoldPasRecordCase;
-  EditorOptionsFoldInfoPas[19].Name := dlgFoldPasRecordCaseSect;
-  EditorOptionsFoldInfoPas[20].Name := dlgFoldPasIfDef;
-  EditorOptionsFoldInfoPas[21].Name := dlgFoldPasUserRegion;
-  EditorOptionsFoldInfoPas[22].Name := dlgFoldPasAnsiComment;
-  EditorOptionsFoldInfoPas[23].Name := dlgFoldPasBorComment;
-  EditorOptionsFoldInfoPas[24].Name := dlgFoldPasSlashComment;
-  EditorOptionsFoldInfoPas[25].Name := dlgFoldPasNestedComment;
-  EditorOptionsFoldInfoPas[26].Name := dlgFoldPasIfThen;
-  EditorOptionsFoldInfoPas[27].Name := dlgFoldPasForDo;
-  EditorOptionsFoldInfoPas[28].Name := dlgFoldPasWhileDo;
-  EditorOptionsFoldInfoPas[29].Name := dlgFoldPasWithDo;
+  EditorOptionsFoldInfoPas[ 7].Name := dlgFoldPasCaseElse;
+  EditorOptionsFoldInfoPas[ 8].Name := dlgFoldPasTry;
+  EditorOptionsFoldInfoPas[ 9].Name := dlgFoldPasExcept;
+  EditorOptionsFoldInfoPas[10].Name := dlgFoldPasAsm;
+  EditorOptionsFoldInfoPas[11].Name := dlgFoldPasProgram;
+  EditorOptionsFoldInfoPas[12].Name := dlgFoldPasUnit;
+  EditorOptionsFoldInfoPas[13].Name := dlgFoldPasUnitSection;
+  EditorOptionsFoldInfoPas[14].Name := dlgFoldPasUses;
+  EditorOptionsFoldInfoPas[15].Name := dlgFoldPasVarType;
+  EditorOptionsFoldInfoPas[16].Name := dlgFoldPasClass;
+  EditorOptionsFoldInfoPas[17].Name := dlgFoldPasClassSection;
+  EditorOptionsFoldInfoPas[18].Name := dlgFoldPasRecord;
+  EditorOptionsFoldInfoPas[19].Name := dlgFoldPasRecordCase;
+  EditorOptionsFoldInfoPas[20].Name := dlgFoldPasRecordCaseSect;
+  EditorOptionsFoldInfoPas[21].Name := dlgFoldPasIfDef;
+  EditorOptionsFoldInfoPas[22].Name := dlgFoldPasUserRegion;
+  EditorOptionsFoldInfoPas[23].Name := dlgFoldPasAnsiComment;
+  EditorOptionsFoldInfoPas[24].Name := dlgFoldPasBorComment;
+  EditorOptionsFoldInfoPas[25].Name := dlgFoldPasSlashComment;
+  EditorOptionsFoldInfoPas[26].Name := dlgFoldPasNestedComment;
+  EditorOptionsFoldInfoPas[27].Name := dlgFoldPasIfThen;
+  EditorOptionsFoldInfoPas[28].Name := dlgFoldPasForDo;
+  EditorOptionsFoldInfoPas[29].Name := dlgFoldPasWhileDo;
+  EditorOptionsFoldInfoPas[30].Name := dlgFoldPasWithDo;
 
   EditorOptionsFoldInfoHTML[0].Name := dlgFoldHtmlNode;
   EditorOptionsFoldInfoHTML[1].Name := dlgFoldHtmlComment;
@@ -6507,7 +6512,7 @@ var
   c, i: Integer;
 begin
   if SimilarEdit<>nil then
-    ASynEdit.KeyStrokes.Assign(SimilarEdit.Keystrokes)
+    ASynEdit.KeyStrokes.Assign(SimilarEdit.KeyStrokes)
   else
     KeyMap.AssignTo(ASynEdit.KeyStrokes, TSourceEditorWindowInterface);
 
@@ -6522,15 +6527,15 @@ begin
       i:= -1;
 
     if (ASynEdit.Plugin[c] is TSynPluginTemplateEdit) then begin
-      TSynPluginTemplateEdit(ASynEdit.Plugin[c]).Keystrokes.Clear;
+      TSynPluginTemplateEdit(ASynEdit.Plugin[c]).KeyStrokes.Clear;
       TSynPluginTemplateEdit(ASynEdit.Plugin[c]).KeystrokesOffCell.Clear;
       if i >= 0 then begin
-        TSynPluginTemplateEdit(ASynEdit.Plugin[c]).Keystrokes.Assign(
+        TSynPluginTemplateEdit(ASynEdit.Plugin[c]).KeyStrokes.Assign(
                                TSynPluginTemplateEdit(SimilarEdit.Plugin[i]).KeyStrokes);
         TSynPluginTemplateEdit(ASynEdit.Plugin[c]).KeystrokesOffCell.Assign(
                                TSynPluginTemplateEdit(SimilarEdit.Plugin[i]).KeystrokesOffCell);
       end else begin
-        KeyMap.AssignTo(TSynPluginTemplateEdit(ASynEdit.Plugin[c]).Keystrokes,
+        KeyMap.AssignTo(TSynPluginTemplateEdit(ASynEdit.Plugin[c]).KeyStrokes,
                         TLazSynPluginTemplateEditForm, ecIdePTmplOffset);
         KeyMap.AssignTo(TSynPluginTemplateEdit(ASynEdit.Plugin[c]).KeystrokesOffCell,
                         TLazSynPluginTemplateEditFormOff, ecIdePTmplOutOffset);
@@ -6539,19 +6544,19 @@ begin
 
     if (ASynEdit.Plugin[c] is TSynPluginSyncroEdit) then begin
       TSynPluginSyncroEdit(ASynEdit.Plugin[c]).KeystrokesSelecting.Clear;
-      TSynPluginSyncroEdit(ASynEdit.Plugin[c]).Keystrokes.Clear;
+      TSynPluginSyncroEdit(ASynEdit.Plugin[c]).KeyStrokes.Clear;
       TSynPluginSyncroEdit(ASynEdit.Plugin[c]).KeystrokesOffCell.Clear;
       if i >= 0 then begin
         TSynPluginSyncroEdit(ASynEdit.Plugin[c]).KeystrokesSelecting.Assign(
                              TSynPluginSyncroEdit(SimilarEdit.Plugin[i]).KeystrokesSelecting);
-        TSynPluginSyncroEdit(ASynEdit.Plugin[c]).Keystrokes.Assign(
+        TSynPluginSyncroEdit(ASynEdit.Plugin[c]).KeyStrokes.Assign(
                              TSynPluginSyncroEdit(SimilarEdit.Plugin[i]).KeyStrokes);
         TSynPluginSyncroEdit(ASynEdit.Plugin[c]).KeystrokesOffCell.Assign(
                              TSynPluginSyncroEdit(SimilarEdit.Plugin[i]).KeystrokesOffCell);
       end else begin
         KeyMap.AssignTo(TSynPluginSyncroEdit(ASynEdit.Plugin[c]).KeystrokesSelecting,
                         TLazSynPluginSyncroEditFormSel, ecIdePSyncroSelOffset);
-        KeyMap.AssignTo(TSynPluginSyncroEdit(ASynEdit.Plugin[c]).Keystrokes,
+        KeyMap.AssignTo(TSynPluginSyncroEdit(ASynEdit.Plugin[c]).KeyStrokes,
                         TLazSynPluginSyncroEditForm, ecIdePSyncroOffset);
         KeyMap.AssignTo(TSynPluginSyncroEdit(ASynEdit.Plugin[c]).KeystrokesOffCell,
                         TLazSynPluginSyncroEditFormOff, ecIdePSyncroOutOffset);
@@ -6560,13 +6565,13 @@ begin
 
     if (ASynEdit.Plugin[c] is TSynPluginMultiCaret) then begin
       // Only ecPluginMultiCaretClearAll
-      // the others are handled in SynEdit.Keystrokes
-      TSynPluginMultiCaret(ASynEdit.Plugin[c]).Keystrokes.Clear;
+      // the others are handled in SynEdit.KeyStrokes
+      TSynPluginMultiCaret(ASynEdit.Plugin[c]).KeyStrokes.Clear;
       if i >= 0 then begin
-        TSynPluginMultiCaret(ASynEdit.Plugin[c]).Keystrokes.Assign(
+        TSynPluginMultiCaret(ASynEdit.Plugin[c]).KeyStrokes.Assign(
                                TSynPluginMultiCaret(SimilarEdit.Plugin[i]).KeyStrokes);
       end else begin
-        KeyMap.AssignTo(TSynPluginMultiCaret(ASynEdit.Plugin[c]).Keystrokes,
+        KeyMap.AssignTo(TSynPluginMultiCaret(ASynEdit.Plugin[c]).KeyStrokes,
                         TLazSynPluginTemplateMultiCaret, 0); //ecIdePTmplOffset);
       end;
     end;
@@ -8773,6 +8778,9 @@ begin
   if FColorSchemeHighlighterAddedEventList <> nil then
     for i := 0 to FColorSchemeHighlighterAddedEventList.Count-1 do
       FColorSchemeHighlighterAddedEventList[i](Self, Result);
+
+  if EditorOpts <> nil then
+    EditorOpts.GetHighlighterSettings(AnHighlighter);
 end;
 
 procedure TColorSchemeFactory.AddHighlighterFromFactory(AFactory: TColorSchemeFactory;

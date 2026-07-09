@@ -29,9 +29,10 @@ uses
   // LazUtils
   LazUtilities, LazClasses, LazLoggerBase, LazMethodList,
   // SynEdit
-  SynEditMiscClasses, SynHighlighterPas, SynEditMarkupHighAll,
-  SynEditHighlighterFoldBase, SynEditFoldedView, LazSynEditText, SynEditMiscProcs,
-  SynEditMarkup, SynEditPointClasses, LazEditTextAttributes, LazEditHighlighter;
+  SynEditMiscClasses, SynHighlighterPas, SynEditMarkupHighAll, SynEditHighlighterFoldBase,
+  SynEditFoldedView, LazSynEditText, SynEditMiscProcs, SynEditMarkup, SynEditPointClasses,
+  LazEditTextAttributes, LazEditHighlighter, LazEditFoldHighlighter,
+  LazEditHighlighterFoldNodeHighlighter;
 
 type
 
@@ -342,7 +343,7 @@ type
     function  GetOrInsertNodeAtLine(ALinePos: Integer): TSynMarkupHighIfDefLinesNodeInfo;
     procedure ConnectPeers(var ANode: TSynMarkupHighIfDefLinesNodeInfo;
                            var ANestList: TSynMarkupHighIfDefLinesNodeInfoList;
-                           AOuterLines: TLazSynEditNestedFoldsList = nil);
+                           AOuterLines: TLazEditNestedFoldsList = nil);
     function  CheckLineForNodes(ALine: Integer): Boolean;
     procedure ScanLine(ALine: Integer; var ANodeForLine: TSynMarkupHighIfDefLinesNode;
                        ACheckOverlapOnCreateLine: Boolean = False);
@@ -371,11 +372,11 @@ type
                                 AMode: TSynSizedDiffAVLFindMode): TSynMarkupHighIfDefLinesNodeInfo;
                                 overload;
 
-    function  CreateOpeningList: TLazSynEditNestedFoldsList;
-    procedure DiscardOpeningList(AList: TLazSynEditNestedFoldsList);
+    function  CreateOpeningList: TLazEditNestedFoldsList;
+    procedure DiscardOpeningList(AList: TLazEditNestedFoldsList);
 
     procedure ValidateRange(AStartLine, AEndLine: Integer;
-                            OuterLines: TLazSynEditNestedFoldsList);
+                            OuterLines: TLazEditNestedFoldsList);
     procedure SetNodeState(ALinePos, AstartPos: Integer; AState: TSynMarkupIfdefNodeState);
 
     property OnNodeStateRequest: TSynMarkupIfdefStateRequest read FOnNodeStateRequest write FOnNodeStateRequest;
@@ -433,7 +434,7 @@ type
     FHighlighter: TSynPasSyn;
     FIfDefTree: TSynMarkupHighIfDefLinesTree;
     FOnNodeStateRequest: TSynMarkupIfdefStateRequest;
-    FOuterLines: TLazSynEditNestedFoldsList;
+    FOuterLines: TLazEditNestedFoldsList;
     FAdjustedTop: Integer;
     FLastValidTopLine, FLastValidLastLine: Integer;
     FLastValidTreeStep: Integer;
@@ -652,6 +653,11 @@ begin
   MarkupInfoEnabled.AddChangeHandler(@MarkupChanged);
   MarkupInfoTempEnabled.AddChangeHandler(@MarkupChanged);
   MarkupInfoTempDisabled.AddChangeHandler(@MarkupChanged);
+
+  MarkupInfoDisabled.InternalSaveDefaultValues;
+  MarkupInfoEnabled.InternalSaveDefaultValues;
+  MarkupInfoTempDisabled.InternalSaveDefaultValues;
+  MarkupInfoTempEnabled.InternalSaveDefaultValues;
 end;
 
 destructor TSynEditMarkupIfDefNodes.Destroy;
@@ -1852,7 +1858,7 @@ begin
 end;
 
 procedure TSynMarkupHighIfDefLinesTree.ConnectPeers(var ANode: TSynMarkupHighIfDefLinesNodeInfo;
-  var ANestList: TSynMarkupHighIfDefLinesNodeInfoList; AOuterLines: TLazSynEditNestedFoldsList);
+  var ANestList: TSynMarkupHighIfDefLinesNodeInfoList; AOuterLines: TLazEditNestedFoldsList);
 var
   PeerList: array of TSynMarkupHighIfDefEntry; // List of Else/Endif in the current line, that where opened in a previous line
   OpenList: array of TSynMarkupHighIfDefEntry; // List of IfDef/Else in the current line
@@ -2450,9 +2456,9 @@ begin
     FreeAndNil(FNotifyLists[i]);
 end;
 
-function TSynMarkupHighIfDefLinesTree.CreateOpeningList: TLazSynEditNestedFoldsList;
+function TSynMarkupHighIfDefLinesTree.CreateOpeningList: TLazEditNestedFoldsList;
 begin
-  Result := TLazSynEditNestedFoldsList.Create(FLines, FHighlighter);
+  Result := TLazEditNestedFoldsList.Create(FLines, FHighlighter);
   Result.ResetFilter;
   Result.Clear;
   //Result.Line :=
@@ -2461,7 +2467,7 @@ begin
   Result.IncludeOpeningOnLine := False;
 end;
 
-procedure TSynMarkupHighIfDefLinesTree.DiscardOpeningList(AList: TLazSynEditNestedFoldsList);
+procedure TSynMarkupHighIfDefLinesTree.DiscardOpeningList(AList: TLazEditNestedFoldsList);
 begin
   AList.Free;
 end;
@@ -2489,7 +2495,7 @@ end;
 procedure TSynMarkupHighIfDefLinesTree.ScanLine(ALine: Integer;
   var ANodeForLine: TSynMarkupHighIfDefLinesNode; ACheckOverlapOnCreateLine: Boolean);
 var
-  FoldNodeInfoList: TLazSynFoldNodeInfoList;
+  FoldNodeInfoList: TLazEditFoldNodeInfoList;
   LineTextLower: String;
   LineLen, NodesAddedCnt: Integer;
   LineNeedsReq, LineChanged, HasUncommentedNodes: Boolean;
@@ -2667,7 +2673,7 @@ var
   end;
 
 var
-  fn, fn2: TSynFoldNodeInfo;
+  fn, fn2: TLazEditFoldNodeInfo;
   LogStartX, LogEndX, LineOffs: Integer;
   Entry: TSynMarkupHighIfDefEntry;
   i, c: Integer;
@@ -2802,7 +2808,7 @@ begin
 end;
 
 procedure TSynMarkupHighIfDefLinesTree.ValidateRange(AStartLine, AEndLine: Integer;
-  OuterLines: TLazSynEditNestedFoldsList);
+  OuterLines: TLazEditNestedFoldsList);
 var
   NestList: TSynMarkupHighIfDefLinesNodeInfoList;
   NotInCodeLowLevel: Integer;

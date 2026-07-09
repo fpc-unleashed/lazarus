@@ -56,7 +56,8 @@ uses
   SysUtils, Classes, fgl, Registry, Graphics, Generics.Defaults, SynEditHighlighterFoldBase,
   SynEditMiscProcs, SynEditTypes, SynEditHighlighter, SynEditTextBase, SynEditStrConst,
   SynEditMiscClasses, LazLoggerBase, LazEditMiscProcs, LazEditHighlighterUtils,
-  LazEditTextAttributes, LazEditHighlighter;
+  LazEditTextAttributes, LazEditHighlighter, LazEditFoldHighlighter,
+  LazEditHighlighterFoldNodeHighlighter;
 
 type
   TSynPasStringMode = (spsmDefault, spsmStringOnly, spsmNone);
@@ -160,6 +161,7 @@ type
                           //    >>> Also SET BY "var"/"type"/"const" => to prevent next token from being mistaken
     tsAfterCvar,          // cvar;
                           //    >>> KEPT until ONE AFTER the ";" => to prevent next token from being mistaken
+    tsAfterDeprecated,    // may have deprecated 'hint message'
     tsAfterTypedConst,    // const foo: ___=___; public;
                           //    >>> typed const can have modifiers
                           //        Set AFTER ";"
@@ -305,8 +307,8 @@ type
     cfbtRecordCase,
     cfbtRecordCaseSection,
     cfbtAnonymousProcedure,
-    // Internal type / not configurable
     cfbtCaseElse,     // "else" in case can have multiply statements
+    // Internal type / not configurable
     cfbtPackage,
     //cfbtIfThen,
     cfbtConstBlock,
@@ -323,8 +325,8 @@ type
 
 
 const
-  cfbtLastPublic = cfbtAnonymousProcedure;
-  cfbtFirstPrivate = cfbtCaseElse;
+  cfbtLastPublic = cfbtCaseElse;
+  cfbtFirstPrivate = cfbtPackage;
 
   cfbtVarType      = cfbtVarBlock      deprecated 'use cfbtVarBlock / To be removed in 5.99';
   cfbtLocalVarType = cfbtLocalVarBlock deprecated 'use cfbtLocalVarBlock / To be removed in 5.99';
@@ -346,7 +348,7 @@ const
     [cfbtProgram,cfbtUnit,cfbtUnitSection, cfbtRegion, //cfbtProcedure,//=need by nested proc?
       cfbtVarBlock, cfbtConstBlock, cfbtClassConstBlock, cfbtTypeBlock, cfbtClassTypeBlock,
       cfbtLabelBlock, cfbtLocalLabelBlock,
-      cfbtCaseElse,
+      //cfbtCaseElse,
       cfbtIfDef, cfbtAnsiComment,cfbtBorCommand,cfbtSlashComment, cfbtNestedComment]);
 
   // restrict cdecl etc to places where they can be.
@@ -1118,9 +1120,8 @@ type
       LevelChanged: Boolean); override;
 
     // Info about Folds
-    function CreateFoldNodeInfoList: TLazSynFoldNodeInfoList; override;
     procedure ScanFoldNodeInfo(); override;
-    procedure DoInitNode(var Node: TSynFoldNodeInfo;
+    procedure DoInitNode(var Node: TLazEditFoldNodeInfo;
                        //EndOffs: Integer;
                        FinishingABlock: Boolean;
                        ABlockType: Pointer; aActions: TSynFoldActions;
@@ -3392,8 +3393,10 @@ begin
     FNextTokenState := tsAtBeginOfStatement;
     Result := tkKey
   end
-  else if IsHintModifier('DEPRECATED') then
-    Result := DoHintModifier
+  else if IsHintModifier('DEPRECATED') then begin
+    Result := DoHintModifier;
+    FNextTokenState := tsAfterDeprecated;
+  end
   else
     Result := tkIdentifier;
 end;
@@ -4452,7 +4455,6 @@ begin
             (PasCodeFoldRange.BracketNestLevel = 0);
   if not Result then
     exit;
-  tfb := TopPascalCodeFoldBlockType;
   case tfb of
     //cfbtVarConstType:
     cfbtVarBlock, cfbtLocalVarBlock,
@@ -4467,7 +4469,7 @@ begin
          (FTokenState <> tsAfterAbsolute) and
          ( (fRange * [rsInTypeSpecification, rsAfterEqualOrColon] = [rsInTypeSpecification]) or
            ( (rsWasInProcHeader in fRange) and
-             (FTokenState in [tsAtBeginOfStatement])
+             (FTokenState in [tsAtBeginOfStatement, tsAfterDeprecated])
            )
          );
     cfbtClass, cfbtClassSection,
@@ -4483,7 +4485,7 @@ begin
          ( (fRange * [rsAfterClassMembers, rsInProcHeader] = [rsAfterClassMembers]) or
            (fRange * [rsAfterClassMembers, rsAfterEqualOrColon, rsInTypeSpecification] = [rsInTypeSpecification]) or
            ( (rsWasInProcHeader in fRange) and
-             (FTokenState in [tsAtBeginOfStatement])
+             (FTokenState in [tsAtBeginOfStatement, tsAfterDeprecated])
            )
          );
     cfbtUnitSection, cfbtProgram, cfbtProcedure:
@@ -4509,11 +4511,18 @@ end;
 function TSynPasSyn.DoHintModifier: TtkTokenKind;
 begin
   Result := tkModifier;
-  if (fRange * [rsInProcHeader, rsProperty, rsAfterEqualOrColon, rsWasInProcHeader, rsAfterClassMembers] = [rsWasInProcHeader, rsAfterClassMembers]) and
-     (TopPascalCodeFoldBlockType in [cfbtClass, cfbtClassSection]) and
-     (FRangeCompilerMode in [pcmDelphi, pcmDelphiUnicode])
-  then
-    FRange := FRange + [rsInProcHeader]; // virtual reintroduce overload can be after virtual
+  case TopPascalCodeFoldBlockType of
+    cfbtClass, cfbtClassSection:
+      if (fRange * [rsInProcHeader, rsProperty, rsAfterEqualOrColon, rsWasInProcHeader, rsAfterClassMembers] = [rsWasInProcHeader, rsAfterClassMembers]) and
+         (FRangeCompilerMode in [pcmDelphi, pcmDelphiUnicode])
+      then
+        FRange := FRange + [rsInProcHeader]; // virtual reintroduce overload can be after virtual
+    cfbtTypeBlock, cfbtLocalTypeBlock, cfbtClassTypeBlock:
+      if (rsWasInProcHeader in fRange) then begin
+        FOldRange := FOldRange - [rsWasInProcHeader]; // there can be several hints, without semicolon between them
+        FNextTokenState := tsAtBeginOfStatement;
+      end;
+  end;
 end;
 
 function TSynPasSyn.CouldBeAtStartOfTypeDef: Boolean;
@@ -4986,6 +4995,7 @@ begin
       end else begin
           fRange := fRange - [rsBor, rsIDEDirective];
           Inc(p);
+          Exclude(FTokenExtraAttribs, eaPartTokenNotAtEnd);
           if TopPascalCodeFoldBlockType=cfbtBorCommand then
             EndPascalCodeFoldBlock;
           break;
@@ -5037,7 +5047,6 @@ begin
     end;
   until (p>=fLineLen);
   Run:=p;
-  Exclude(FTokenExtraAttribs, eaPartTokenNotAtEnd);
 end;
 
 procedure TSynPasSyn.DirectiveProc;
@@ -5053,6 +5062,8 @@ procedure TSynPasSyn.DirectiveProc;
   end;
 begin
   fTokenID := tkDirective;
+  Include(FTokenExtraAttribs, eaPartTokenNotAtEnd); // BorProc will clear this, if it reaches the end
+
   if TextComp('modeswitch') then begin
     // modeswitch directive
     inc(Run,10);
@@ -5145,6 +5156,7 @@ begin
       else begin
         if (reCommentSubTokens in FRequiredStates) and (fTokenPos <> Run) then
           exit;
+        Exclude(FTokenExtraAttribs, eaPartTokenNotAtEnd);
         fRange := fRange - [rsDirective];
         Inc(Run);
         FTokenExtraKind := tkeDirectiveCommentClose;
@@ -5228,8 +5240,9 @@ procedure TSynPasSyn.BraceOpenProc;
   end;
 
 var
-  nd: PSynFoldNodeInfo;
+  nd: PLazEditFoldNodeInfo;
 begin
+  Include(FTokenExtraAttribs, eaPartTokenNotAtEnd); // BorProc/DirectiveProc; will clear this, if it reaches the end
   if (Run < fLineLen-1) and (LinePtr[Run+1] = '$') then begin
     // compiler directive
     fRange := fRange + [rsDirective];
@@ -5305,20 +5318,20 @@ begin
 
       if reCommentCurly in FRequiredStates then
         FCustomCommentTokenMarkup := FPasAttributesMod[attribCommentCurly];
-      if not (IsInNextToEOL or IsScanning) then
+
+      if not (IsInNextToEOL or IsScanning) then begin
         GetCustomSymbolToken(tkBorComment, 1, FCustomTokenMarkup);
 
-      inc(Run);
-      if FCustomTokenMarkup <> nil then begin
-        if (Run < fLineLen) or (LinePtr[Run] in [#0,#10,#13]) then
-          Include(FTokenExtraAttribs, eaPartTokenNotAtEnd);
-        exit;
-      end;
-    end;
-    if FUsePasDoc and (LinePtr[Run] = '@') and CheckPasDoc(True) then begin
-      if (Run < fLineLen) or (LinePtr[Run] in [#0,#10,#13]) then
-        Include(FTokenExtraAttribs, eaPartTokenNotAtEnd);
-      exit;
+        inc(Run);
+        if (FCustomTokenMarkup <> nil) or (reCommentSubTokens in FRequiredStates) then
+          exit;
+        if FUsePasDoc and (LinePtr[Run] = '@') and CheckPasDoc(True) then
+          exit;
+        if (IsLetterChar[LinePtr[Run]]) and GetCustomTokenAndNext(tkBorComment, FCustomTokenMarkup, True) then
+          exit;
+      end
+      else
+        inc(Run);
     end;
     if (reCommentSubTokens in FRequiredStates) then
       exit;
@@ -5844,6 +5857,7 @@ begin
           exit;
       end else begin
         fRange := fRange - [rsAnsi];
+        Exclude(FTokenExtraAttribs, eaPartTokenNotAtEnd);
         if TopPascalCodeFoldBlockType=cfbtAnsiComment then
           EndPascalCodeFoldBlock;
         break;
@@ -5890,7 +5904,6 @@ begin
       IsInWord := (IsLetterChar[LinePtr[Run]] or IsUnderScoreOrNumberChar[LinePtr[Run]]);
     end;
   until (Run>=fLineLen) or (LinePtr[Run] in [#0, #10, #13]);
-  Exclude(FTokenExtraAttribs, eaPartTokenNotAtEnd);
 end;
 
 procedure TSynPasSyn.RoundOpenProc;
@@ -5953,25 +5966,25 @@ begin
 
         if reCommentAnsi in FRequiredStates then
           FCustomCommentTokenMarkup := FPasAttributesMod[attribCommentAnsi];
-        if not (IsInNextToEOL or IsScanning) then
+
+        Include(FTokenExtraAttribs, eaPartTokenNotAtEnd); // AnsiProc will clear this, if it reaches the end
+        if not (IsInNextToEOL or IsScanning) then begin
           GetCustomSymbolToken(tkAnsiComment, 2, FCustomTokenMarkup);
 
-        Inc(Run, 2);
-        if FCustomTokenMarkup <> nil then begin
-          if (Run < fLineLen) or (LinePtr[Run] in [#0,#10,#13]) then
-            Include(FTokenExtraAttribs, eaPartTokenNotAtEnd);
-          exit;
-        end;
-        if reCommentSubTokens in FRequiredStates then
-          exit;
-        if not (LinePtr[Run] in [#0, #10, #13]) then begin
-          if FUsePasDoc and (LinePtr[Run] = '@') and CheckPasDoc(True) then begin
-            if (Run < fLineLen) or (LinePtr[Run] in [#0,#10,#13]) then
-              Include(FTokenExtraAttribs, eaPartTokenNotAtEnd);
+          Inc(Run, 2);
+          if (FCustomTokenMarkup <> nil) or (reCommentSubTokens in FRequiredStates) then
             exit;
-          end;
-          AnsiProc;
+          if FUsePasDoc and (LinePtr[Run] = '@') and CheckPasDoc(True) then
+            exit;
+          if (IsLetterChar[LinePtr[Run]]) and GetCustomTokenAndNext(tkAnsiComment, FCustomTokenMarkup, True) then
+            exit;
+        end
+        else begin
+          Inc(Run, 2);
+          if reCommentSubTokens in FRequiredStates then
+            exit;
         end;
+        AnsiProc;
       end;
     '.':
       begin
@@ -6331,105 +6344,116 @@ end;
 
 procedure TSynPasSyn.StringProc;
 var
-  IsInWord, WasInWord, ct: Boolean;
+  IsInWord, WasInWord, ct, WasInString: Boolean;
+  tfb: TPascalCodeFoldBlockType;
 begin
   fTokenID := tkString;
   if reStringSingle in FRequiredStates then
     FCustomCommentTokenMarkup := FPasAttributesMod[attribStringSingle];
 
-  if FInString then begin
-    if not (IsInNextToEOL or IsScanning) then begin
-      if (LinePtr[Run] = '''') and (LinePtr[Run+1] = '''') and
-         GetCustomSymbolToken(tkString, 2, FCustomTokenMarkup)
-      then begin
-        inc(Run, 2);
-        if (Run < fLineLen) or (LinePtr[Run] in [#0,#10,#13]) then
-          Include(FTokenExtraAttribs, eaPartTokenNotAtEnd);
-        exit;
-      end;
-
-      if (IsLetterChar[LinePtr[Run]]) and
-         ( (Run = 0) or
-           not((IsLetterChar[LinePtr[Run-1]] or IsUnderScoreOrNumberChar[LinePtr[Run-1]]))
-         )
-      then begin
-        if GetCustomTokenAndNext(tkString, FCustomTokenMarkup) then begin
+  WasInString := FInString;
+  try
+    if FInString then begin
+      if not (IsInNextToEOL or IsScanning) then begin
+        if (LinePtr[Run] = '''') and (LinePtr[Run+1] = '''') and
+           GetCustomSymbolToken(tkString, 2, FCustomTokenMarkup)
+        then begin
+          inc(Run, 2);
           if (Run < fLineLen) or (LinePtr[Run] in [#0,#10,#13]) then
             Include(FTokenExtraAttribs, eaPartTokenNotAtEnd);
           exit;
         end;
-      end;
-    end;
-  end
-  else begin
-    FInString := True;
-    if not (IsInNextToEOL or IsScanning) and
-      GetCustomSymbolToken(tkString, 1, FCustomTokenMarkup)
-    then begin
-      Inc(Run);
-      if (Run < fLineLen) or (LinePtr[Run] in [#0,#10,#13]) then
-        Include(FTokenExtraAttribs, eaPartTokenNotAtEnd);
-      exit;
-    end;
-    Inc(Run);
-  end;
 
-  IsInWord := False;
-  WasInWord := (IsInNextToEOL or IsScanning); // don't run checks
-  while (not (LinePtr[Run] in [#0, #10, #13])) do begin
-    if LinePtr[Run] = '''' then begin
-      if (LinePtr[Run+1] = '''') then begin
-        // escaped
-        if (not (IsInNextToEOL or IsScanning)) and
-           GetCustomSymbolToken(tkString, 2, FCustomTokenMarkup, Run <> fTokenPos)
+        if (IsLetterChar[LinePtr[Run]]) and
+           ( (Run = 0) or
+             not((IsLetterChar[LinePtr[Run-1]] or IsUnderScoreOrNumberChar[LinePtr[Run-1]]))
+           )
         then begin
-          if (Run = fTokenPos) then
-            inc(Run, 2);
-          if (Run < fLineLen) or (LinePtr[Run] in [#0,#10,#13]) then
-            Include(FTokenExtraAttribs, eaPartTokenNotAtEnd);
-          exit
-        end;
-        Inc(Run);
-      end
-      else begin
-        // string end
-        if not (IsInNextToEOL or IsScanning) then begin
-          ct := GetCustomSymbolToken(tkString, 1, FCustomTokenMarkup, Run <> fTokenPos);
-          if ct and (Run <> fTokenPos) then begin
+          if GetCustomTokenAndNext(tkString, FCustomTokenMarkup) then begin
             if (Run < fLineLen) or (LinePtr[Run] in [#0,#10,#13]) then
               Include(FTokenExtraAttribs, eaPartTokenNotAtEnd);
             exit;
           end;
         end;
-        Inc(Run);
-        break;
       end;
     end
-    else
-    if (not WasInWord) and IsLetterChar[LinePtr[Run]] then begin
-      if GetCustomTokenAndNext(tkString, FCustomTokenMarkup, True) then begin
+    else begin
+      FInString := True;
+      if not (IsInNextToEOL or IsScanning) and
+        GetCustomSymbolToken(tkString, 1, FCustomTokenMarkup)
+      then begin
+        Inc(Run);
         if (Run < fLineLen) or (LinePtr[Run] in [#0,#10,#13]) then
           Include(FTokenExtraAttribs, eaPartTokenNotAtEnd);
         exit;
       end;
+      Inc(Run);
     end;
 
-    Inc(Run);
+    IsInWord := False;
+    WasInWord := (IsInNextToEOL or IsScanning); // don't run checks
+    while (not (LinePtr[Run] in [#0, #10, #13])) do begin
+      if LinePtr[Run] = '''' then begin
+        if (LinePtr[Run+1] = '''') then begin
+          // escaped
+          if (not (IsInNextToEOL or IsScanning)) and
+             GetCustomSymbolToken(tkString, 2, FCustomTokenMarkup, Run <> fTokenPos)
+          then begin
+            if (Run = fTokenPos) then
+              inc(Run, 2);
+            if (Run < fLineLen) or (LinePtr[Run] in [#0,#10,#13]) then
+              Include(FTokenExtraAttribs, eaPartTokenNotAtEnd);
+            exit
+          end;
+          Inc(Run);
+        end
+        else begin
+          // string end
+          if not (IsInNextToEOL or IsScanning) then begin
+            ct := GetCustomSymbolToken(tkString, 1, FCustomTokenMarkup, Run <> fTokenPos);
+            if ct and (Run <> fTokenPos) then begin
+              if (Run < fLineLen) or (LinePtr[Run] in [#0,#10,#13]) then
+                Include(FTokenExtraAttribs, eaPartTokenNotAtEnd);
+              exit;
+            end;
+          end;
+          Inc(Run);
+          break;
+        end;
+      end
+      else
+      if (not WasInWord) and IsLetterChar[LinePtr[Run]] then begin
+        if GetCustomTokenAndNext(tkString, FCustomTokenMarkup, True) then begin
+          if (Run < fLineLen) or (LinePtr[Run] in [#0,#10,#13]) then
+            Include(FTokenExtraAttribs, eaPartTokenNotAtEnd);
+          exit;
+        end;
+      end;
 
-    if not (IsInNextToEOL or IsScanning) then begin
-      WasInWord := IsInWord;
-      IsInWord := (IsLetterChar[LinePtr[Run]] or IsUnderScoreOrNumberChar[LinePtr[Run]]);
+      Inc(Run);
+
+      if not (IsInNextToEOL or IsScanning) then begin
+        WasInWord := IsInWord;
+        IsInWord := (IsLetterChar[LinePtr[Run]] or IsUnderScoreOrNumberChar[LinePtr[Run]]);
+      end;
     end;
-  end;
-  FInString := False;
+    FInString := False;
 
-  // modifiers like "alias" take a string as argument
-  if (PasCodeFoldRange.BracketNestLevel = 0) then begin
-    if (fRange * [rsInProcHeader, rsProperty, rsAfterEqualOrColon, rsWasInProcHeader] = [rsInProcHeader]) and
-       (TopPascalCodeFoldBlockType in ProcModifierAllowed)
-    then
-      FRange := FRange + [rsInProcHeader];
-    FOldRange := FOldRange - [rsInObjcProtocol];
+  finally
+    // modifiers like "alias" take a string as argument
+    if (not WasInString) and (PasCodeFoldRange.BracketNestLevel = 0) then begin
+      tfb := TopPascalCodeFoldBlockType;
+      if (tfb in ProcModifierAllowed) then begin
+        if (tfb in cfbtAnyTypeBlock) and (FTokenState = tsAfterDeprecated) then begin
+          FOldRange := FOldRange - [rsWasInProcHeader]; // there can more hints after "deprecated 'foo'", without semicolon between them
+          FNextTokenState := tsAtBeginOfStatement;
+        end
+        else
+        if (fRange * [rsInProcHeader, rsProperty, rsAfterEqualOrColon, rsWasInProcHeader] = [rsInProcHeader]) then
+          FRange := FRange + [rsInProcHeader];
+      end;
+      FOldRange := FOldRange - [rsInObjcProtocol];
+    end;
   end;
 end;
 
@@ -7035,6 +7059,7 @@ end;
 function TSynPasSyn.GetTokenAttribute: TLazEditTextAttribute;
 var
   x1, x2: Integer;
+  ExtEol, AtEol: Boolean;
 begin
   case GetTokenID of
     tkAsm: Result := FPasAttributes[attribAsm];
@@ -7069,20 +7094,14 @@ begin
   if Result <> nil then begin
     x1 := ToPos(fTokenPos);
     x2 := ToPos(Run);
-    if eaPartTokenNotAtStart in FTokenExtraAttribs then x1 := MaxInt;
-    if eaPartTokenNotAtEnd   in FTokenExtraAttribs then x2 := MaxInt;
+    ExtEol := lafPastEOL in Result.Features;
+    AtEol  := (Run >= fLineLen) or (LinePtr[Run] in [#0,#10,#13]);
+    if (ExtEol or (fTokenPos>0)) and (eaPartTokenNotAtStart in FTokenExtraAttribs) then x1 := MaxInt; // Note: Maybe := 1; ? Force border at line start?
+    if (ExtEol or (not AtEol))   and (eaPartTokenNotAtEnd   in FTokenExtraAttribs) then x2 := MaxInt;
     if (Run >= fLineLen) or (LinePtr[Run] in [#0,#10,#13]) then begin
-      x2 := ToPos(Run);
-      if (Result = CommentAttri) and
-         ((fRange * [rsIDEDirective, rsAnsi, rsBor] <> []) or
-          ((rsSlash in fRange) and
-           (FHadSlashLastLine or (LastLinePasFoldLevelFix(LineIndex+1, FOLDGROUP_PASCAL, True) = 0))
-          )
-         ) and
+      if (Result = CommentAttri) and (rsSlash in fRange) and
+         (FHadSlashLastLine or (LastLinePasFoldLevelFix(LineIndex+1, FOLDGROUP_PASCAL, True) = 0)) and
          (lafPastEOL in FPasAttributes[attribComment].Features)
-      then
-        x2 := MaxInt;
-      if (Result = FPasAttributes[attribDirective]) and (lafPastEOL in FPasAttributes[attribDirective].Features)
       then
         x2 := MaxInt;
       if (Result = FPasAttributes[attribString]) and (rsAnsiMultiDQ in fRange) and
@@ -7100,6 +7119,7 @@ var
   tid: TtkTokenKind;
   i, x1, x2, x1b, x2b: Integer;
   attr: TLazEditTextAttributeModifier;
+  ExtEol, AtEol: Boolean;
 begin
   Result := GetTokenAttribute;
   if Result = nil then
@@ -7109,14 +7129,12 @@ begin
 
   x1 := ToPos(fTokenPos);
   x2 := ToPos(Run);
+  AtEol  := (Run >= fLineLen) or (LinePtr[Run] in [#0,#10,#13]);
 
   if tid = tkIDEDirective then begin
-    x1b := x1;  if eaPartTokenNotAtStart in FTokenExtraAttribs then x1b := 1;
-    x2b := x2;  if eaPartTokenNotAtEnd   in FTokenExtraAttribs then x2b := fLineLen;
-    if (Run >= fLineLen) or (LinePtr[Run] in [#0,#10,#13]) and
-       (lafPastEOL in FPasAttributesMod[attribIDEDirective].Features)
-      then
-        x2b := MaxInt;
+    ExtEol := lafPastEOL in FPasAttributesMod[attribIDEDirective].Features;
+    x1b := x1;  if (ExtEol or (fTokenPos>0)) and (eaPartTokenNotAtStart in FTokenExtraAttribs) then x1b := MaxInt; // Note: Maybe := 1; ? Force border at line start?
+    x2b := x2;  if (ExtEol or (not AtEol))   and (eaPartTokenNotAtEnd   in FTokenExtraAttribs) then x2b := MaxInt;
     MergeModifierToTokenAttribute(Result, FPasAttributesMod[attribIDEDirective], x1b, x2b);
   end;
 
@@ -7205,18 +7223,17 @@ begin
   end;
 
   if FCustomCommentTokenMarkup <> nil then begin
-    x2b := x2;
+    ExtEol := lafPastEOL in FCustomCommentTokenMarkup.Features;
+    x1b := x1;  if (ExtEol or (fTokenPos>0)) and (eaPartTokenNotAtStart in FTokenExtraAttribs) then x1b := MaxInt; // Note: Maybe := 1; ? Force border at line start?
+    x2b := x2;  if (ExtEol or (not AtEol))   and (eaPartTokenNotAtEnd   in FTokenExtraAttribs) then x2b := MaxInt;
     if (Run >= fLineLen) or (LinePtr[Run] in [#0,#10,#13]) then begin
-      if ((not ((rsSlash in fRange))) or
-          ((rsSlash in fRange) and
-           (FHadSlashLastLine or (LastLinePasFoldLevelFix(LineIndex+1, FOLDGROUP_PASCAL, True) = 0))
-          )
-         ) and
+      if (rsSlash in fRange) and
+         (FHadSlashLastLine or (LastLinePasFoldLevelFix(LineIndex+1, FOLDGROUP_PASCAL, True) = 0)) and
          (lafPastEOL in FCustomCommentTokenMarkup.Features)
       then
         x2b := MaxInt;
     end;
-    MergeModifierToTokenAttribute(Result, FCustomCommentTokenMarkup, x1, x2b);
+    MergeModifierToTokenAttribute(Result, FCustomCommentTokenMarkup, x1b, x2b);
   end;
   if FCustomTokenMarkup <> nil then begin
     MergeModifierToTokenAttribute(Result, FCustomTokenMarkup, x1, x2);
@@ -7364,8 +7381,11 @@ function TSynPasSyn.GetEndOfLineAttributeEx: TLazCustomEditTextAttribute;
   ): TLazCustomEditTextAttribute;
   begin
     Result := nil;
-    if lafPastEOL in Base.Features then
+
+    if lafPastEOL in Base.Features then begin
       Result := Base;
+      Result.SetFrameBoundsLog(MaxInt, MaxInt);
+    end;
 
     if not (lafPastEOL in Modifier.Features) then
       exit;
@@ -8032,7 +8052,7 @@ end;
 function TSynPasSyn.FoldLineLength(ALineIndex, FoldIndex: Integer): integer;
 var
   atype : Integer;
-  node: TSynFoldNodeInfo;
+  node: TLazEditFoldNodeInfo;
 begin
   node := FoldNodeInfo[ALineIndex].NodeInfoEx(FoldIndex, [sfaOpenFold, sfaFold]);
   if sfaInvalid in node.FoldAction then exit(-1);
@@ -8057,7 +8077,7 @@ end;
 function TSynPasSyn.FoldEndLine(ALineIndex, FoldIndex: Integer): integer;
 var
   lvl, cnt, atype : Integer;
-  node: TSynFoldNodeInfo;
+  node: TLazEditFoldNodeInfo;
 begin
   node := FoldNodeInfo[ALineIndex].NodeInfoEx(FoldIndex, [sfaOpenFold, sfaFold]);
   if sfaInvalid in node.FoldAction then exit(-1);
@@ -8110,7 +8130,7 @@ begin
 end;
 
 
-procedure TSynPasSyn.DoInitNode(var Node: TSynFoldNodeInfo;
+procedure TSynPasSyn.DoInitNode(var Node: TLazEditFoldNodeInfo;
   FinishingABlock: Boolean; ABlockType: Pointer; aActions: TSynFoldActions;
   AIsFold: Boolean);
 var
@@ -8136,6 +8156,11 @@ begin
     //if (PasBlockType in [cfbtIfElse]) then
     //  Include( aActions, sfaOutlineMergeLevelOnWrongCol);
 
+    if (PasBlockType in [cfbtCaseElse]) then begin
+      t := FFoldConfig[ord(cfbtCase)];
+      if t.Enabled and (sfaOutline in t.FoldActions) then
+        Include( aActions, sfaOutlineMergeParent);
+    end;
     if (PasBlockType in [cfbtClassSection]) then begin
       t := FFoldConfig[ord(cfbtClass)];
       if t.Enabled and (sfaOutline in t.FoldActions) then
@@ -8145,7 +8170,7 @@ begin
     if (PasBlockType in [cfbtProcedure, cfbtAnonymousProcedure]) then begin
       t := FFoldConfig[ord(cfbtTopBeginEnd)];
       if t.Enabled and (sfaOutline in t.FoldActions) then
-        aActions := aActions + [sfaOutlineKeepLevel,sfaOutlineNoColor];
+        aActions := aActions + [sfaOutlineKeepLevel];
     end;
 
     //if (PasBlockType in [cfbtProcedure, cfbtAnonymousProcedure]) and (InProcLevel > 0) then //nested
@@ -8156,9 +8181,6 @@ begin
       if t.Enabled and (sfaOutline in t.FoldActions) then
         Include( aActions, sfaOutlineMergeParent);
     end;
-
-   // if (PasBlockType in [cfbtIfThen, cfbtClass,cfbtRecord]) then
-    //  aActions := aActions + [sfaOutlineNoLine];
   end;
 
   Node.LineIndex := LineIndex;
@@ -8214,7 +8236,7 @@ end;
 procedure TSynPasSyn.StartCustomCodeFoldBlock(ABlockType: TPascalCodeFoldBlockType);
 var
   act: TSynFoldActions;
-  nd: TSynFoldNodeInfo;
+  nd: TLazEditFoldNodeInfo;
   FoldBlock, BlockEnabled: Boolean;
   ConfigP: PSynCustomFoldConfig;
 begin
@@ -8246,7 +8268,7 @@ end;
 procedure TSynPasSyn.EndCustomCodeFoldBlock(ABlockType: TPascalCodeFoldBlockType);
 var
   act: TSynFoldActions;
-  nd: TSynFoldNodeInfo;
+  nd: TLazEditFoldNodeInfo;
   FoldBlock, BlockEnabled: Boolean;
   ConfigP: PSynCustomFoldConfig;
 begin
@@ -8324,14 +8346,9 @@ begin
   // nothing
 end;
 
-function TSynPasSyn.CreateFoldNodeInfoList: TLazSynFoldNodeInfoList;
-begin
-  Result := TLazSynFoldNodeInfoList.Create;
-end;
-
 procedure TSynPasSyn.ScanFoldNodeInfo();
 var
-  nd: PSynFoldNodeInfo;
+  nd: PLazEditFoldNodeInfo;
   i: Integer;
 begin
   fStringLen := 0;
@@ -8369,7 +8386,7 @@ var
   p: PtrInt;
   FoldBlock, BlockEnabled: Boolean;
   act: TSynFoldActions;
-  nd: TSynFoldNodeInfo;
+  nd: TLazEditFoldNodeInfo;
   ConfigP: PSynCustomFoldConfig;
 begin
   if rsSkipAllPasBlocks in fRange then exit(False);
@@ -8403,7 +8420,7 @@ var
   DecreaseLevel, BlockEnabled: Boolean;
   act: TSynFoldActions;
   BlockType: TPascalCodeFoldBlockType;
-  nd: TSynFoldNodeInfo;
+  nd: TLazEditFoldNodeInfo;
   ConfigP: PSynCustomFoldConfig;
 begin
   Exclude(fRange, rsSkipAllPasBlocks);
@@ -8472,7 +8489,7 @@ end;
 procedure TSynPasSyn.EndPascalCodeFoldBlockLastLine;
 var
   i: Integer;
-  nd: PSynFoldNodeInfo;
+  nd: PLazEditFoldNodeInfo;
 begin
   if IsCollectingNodeInfo then
     i := CollectingNodeInfoList.CountAll;

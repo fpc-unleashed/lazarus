@@ -39,7 +39,7 @@ const
   LazarusIDEBasePkgNames: array[TLazarusIDEBasePkg] of string = (
     'FCL',
     'LazUtils',
-    'freetypelaz',
+    'FreeTypeLaz',
     'BuildIntf',
     'CodeTools',
     'LazEdit',
@@ -57,13 +57,50 @@ const
     'LazDebuggerFpLldb',
     'LazControls',
     'LazControlDsgn',
-    'lclextensions_package',
+    'LCLExtensions_Package',
     'laz.virtualtreeview_package',
     'IdeUtilsPkg',
     'IdeConfig',
     'IdePackager',
     'IdeProject',
     'IdeDebugger'
+    );
+
+  // extra packages for the release, alias "bigide"
+  LazarusIDEReleasePkgNames: array[0..32] of string = (
+	  'SyneditDsgn',
+    'DockedFormEditor',
+    'OnlinePackageManager',
+    'cairocanvas_pkg',
+    'RunTimeTypeInfoControls',
+    'Printer4Lazarus',
+    'Printers4LazIDE',
+    'LeakView',
+    'MemDSLaz',
+    'SDFLaz',
+    'InstantFPCLaz',
+    'ExternHelp',
+    'TurboPowerIPro',
+    'TurboPowerIProDsgn',
+    'JCFIDELazarus',
+    'ChmHelpPkg',
+    'FPCUnitTestRunner',
+    'FPCUnitIDE',
+    'LazTestInsight',
+    'ProjTemplates',
+    'TAChartLazarusPkg',
+    'TodoListLaz',
+    'DateTimeCtrls',
+    'SQLDBLaz',
+    'DBFLaz',
+    'PascalScript',
+    'EditorMacroScript',
+    'ExampleProjects',
+    'SimpleWebServerGUI',
+    'LazProjectGroups',
+    'Pas2jsDsgn',
+    'Charactermap_ide_pkg',
+    'AnchorDockingDsgn'
     );
 
 implementation

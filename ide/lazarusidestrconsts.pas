@@ -830,6 +830,7 @@ resourcestring
     +'class with the name %s.';
   lisTheUnitItselfHasAlreadyTheNamePascalIdentifiersMus = 'The unit itself '
     +'has already the name "%s". Pascal identifiers must be unique.';
+  lisUnableToRenameFileTo = 'Unable to rename file "%s" to "%s".';
   lisUnableToRenameVariableInSource = 'Unable to rename variable in source.';
   lisUnableToUpdateCreateFormStatementInProjectSource = 'Unable to update '
     +'CreateForm statement in project source';
@@ -1111,7 +1112,6 @@ resourcestring
   // Options dialog
   dlgIDEOptions = 'IDE Options';
   dlgBakNoSubDirectory = '(no subdirectory)';
-  dlgEOFocusMessagesAtCompilation = 'Focus messages at compilation';
   lisMaximumParallelProcesses0MeansDefault = 'Maximum parallel processes, 0 '
     +'means default (%s)';
   lisShowFPCMessageLinesCompiled = 'Show FPC message "lines compiled"';
@@ -1261,14 +1261,20 @@ resourcestring
     'before the IDE''s name and other info in the title. Example: project1 - Lazarus.';
 
   // Message window options
-  lisWindowStaysOnTop = 'Window stays on top';
-  dlgShowMessagesIcons = 'Show Messages Icons';
+  lisStayOnTop = 'Stay on top';
+  lisShowIcons = 'Show Icons';
   dlgAnIconForErrorWarningHintIsShown = 'An icon for error/warning/hint is shown '
     +'in front of a message. The same icon shows in source editor gutter in any case.';
+  lisFocusAtCompilation = 'Focus at compilation';
   lisAlwaysDrawSelectedItemsFocused = 'Always draw selected items focused';
   lisDrawTheSelectionFocusedEvenIfTheMessagesWindowHasN = 'Draw the selection '
     +'focused even if the Messages window has no focus. Use this if your '
     +'theme has a hardly visible unfocused drawing.';
+  lisShowAutomatically = 'Show automatically';
+  lisShowAutoWhenCompiling = 'When compiling';
+  lisShowAutoOnlyWhenErrorsOccur = 'Only when errors occur';
+  lisShowAutoNever = 'Never';
+  lisMustBeOpenedManually = 'Must be opened manually from View -> Messages.';
   lisEditorColors = 'Editor Colors';
   lisPastelColors = 'Pastel Colors';
 
@@ -1527,9 +1533,10 @@ resourcestring
   dlgScrollBarPastEOLFixed = 'Force 1024 columns minimum for horizontal scroll range';
   dlgScrollHint = 'Show scroll hint';
   lisShowSpecialCharacters = 'Show special characters';
+  lisMiddleClickModifiers = 'Middle-click-modifiers';
   dlgCloseButtonsNotebook = 'Show close buttons in notebook';
-  dlgMiddleTabCloseOtherPagesMod = 'Middle-click-modifier to close all other tabs';
-  dlgMiddleTabCloseRightPagesMod = 'Middle-click-modifier to close tabs on the right';
+  dlgCloseOtherPagesMod = 'Close all other tabs';
+  dlgCloseRightPagesMod = 'Close tabs on the right';
   dlgShowFileNameInCaption = 'Show file name in caption';
   dlgSourceEditTabMultiLine = 'Multiline tabs';
   dlgHideSingleTabInNotebook = 'Hide tab in single page windows';
@@ -1817,14 +1824,14 @@ resourcestring
   dlgEditExportBackColor = 'Use Background color in HTML export';
   dlgBookmarkSetScroll = 'Restore scroll position for bookmarks';
   dlgUndoLimit = 'Undo limit';
-  dlgMarginGutter = 'Margin and gutter';
+  dlgGeneral = 'General';
+  dlgGutter = 'Gutter';
   dlgVisibleRightMargin = 'Visible right margin';
   dlgVisibleGutter = 'Visible gutter';
   dlgGutterSeparatorIndex = 'Gutter separator index';
   dlgShowLineNumbers = 'Show line numbers';
   dlgShowCompilingLineNumbers = 'Show line numbers';
   dlgRightMargin = 'Right margin';
-  dlgGutter = 'Gutter';
   dlgGutterColor = 'Gutter Color';
   dlgDefaultEditorFont='Default editor font';
   dlgEditorFontSize = 'Editor font size';
@@ -2066,6 +2073,7 @@ resourcestring
   dlgFoldPasExcept          = 'Except/Finally';
   dlgFoldPasRepeat          = 'Repeat';
   dlgFoldPasCase            = 'Case';
+  dlgFoldPasCaseElse        = 'Otherwise/Else (Case)';
   dlgFoldPasAsm             = 'Asm';
   dlgFoldPasIfDef           = '{$IfDef}';
   dlgFoldPasUserRegion      = '{%Region}';
@@ -2366,7 +2374,9 @@ resourcestring
   dlgCOSymbolTypeStabs = 'Stabs';
   dlgCOSymbolTypeDwarf2 = 'Dwarf 2';
   dlgCOSymbolTypeDwarf2Set = 'Dwarf 2 with sets';
-  dlgCOSymbolTypeDwarf3 = 'Dwarf 3 (beta)';
+  dlgCOSymbolTypeDwarf3 = 'Dwarf 3';
+  dlgCOSymbolTypeDwarf4 = 'Dwarf 4';
+  dlgCOSymbolTypeDwarf5 = 'Dwarf 5 (FPC 3.3.1)';
   dlgLNumsBct = 'Display line numbers in run-time error backtraces';
   dlgCOHeaptrc = 'Use Heaptrc unit (check for mem-leaks)';
   dlgCOTrashVariables = 'Trash variables';
@@ -2824,6 +2834,8 @@ resourcestring
   lisPackageNameContains = 'Package name contains ...';
   lisFRIinCurrentUnit = 'in current unit';
   lisFRIinMainProject = 'in main project';
+  lisFRIinLocalFunction = 'in local function';
+  lisFRIinCurrentMethod = 'in current method';
   lisFRIinProjectPackageOwningCurrentUnit = 'in project/package owning current unit';
   lisFRIinAllOpenPackagesAndProjects = 'in all open packages and projects';
   lisFRIRenameAllReferences = 'Rename all References';
@@ -3534,7 +3546,6 @@ resourcestring
   lisFRIAdditionalFilesToSearchEGPathPasPath2Pp = 'Additional files to '
     +'search (e.g. /path/*.pas;/path2/*.pp)';
   lisFRIFindReferences = 'Find References';
-  lisFRIInvalidIdentifier = 'Invalid Identifier';
   lisFRIRenaming = 'Renaming';
   lisFRISearchInCommentsToo = 'Search in comments too';
   lisFRISearch = 'Search';
@@ -4031,6 +4042,8 @@ resourcestring
   lisEnableOptionDwarf2 = 'Enable Dwarf 2 (-gw)';
   lisEnableOptionDwarf2Sets = 'Enable Dwarf 2 with sets';
   lisEnableOptionDwarf3 = 'Enable Dwarf 3 (-gw3)';
+  lisEnableOptionDwarf4 = 'Enable Dwarf 4 (-gw4)';
+  lisEnableOptionDwarf5 = 'Enable Dwarf 5 [FPC 3.3.1] (-gw5)';
 
   lisTheProjectDoesNotUseDwarf_TaskDlg_Caption = 'Running your application with debugger';
   lisTheProjectDoesNotUseDwarf_TaskDlg_Title = 'Choose Debug Information format';
@@ -5116,7 +5129,7 @@ resourcestring
   lisDebugOptionsFrmResetDebuggerOnEachRun = 'Reset Debugger after each run';
   lisDebugOptionsFrmAutoCloseAsm = 'Automatically close the assembler window, after source not found';
   lisDebugOptionsFrmAutoInstanceClass = 'Automatically set "use instance class type" for new watches';
-  lisDebugOptionsFrmAllowFunctionCalls = 'BETA: Allow function calls in watches (if supported by backend)';
+  lisDebugOptionsFrmAllowFunctionCalls = 'Allow function calls in watches (if supported by backend)';
   lisDebugOptionsFrmDialogsToFront = 'Always bring debug-windows (watches, locals) to front when adding items';
   lisDebugOptionsFrmDebuggerSpecific = 'Debugger specific options (depends on '
     +'type of debugger)';
@@ -5367,8 +5380,6 @@ resourcestring
     +'%sProceed anyway?';
   lisRenamingAborted = 'Renaming aborted';
   lisRenamingConflict = 'Renaming conflict';
-  lisDesignerHasUnsavedChanges = 'Designer has unsaved changes';
-  lisOverwriteDesignerChangesAnyway = 'Unsaved designer changes for file "%s" will be lost. Overwrite anyway?';
   lisFileAlreadyExists = 'File "%s" already exists.';
   lisIdentifierIsAlreadyUsed = 'Identifier "%s" is already used';
   lisIdentifierIsAlreadyUsed2 = 'Identifier "%s" is already used.';
@@ -6001,6 +6012,7 @@ resourcestring
   lisAddModifierOverload = 'Add modifier "overload"';
   lisAddModifierReintroduce = 'Add modifier "reintroduce"';
   lisAddModifierOverride = 'Add modifier "override"';
+  lisChangeMethodVisibilityTo = 'Change method visibility to "%s"';
   lisHideWithProjectOptionVm = 'Hide with project option (-vm%s)';
   lisHideWithPackageOptionVm = 'Hide with package option (-vm%s)';
   lisRemoveLocalVariable3 = 'Remove local variable "%s"';

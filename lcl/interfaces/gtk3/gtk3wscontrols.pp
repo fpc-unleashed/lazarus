@@ -146,6 +146,7 @@ var
   AHints: TGdkWindowHints;
   AFixedWidthHeight: Boolean;
   AForm: TCustomForm;
+  AShadowW, AShadowH: Integer;
 begin
   {$IFDEF GTK3DEBUGCORE}
   DebugLn('TGtk3WSWinControl.ConstraintsChange');
@@ -159,23 +160,31 @@ begin
 
   AFixedWidthHeight := AForm.BorderStyle in [bsDialog, bsSingle, bsToolWindow];
 
+  AShadowW := 0;
+  AShadowH := 0;
+  if Gtk3WidgetSet.IsWayland then
+  begin
+    AShadowW := TGtk3Window(AWidget).CSDShadowW;
+    AShadowH := TGtk3Window(AWidget).CSDShadowH;
+  end;
+
   FillChar(Geometry, SizeOf(Geometry), 0);
   with Geometry do
   begin
     if not AFixedWidthHeight and (AForm.Constraints.MinWidth > 0) then
-      min_width := AForm.Constraints.MinWidth
+      min_width := AForm.Constraints.MinWidth + AShadowW
     else
       min_width := AForm.Width;
     if not AFixedWidthHeight and (AForm.Constraints.MaxWidth > 0) then
-      max_width := AForm.Constraints.MaxWidth
+      max_width := AForm.Constraints.MaxWidth + AShadowW
     else
       max_width := AForm.Width;
     if not AFixedWidthHeight and (AForm.Constraints.MinHeight > 0) then
-      min_height := AForm.Constraints.MinHeight
+      min_height := AForm.Constraints.MinHeight + AShadowH
     else
       min_height := AForm.Height;
     if not AFixedWidthHeight and (AForm.Constraints.MaxHeight > 0) then
-      max_height := AForm.Constraints.MaxHeight
+      max_height := AForm.Constraints.MaxHeight + AShadowH
     else
       max_height := AForm.Height;
     base_width  := AForm.Width;
@@ -199,8 +208,6 @@ begin
         Geometry.max_height := Geometry.min_height;
         Geometry.base_width := Geometry.min_width;
         Geometry.base_height := Geometry.min_height;
-
-
       end;
       PGtkWindow(AWidget.Widget)^.set_geometry_hints(nil, @Geometry,
         [GDK_HINT_POS, GDK_HINT_MIN_SIZE, GDK_HINT_MAX_SIZE]);
@@ -209,7 +216,7 @@ begin
   begin
     if AForm.BorderStyle <> bsNone then
     begin
-      AHints := [GDK_HINT_POS, GDK_HINT_BASE_SIZE];
+      AHints := [GDK_HINT_POS];
       if (AForm.Constraints.MinWidth > 0) or (AForm.Constraints.MinHeight > 0) then
         Include(AHints, GDK_HINT_MIN_SIZE);
       if (AForm.Constraints.MaxWidth > 0) or (AForm.Constraints.MaxHeight > 0) then
@@ -237,9 +244,7 @@ begin
   DebugLn('TGtk3WSWinControl.DestroyHandle ',dbgsName(AWinControl),' handle ',dbgs(AWinControl.HandleAllocated));
   {$ENDIF}
   if AWinControl.HandleAllocated then
-  begin
-    TGtk3Widget(AWinControl.Handle).Free;
-  end;
+    TGtk3Widget(AWinControl.Handle).Release;
 end;
 
 class procedure TGtk3WSWinControl.DefaultWndHandler(const AWinControl: TWinControl; var AMessage);
@@ -290,6 +295,10 @@ var
   W: TGtk3Widget;
 begin
   Result := 1;
+
+  if GTK3WidgetSet.IsWayland then
+    exit;
+
   if TWinControl(AControl).HandleAllocated then
   begin
     W := TGtk3Widget(TWinControl(AControl).Handle);
@@ -377,9 +386,12 @@ begin
   if not WSCheckHandleAllocated(AWinControl, 'SetBiDiMode') then
     Exit;
   AWidget := TGtk3Widget(AWinControl.Handle);
+  if (AWidget = nil) or not Gtk3IsWidget(AWidget.Widget) then
+    Exit;
   ADir := WidgetDirection[UseRightToLeftAlign];
   gtk_widget_set_direction(AWidget.Widget, ADir);
-  if (AWidget.GetContainerWidget <> nil) and (AWidget.GetContainerWidget <> AWidget.Widget) then
+  if (AWidget.GetContainerWidget <> nil) and (AWidget.GetContainerWidget <> AWidget.Widget)
+     and Gtk3IsWidget(AWidget.GetContainerWidget) then
     gtk_widget_set_direction(AWidget.GetContainerWidget, ADir);
 end;
 
@@ -537,10 +549,24 @@ end;
 
 class procedure TGtk3WSWinControl.SetShape(const AWinControl: TWinControl;
   const AShape: HBITMAP);
+var
+  AWidget: TGtk3Widget;
 begin
   if not WSCheckHandleAllocated(AWinControl, 'SetShape') then
     Exit;
-  TGtk3Widget(AWinControl.Handle).Shape := TGtk3Image(AShape).Handle^.copy;
+
+  AWidget := TGtk3Widget(AWinControl.Handle);
+  // Setting Shape stores the mask and applies it (now if already realized, else
+  // on the next size-allocate). See TGtk3Widget.UpdateShape.
+  if AShape <> 0 then
+  begin
+    // The mask was drawn on the bitmap's cairo surface; sync the pixbuf so it
+    // actually contains the drawing (otherwise Handle is an empty/black pixbuf).
+    TGtk3Image(AShape).UpdatePixbufFromSurface;
+    AWidget.Shape := TGtk3Image(AShape).Handle^.copy;
+  end
+  else
+    AWidget.Shape := nil;
 end;
 
 class procedure TGtk3WSWinControl.SetFont(const AWinControl: TWinControl; const AFont: TFont);
@@ -622,49 +648,9 @@ end;
 
 class procedure TGtk3WSWinControl.ScrollBy(const AWinControl: TWinControl;
   DeltaX, DeltaY: integer);
-var
-  Scrolled: PGtkScrolledWindow;
-  Adjustment: PGtkAdjustment;
-  h, v: Double;
-  NewPos: Double;
 begin
-  {.$IFDEF GTK3DEBUGCORE}
-  // DebugLn('TGtk3WSWinControl.ScrollBy not implemented ');
-  {.$ENDIF}
-  if not AWinControl.HandleAllocated then exit;
-  Scrolled := TGtk3ScrollingWinControl(AWinControl.Handle).GetScrolledWindow;
-  if not Gtk3IsScrolledWindow(Scrolled) then
+  if not AWinControl.HandleAllocated then
     exit;
-  {$note below is old gtk2 implementation}
-  //TGtk3ScrollingWinControl(AWinControl.Handle).ScrollX := TGtk3ScrollingWinControl(AWinControl.Handle).ScrollX + DeltaX;
-  //TGtk3ScrollingWinControl(AWinControl.Handle).ScrollY := TGtk3ScrollingWinControl(AWinControl.Handle).ScrollY + DeltaY;
-  //TODO: change this part like in Qt using ScrollX and ScrollY variables
-  //GtkAdjustment calculation isn't good here (can go below 0 or over max)
-  // DebugLn('TGtk3WSWinControl.ScrollBy DeltaX=',dbgs(DeltaX),' DeltaY=',dbgs(DeltaY));
-  exit;
-  Adjustment := gtk_scrolled_window_get_hadjustment(Scrolled);
-  if Adjustment <> nil then
-  begin
-    h := gtk_adjustment_get_value(Adjustment);
-    NewPos := Adjustment^.upper - Adjustment^.page_size;
-    if h - DeltaX <= NewPos then
-      NewPos := h - DeltaX;
-    if NewPos < 0 then
-      NewPos := 0;
-    gtk_adjustment_set_value(Adjustment, NewPos);
-  end;
-  Adjustment := gtk_scrolled_window_get_vadjustment(Scrolled);
-  if Adjustment <> nil then
-  begin
-    v := gtk_adjustment_get_value(Adjustment);
-    NewPos := Adjustment^.upper - Adjustment^.page_size;
-    if v - DeltaY <= NewPos then
-      NewPos := v - DeltaY;
-    if NewPos < 0 then
-      NewPos := 0;
-    //DebugLn('OldValue ',dbgs(V),' NewValue ',dbgs(NewPos),' upper=',dbgs(Adjustment^.upper - Adjustment^.page_size));
-    gtk_adjustment_set_value(Adjustment, NewPos);
-  end;
   AWinControl.Invalidate;
 end;
 

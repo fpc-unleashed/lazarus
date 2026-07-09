@@ -17,7 +17,7 @@ const
 procedure LCLSpinEditUpClicked(AButton: PGtkButton; AData: gpointer); cdecl; forward;
 procedure LCLSpinEditDownClicked(AButton: PGtkButton; AData: gpointer); cdecl; forward;
 procedure LCLSpinEditEntryChanged(AEditable: PGtkEditable; AData: gpointer); cdecl; forward;
-function LCLSpinEditEntryKeyPress(AWidget: PGtkWidget; AEvent: PGdkEventKey; AData: gpointer): gboolean; cdecl; forward;
+function LCLSpinEditEntryKeyPress(AWidget: PGtkWidget; AEvent: PGdkEvent; AData: gpointer): gboolean; cdecl; forward;
 function LCLSpinEditEntryScroll(AWidget: PGtkWidget; AEvent: PGdkEventScroll; AData: gpointer): gboolean; cdecl; forward;
 procedure LCLSpinEditAdjValueChanged(AAdjustment: PGtkAdjustment; AData: gpointer); cdecl; forward;
 procedure LCLSpinEditInsertText(AEditable: PGtkEditable; ANewText: PgChar;
@@ -95,21 +95,35 @@ begin
 end;
 
 function LCLSpinEditUpButtonPress(AWidget: PGtkWidget; AEvent: PGdkEventButton; AData: gpointer): gboolean; cdecl;
+var
+  Data: PLCLSpinEditData;
 begin
+  Result := False;
   if (AEvent <> nil) and
      (AEvent^.type_ in [GDK_BUTTON_PRESS, GDK_2BUTTON_PRESS, GDK_3BUTTON_PRESS]) and
      (AEvent^.button = 1) then
+  begin
     LCLSpinEditUpClicked(PGtkButton(AWidget), AData);
-  Result := False;
+    Data := PLCLSpinEditData(AData);
+    if Assigned(Data^.Entry) then
+      PGtkEditable(Data^.Entry)^.select_region(0, -1);
+  end;
 end;
 
 function LCLSpinEditDownButtonPress(AWidget: PGtkWidget; AEvent: PGdkEventButton; AData: gpointer): gboolean; cdecl;
+var
+  Data: PLCLSpinEditData;
 begin
+  Result := False;
   if (AEvent <> nil) and
      (AEvent^.type_ in [GDK_BUTTON_PRESS, GDK_2BUTTON_PRESS, GDK_3BUTTON_PRESS]) and
      (AEvent^.button = 1) then
+  begin
     LCLSpinEditDownClicked(PGtkButton(AWidget), AData);
-  Result := False;
+    Data := PLCLSpinEditData(AData);
+    if Assigned(Data^.Entry) then
+      PGtkEditable(Data^.Entry)^.select_region(0, -1);
+  end;
 end;
 
 procedure LCLSpinEditEntryChanged(AEditable: PGtkEditable; AData: gpointer); cdecl;
@@ -137,13 +151,12 @@ begin
   end;
 end;
 
-function LCLSpinEditEntryKeyPress(AWidget: PGtkWidget; AEvent: PGdkEventKey; AData: gpointer): gboolean; cdecl;
-var
-  Data: PLCLSpinEditData;
+function LCLSpinEditEntryKeyPress(AWidget: PGtkWidget; AEvent: PGdkEvent; AData: gpointer): gboolean; cdecl;
 begin
   Result := False;
-  Data := PLCLSpinEditData(AData);
-  case AEvent^.keyval of
+  if AEvent^.type_ <> GDK_KEY_PRESS then
+    exit;
+  case PGdkEventKey(AEvent)^.keyval of
     GDK_KEY_Up:
     begin
       LCLSpinEditUpClicked(nil, AData);
@@ -344,6 +357,7 @@ procedure LCLSpinEditGetPreferredWidth(widget: PGtkWidget; min_width, nat_width:
 var
   AControl: TGtk3Widget;
   ParentClass: PGtkWidgetClass;
+  LDesiredWidth: gint;
 begin
   if not Assigned(min_width) or not Assigned(nat_width) then Exit;
   if not Gtk3IsWidget(widget) then Exit;
@@ -356,10 +370,15 @@ begin
   AControl := TGtk3Widget(HwndFromGtkWidget(widget));
   if not Assigned(AControl) then Exit;
 
-  if AControl.LCLWidth > 0 then
-    nat_width^ := AControl.LCLWidth
-  else if AControl.LCLObject.Width > 0 then
-    nat_width^ := AControl.LCLObject.Width;
+  LDesiredWidth := AControl.LCLWidth;
+  if LDesiredWidth <= 0 then
+    LDesiredWidth := AControl.LCLObject.Width;
+  if LDesiredWidth > 0 then
+  begin
+    nat_width^ := LDesiredWidth;
+    if min_width^ > LDesiredWidth then
+      min_width^ := LDesiredWidth;
+  end;
 
   if Assigned(AControl.LCLObject.Constraints) then
     with AControl.LCLObject.Constraints do
@@ -438,7 +457,11 @@ begin
   if Assigned(Data) and Assigned(Data^.BtnBox) then
   begin
     BtnW := Max(16, allocation^.height div 4);
-    PGtkWidget(Data^.BtnBox)^.set_size_request(BtnW, -1);
+    if BtnW <> Data^.LastBtnW then
+    begin
+      Data^.LastBtnW := BtnW;
+      PGtkWidget(Data^.BtnBox)^.set_size_request(BtnW, -1);
+    end;
   end;
 
   ParentClass := PGtkWidgetClass(g_type_class_peek_parent(widget^.g_type_instance.g_class));
@@ -532,6 +555,7 @@ var
   Adj: PGtkAdjustment;
   AStyleCtx: PGtkStyleContext;
   ACSSProvider: PGtkCssProvider;
+  AFocusChain: PGList;
 begin
   //HBox container is our FWidget, not focusable, works as focusProxy, but it is our ClientRect etc
   HBox := PGtkBox(g_object_new(LCLSpinEditGetType, 'orientation', [GTK_ORIENTATION_HORIZONTAL, 'spacing', 0, nil]));
@@ -594,6 +618,7 @@ begin
   Data^.IsReadOnly := False;
   Data^.EditorEnabled := True;
   Data^.MouseInside := False;
+  Data^.LastBtnW := -1;
 
   g_object_set_data(PGObject(HBox), LCL_SPIN_DATA_KEY, Data);
 
@@ -607,7 +632,8 @@ begin
     TGCallback(@LCLSpinEditInsertText), Data, nil, G_CONNECT_DEFAULT);
   g_signal_connect_data(PGObject(Entry), 'paste-clipboard',
     TGCallback(@LCLSpinEditPasteClipboard), Data, nil, G_CONNECT_DEFAULT);
-  // key-press-event NOT connected, all key handling goes through WidgetEvent !!!
+  g_signal_connect_data(PGObject(Entry), 'event',
+    TGCallback(@LCLSpinEditEntryKeyPress), Data, nil, G_CONNECT_DEFAULT);
   g_signal_connect_data(PGObject(Entry), 'scroll-event',
     TGCallback(@LCLSpinEditEntryScroll), Data, nil, G_CONNECT_DEFAULT);
   g_signal_connect_data(PGObject(Adj), 'value-changed',
@@ -628,7 +654,9 @@ begin
   g_signal_connect_data(PGObject(BtnDown), 'scroll-event',
     TGCallback(@LCLSpinEditEntryScroll), Data, nil, G_CONNECT_DEFAULT);
 
-  gtk_container_set_focus_chain(PGtkContainer(HBox), g_list_append(nil, Entry));
+  AFocusChain := g_list_append(nil, Entry);
+  gtk_container_set_focus_chain(PGtkContainer(HBox), AFocusChain);
+  g_list_free(AFocusChain);
 
   LCLSpinUpdateEntryFromAdj(Data);
 

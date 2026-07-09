@@ -3,13 +3,13 @@ msgstr ""
 "Project-Id-Version: \n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: \n"
-"Last-Translator: Swen Heinig <swen@heinig.email>\n"
+"Last-Translator: Karl-Michael Schindler <tonne1.schindler@web.de>\n"
 "Language-Team: \n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"X-Generator: Poedit 3.0.1\n"
+"X-Generator: Poedit 3.9\n"
 
 #: glazresmain.cbtncancel
 msgid "Close"
@@ -81,12 +81,12 @@ msgstr ""
 
 #: glazresmain.msgwrongext
 msgid "Filename does not have the required extension: fix it?"
-msgstr "Der Dateiname besitzt nicht die benötigte Erweiterung: Korrigieren?"
+msgstr "Dateiname besitzt nicht die benötigte Erweiterung: Korrigieren?"
 
 #: glazresmain.odopenexistingfile
 msgctxt "glazresmain.odopenexistingfile"
 msgid "Open existing file"
-msgstr "Existierende Datei öffnen"
+msgstr "Vorhandene Datei öffnen"
 
 #: glazresmain.opdfilter
 msgctxt "glazresmain.opdfilter"
@@ -100,7 +100,7 @@ msgstr "Alle Dateien"
 #: glazresmain.opdopenexistingpicture
 msgctxt "glazresmain.opdopenexistingpicture"
 msgid "Open existing picture"
-msgstr "Existierendes Bild öffnen"
+msgstr "Vorhandenes Bild öffnen"
 
 #: tglazresform.addanybtn.caption
 msgctxt "tglazresform.addanybtn.caption"
@@ -130,14 +130,12 @@ msgid "Delete all"
 msgstr "Alle löschen"
 
 #: tglazresform.clearbtn.hint
-#, fuzzy
-#| msgid "Cleare the entire list"
 msgid "Clear the entire list"
-msgstr "Die ganze Liste löschen"
+msgstr "Ganze Liste löschen"
 
 #: tglazresform.closebtn.hint
 msgid "Exit the program"
-msgstr "Das Programm beenden"
+msgstr "Programm beenden"
 
 #: tglazresform.deletebtn.caption
 msgctxt "tglazresform.deletebtn.caption"
@@ -163,9 +161,9 @@ msgstr "Meldungen"
 #: tglazresform.startbtn.caption
 msgctxt "tglazresform.startbtn.caption"
 msgid "Create"
-msgstr "Erstellen"
+msgstr "Erzeugen"
 
 #: tglazresform.startbtn.hint
 msgid "Create the output LRS file"
-msgstr "Die Ausgabe-Ressourcendatei erstellen"
+msgstr "Ausgabe-Ressourcendatei erzeugen"
 

@@ -26,6 +26,8 @@ type
   published
     procedure TestWatchesScope;
     procedure TestWatchesValue;
+   public procedure TestWatchesProperties;
+   published
     procedure TestWatchesIntrinsic;
     procedure TestWatchesIntrinsic2;
     procedure TestWatchesFunctions;
@@ -45,7 +47,7 @@ type
 implementation
 
 var
-  ControlTestWatch, ControlTestWatchScope, ControlTestWatchValue, ControlTestWatchIntrinsic, ControlTestWatchIntrinsic2,
+  ControlTestWatch, ControlTestWatchScope, ControlTestWatchesProperties, ControlTestWatchValue, ControlTestWatchIntrinsic, ControlTestWatchIntrinsic2,
   ControlTestWatchFunct, ControlTestWatchFunct2, ControlTestWatchFunctStr, ControlTestWatchFunctRec,
   ControlTestWatchFunctVariant, ControlTestWatchAddressOf, ControlTestWatchTypeCast, ControlTestModify,
   ControlTestExpression, ControlTestErrors, ControlTestRTTI, ControlTestMangled: Pointer;
@@ -1564,6 +1566,20 @@ begin
       ], 4, 'TRecWithStringArray'
     ));
 
+    t.Add('MyDefinedString', 'MyDefinedString', weAnsiStr('defstring')).IgnTypeName;
+    t.Add('MyDefinedPChar',  'MyDefinedPChar',  wePointer(weAnsiStr('defstring').IgnTypeName).IgnTypeName).IgnTypeName;
+    c := t.Count;
+    t.Add('MyDefinedString[1]', 'MyDefinedString[1]', weChar('d')).IgnTypeName
+    .AddFlag([ehChrIdxExpString], stDwarf2);
+    t.Add('MyDefinedPChar[1]',  'MyDefinedPChar[1]',  weChar('e')).IgnTypeName
+    .AddFlag([ehChrIdxExpPChar], stDwarf2);
+    t.Add('MyDefinedString[2]', 'MyDefinedString[2]', weChar('e')).IgnTypeName
+    .AddFlag([ehChrIdxExpString], stDwarf2);
+    t.Add('MyDefinedPChar[2]',  'MyDefinedPChar[2]',  weChar('f')).IgnTypeName
+    .AddFlag([ehChrIdxExpPChar], stDwarf2);
+    if Compiler.Version < 030000 then
+      for i := c to t.Count-1 do
+        t.Tests[i].CharFromIndex;
 
     AddWatches(t, 'glob const', 'gc', 000, 'A', tlConst);
     AddWatches(t, 'glob var',   'gv', 001, 'B');
@@ -1583,17 +1599,17 @@ begin
     for i := c to t.Count-1 do
       t.Tests[i].Skip;
 
+    c := t.Count; // for FPC 3.3.1 and up
     AddWatches(t, 'glob TMyBaseClass class const',   'TMyBaseClass.cl_c_',  001, 'c', tlClassConst);
     AddWatches(t, 'glob TMyClass class const',   'TMyClass.cl_c_',  001, 'c', tlClassConst);
-    c := t.Count;
-    AddWatches(t, 'glob TMyBaseClass class var',     'TMyBaseClass.cl_v_',  007, 'v', tlClassVar);
-    AddWatches(t, 'glob TMyClass class var',     'TMyClass.cl_v_',  007, 'v', tlClassVar);
-    for i := c to t.Count-1 do
-      t.Tests[i].Skip;  // class var do not work => but ensure they do not crash
-
     AddWatches(t, 'glob MyClass2 class const',   'MyClass2.cl_c_',  001, 'c', tlClassConst);
     AddWatches(t, 'glob MyClass1 class const',   'MyClass1.cl_c_',  001, 'c', tlClassConst);
-    c := t.Count;
+    AddWatches(t, 'glob MyTestRec1.MyEmbedClass class const',   'MyTestRec1.MyEmbedClass.cl_c_',  001, 'c', tlClassConst);
+
+    if (Compiler.Version < 030300) then // before 3.3.1 class const were in dwarf
+      c := t.Count;
+    AddWatches(t, 'glob TMyBaseClass class var',     'TMyBaseClass.cl_v_',  007, 'v', tlClassVar);
+    AddWatches(t, 'glob TMyClass class var',     'TMyClass.cl_v_',  007, 'v', tlClassVar);
     AddWatches(t, 'glob MyClass2 class var',     'MyClass2.cl_v_',  007, 'v', tlClassVar);
     AddWatches(t, 'glob MyClass1 class var',     'MyClass1.cl_v_',  007, 'v', tlClassVar);
     for i := c to t.Count-1 do
@@ -1612,7 +1628,6 @@ begin
     AddWatches(t, 'glob MyTestRec1',     'MyTestRec1.rc_f_',  002, 'r');
     AddWatches(t, 'glob MyPTestRec1',     'MyPTestRec1^.rc_f_',  002, 'r');
 
-    AddWatches(t, 'glob MyTestRec1.MyEmbedClass class const',   'MyTestRec1.MyEmbedClass.cl_c_',  001, 'c', tlClassConst);
 
     AddWatches(t, 'glob var dyn array of [0]',   'gva', 005, 'K', tlArrayWrap, '[0]' );
     AddWatches(t, 'glob var dyn array of [1]',   'gva', 006, 'L', tlArrayWrap, '[1]');
@@ -1804,6 +1819,177 @@ begin
       t.EvaluateWatches;
       t.CheckResults;
     end;
+
+
+  finally
+    Debugger.RunToNextPause(dcStop);
+    t.Free;
+    Debugger.ClearDebuggerMonitors;
+    Debugger.FreeDebugger;
+
+    AssertTestErrors;
+  end;
+end;
+
+procedure TTestWatches.TestWatchesProperties;
+var
+  ExeName: String;
+  t: TWatchExpectationList;
+  Src: TCommonSource;
+  BrkPrg: TDBGBreakPoint;
+  i: Integer;
+begin
+  if SkipTest then exit;
+  if not TestControlCanTest(ControlTestWatchesProperties) then exit;
+  t := nil;
+
+  Src := GetCommonSourceFor('WatchesPropertiesPrg.lpr');
+  TestCompile(Src, ExeName);
+
+  AssertTrue('Start debugger', Debugger.StartDebugger(AppDir, ExeName));
+
+  try
+    t := TWatchExpectationList.Create(Self);
+    t.AcceptSkSimple := [skInteger, skCardinal, skBoolean, skChar, skFloat,
+      skString, skAnsiString, skCurrency, skVariant, skWideString,
+      skInterface, skEnumValue];
+    t.AddTypeNameAlias('integer', 'integer|longint');
+    t.AddTypeNameAlias('Char', 'Char|AnsiChar');
+
+    BrkPrg         := Debugger.SetBreakPoint(Src, 'BRK_MAIN');
+    AssertDebuggerNotInErrorState;
+    RunToPause(BrkPrg);
+
+    t.Clear;
+
+    t.Add('', 'f.PBitNum',                        weCardinal(01, #1, 0));
+    t.Add('', 'f.PTWordRecord1',                  weCardinal(02, #1, 0));
+    t.Add('', 'f.PTWorPackdRecord',               weCardinal(03, #1, 0));
+    t.Add('', 'f.PTWordPack2Record',              weCardinal(04, #1, 0));
+    t.Add('', 'f.PBitNumArray',                   weCardinal(01, #1, 0));
+    t.Add('', 'f.PBitNumArray2',                  weCardinal(02, #1, 0));
+    //t.Add('', 'f.PBitNum_PackArray',              weCardinal(03, #1, 0));
+    //t.Add('', 'f.PBitNum_PackArray2',             weCardinal(04, #1, 0));
+    t.Add('', 'f.PWordRec_Array',                 weCardinal(05, #1, 0));
+    t.Add('', 'f.PWordPackRec_Array',             weCardinal(06, #1, 0));
+    t.Add('', 'f.PWordPack2Rec_Array',            weCardinal(07, #1, 0));
+    t.Add('', 'f.PWordRec_PackArray',             weCardinal(08, #1, 0));
+    t.Add('', 'f.PWordPackRec_PackArray',         weCardinal(09, #1, 0));
+    t.Add('', 'f.PWordPack2Rec_PackArray',        weCardinal(10, #1, 0));
+    t.Add('', 'f.PRecWordRec_Array',              weCardinal(11, #1, 0));
+    t.Add('', 'f.PRecWordPackRec_Array',          weCardinal(12, #1, 0));
+    t.Add('', 'f.PRecWordPack2Rec_Array',         weCardinal(13, #1, 0));
+    t.Add('', 'f.PRecWordRec_PackArray',          weCardinal(14, #1, 0));
+    t.Add('', 'f.PRecWordPackRec_PackArray',      weCardinal(15, #1, 0));
+    t.Add('', 'f.PRecWordPack2Rec_PackArray',     weCardinal(16, #1, 0));
+    t.Add('', 'f.PPackRecWordRec_Array',          weCardinal(17, #1, 0));
+    t.Add('', 'f.PPackRecWordPackRec_Array',      weCardinal(18, #1, 0));
+    t.Add('', 'f.PPackRecWordPack2Rec_Array',     weCardinal(19, #1, 0));
+    t.Add('', 'f.PPackRecWordRec_PackArray',      weCardinal(20, #1, 0));
+    t.Add('', 'f.PPackRecWordPackRec_PackArray',  weCardinal(21, #1, 0));
+    t.Add('', 'f.PPackRecWordPack2Rec_PackArray', weCardinal(22, #1, 0));
+
+    t.Add('', 'f.ZTWordRecord1',                  weCardinal(1, #1, 0));
+    t.Add('', 'f.ZTWorPackdRecord',               weCardinal(2, #1, 0));
+    t.Add('', 'f.ZTWordPack2Record',              weCardinal(3, #1, 0));
+    t.Add('', 'f.ZWordRec_Array',                 weCardinal(4, #1, 0));
+    t.Add('', 'f.ZWordPackRec_Array',             weCardinal(5, #1, 0));
+    t.Add('', 'f.ZWordPack2Rec_Array',            weCardinal(6, #1, 0));
+    t.Add('', 'f.ZWordRec_PackArray',             weCardinal(7, #1, 0));
+    t.Add('', 'f.ZWordPackRec_PackArray',         weCardinal(1, #1, 0));
+    t.Add('', 'f.ZWordPack2Rec_PackArray',        weCardinal(2, #1, 0));
+    t.Add('', 'f.ZRecWordRec_Array',              weCardinal(3, #1, 0));
+    t.Add('', 'f.ZRecWordPackRec_Array',          weCardinal(4, #1, 0));
+    t.Add('', 'f.ZRecWordPack2Rec_Array',         weCardinal(5, #1, 0));
+    t.Add('', 'f.ZRecWordRec_PackArray',          weCardinal(6, #1, 0));
+    t.Add('', 'f.ZRecWordPackRec_PackArray',      weCardinal(7, #1, 0));
+    t.Add('', 'f.ZRecWordPack2Rec_PackArray',     weCardinal(1, #1, 0));
+    t.Add('', 'f.ZPackRecWordRec_Array',          weCardinal(2, #1, 0));
+    t.Add('', 'f.ZPackRecWordPackRec_Array',      weCardinal(3, #1, 0));
+    t.Add('', 'f.ZPackRecWordPack2Rec_Array',     weCardinal(4, #1, 0));
+    t.Add('', 'f.ZPackRecWordRec_PackArray',      weCardinal(5, #1, 0));
+    t.Add('', 'f.ZPackRecWordPackRec_PackArray',  weCardinal(6, #1, 0));
+    t.Add('', 'f.ZPackRecWordPack2Rec_PackArray', weCardinal(7, #1, 0));
+
+    t.Add('', 'f.GVal1',        weInteger(400000, #1, 0));
+    t.Add('', 'f.GVal2[2]',     weInteger(400002, #1, 0));
+    t.Add('', 'f.GVal3[3,10]',  weInteger(400030, #1, 0));
+    t.Add('', 'f.GVal4[4,#20]', weInteger(400080, #1, 0));
+    t.Add('', 'f.GVal5',        weInteger(401000, #1, 0));
+    t.Add('', 'f.GVal6[2]',     weInteger(401202, #1, 0));
+    t.Add('', 'f.GVal7[3,10]',  weInteger(401330, #1, 0));
+    t.Add('', 'f.GVal8[4,#20]', weInteger(401480, #1, 0));
+
+    t.Add('', 'f.GVal2[f.GVal5 + f.GVal6[1]]',     weInteger(400000+401000+401201, #1, 0));
+
+
+    t.Add('', 'b.PBitNum',                        weCardinal(01, #1, 0));
+    t.Add('', 'b.PTWordRecord1',                  weCardinal(02, #1, 0));
+    t.Add('', 'b.PTWorPackdRecord',               weCardinal(03, #1, 0));
+    t.Add('', 'b.PTWordPack2Record',              weCardinal(04, #1, 0));
+    t.Add('', 'b.PBitNumArray',                   weCardinal(01, #1, 0));
+    t.Add('', 'b.PBitNumArray2',                  weCardinal(02, #1, 0));
+    //t.Add('', 'b.PBitNum_PackArray',              weCardinal(03, #1, 0));
+    //t.Add('', 'b.PBitNum_PackArray2',             weCardinal(04, #1, 0));
+    t.Add('', 'b.PWordRec_Array',                 weCardinal(05, #1, 0));
+    t.Add('', 'b.PWordPackRec_Array',             weCardinal(06, #1, 0));
+    t.Add('', 'b.PWordPack2Rec_Array',            weCardinal(07, #1, 0));
+    t.Add('', 'b.PWordRec_PackArray',             weCardinal(08, #1, 0));
+    t.Add('', 'b.PWordPackRec_PackArray',         weCardinal(09, #1, 0));
+    t.Add('', 'b.PWordPack2Rec_PackArray',        weCardinal(10, #1, 0));
+    t.Add('', 'b.PRecWordRec_Array',              weCardinal(11, #1, 0));
+    t.Add('', 'b.PRecWordPackRec_Array',          weCardinal(12, #1, 0));
+    t.Add('', 'b.PRecWordPack2Rec_Array',         weCardinal(13, #1, 0));
+    t.Add('', 'b.PRecWordRec_PackArray',          weCardinal(14, #1, 0));
+    t.Add('', 'b.PRecWordPackRec_PackArray',      weCardinal(15, #1, 0));
+    t.Add('', 'b.PRecWordPack2Rec_PackArray',     weCardinal(16, #1, 0));
+    t.Add('', 'b.PPackRecWordRec_Array',          weCardinal(17, #1, 0));
+    t.Add('', 'b.PPackRecWordPackRec_Array',      weCardinal(18, #1, 0));
+    t.Add('', 'b.PPackRecWordPack2Rec_Array',     weCardinal(19, #1, 0));
+    t.Add('', 'b.PPackRecWordRec_PackArray',      weCardinal(20, #1, 0));
+    t.Add('', 'b.PPackRecWordPackRec_PackArray',  weCardinal(21, #1, 0));
+    t.Add('', 'b.PPackRecWordPack2Rec_PackArray', weCardinal(22, #1, 0));
+
+    t.Add('', 'b.ZTWordRecord1',                  weCardinal(1, #1, 0));
+    t.Add('', 'b.ZTWorPackdRecord',               weCardinal(2, #1, 0));
+    t.Add('', 'b.ZTWordPack2Record',              weCardinal(3, #1, 0));
+    t.Add('', 'b.ZWordRec_Array',                 weCardinal(4, #1, 0));
+    t.Add('', 'b.ZWordPackRec_Array',             weCardinal(5, #1, 0));
+    t.Add('', 'b.ZWordPack2Rec_Array',            weCardinal(6, #1, 0));
+    t.Add('', 'b.ZWordRec_PackArray',             weCardinal(7, #1, 0));
+    t.Add('', 'b.ZWordPackRec_PackArray',         weCardinal(1, #1, 0));
+    t.Add('', 'b.ZWordPack2Rec_PackArray',        weCardinal(2, #1, 0));
+    t.Add('', 'b.ZRecWordRec_Array',              weCardinal(3, #1, 0));
+    t.Add('', 'b.ZRecWordPackRec_Array',          weCardinal(4, #1, 0));
+    t.Add('', 'b.ZRecWordPack2Rec_Array',         weCardinal(5, #1, 0));
+    t.Add('', 'b.ZRecWordRec_PackArray',          weCardinal(6, #1, 0));
+    t.Add('', 'b.ZRecWordPackRec_PackArray',      weCardinal(7, #1, 0));
+    t.Add('', 'b.ZRecWordPack2Rec_PackArray',     weCardinal(1, #1, 0));
+    t.Add('', 'b.ZPackRecWordRec_Array',          weCardinal(2, #1, 0));
+    t.Add('', 'b.ZPackRecWordPackRec_Array',      weCardinal(3, #1, 0));
+    t.Add('', 'b.ZPackRecWordPack2Rec_Array',     weCardinal(4, #1, 0));
+    t.Add('', 'b.ZPackRecWordRec_PackArray',      weCardinal(5, #1, 0));
+    t.Add('', 'b.ZPackRecWordPackRec_PackArray',  weCardinal(6, #1, 0));
+    t.Add('', 'b.ZPackRecWordPack2Rec_PackArray', weCardinal(7, #1, 0));
+
+    t.Add('', 'b.GVal1',        weInteger(400000, #1, 0));
+    t.Add('', 'b.GVal2[2]',     weInteger(400002, #1, 0));
+    t.Add('', 'b.GVal3[3,10]',  weInteger(400030, #1, 0));
+    t.Add('', 'b.GVal4[4,#20]', weInteger(400080, #1, 0));
+    t.Add('', 'b.GVal5',        weInteger(401000, #1, 0));
+    t.Add('', 'b.GVal6[2]',     weInteger(401202, #1, 0));
+    t.Add('', 'b.GVal7[3,10]',  weInteger(401330, #1, 0));
+    t.Add('', 'b.GVal8[4,#20]', weInteger(401480, #1, 0));
+
+
+    for i := 0 to t.Count-1 do
+      t.Tests[i]
+      .AddEvalFlag([defAllowFunctionCall])
+      .IgnTypeName();
+
+
+    t.EvaluateWatches;
+    t.CheckResults;
 
 
   finally
@@ -5408,6 +5594,7 @@ initialization
   ControlTestWatch          := TestControlRegisterTest('TTestWatch');
   ControlTestWatchScope     := TestControlRegisterTest('Scope', ControlTestWatch);
   ControlTestWatchValue     := TestControlRegisterTest('Value', ControlTestWatch);
+  ControlTestWatchesProperties:= TestControlRegisterTest('Properties', ControlTestWatch);
   ControlTestWatchIntrinsic := TestControlRegisterTest('Intrinsic', ControlTestWatch);
   ControlTestWatchIntrinsic2:= TestControlRegisterTest('Intrinsic2', ControlTestWatch);
   ControlTestWatchFunct     := TestControlRegisterTest('Function', ControlTestWatch);

@@ -1082,6 +1082,14 @@ msgstr "Choisir le fichier de modèle de code (*.dci)"
 msgid "Show close buttons in notebook"
 msgstr "Afficher les boutons de fermeture dans l'éditeur"
 
+#: lazarusidestrconsts.dlgcloseotherpagesmod
+msgid "Close all other tabs"
+msgstr ""
+
+#: lazarusidestrconsts.dlgcloserightpagesmod
+msgid "Close tabs on the right"
+msgstr ""
+
 #: lazarusidestrconsts.dlgclrscheme
 msgid "Color Scheme"
 msgstr "Profil des couleurs"
@@ -1422,8 +1430,18 @@ msgid "Dwarf 2 with sets"
 msgstr "Dwarf 2 avec ensembles"
 
 #: lazarusidestrconsts.dlgcosymboltypedwarf3
-msgid "Dwarf 3 (beta)"
+#, fuzzy
+#| msgid "Dwarf 3 (beta)"
+msgid "Dwarf 3"
 msgstr "Dwarf 3 (béta)"
+
+#: lazarusidestrconsts.dlgcosymboltypedwarf4
+msgid "Dwarf 4"
+msgstr ""
+
+#: lazarusidestrconsts.dlgcosymboltypedwarf5
+msgid "Dwarf 5 (FPC 3.3.1)"
+msgstr ""
 
 #: lazarusidestrconsts.dlgcosymboltypestabs
 msgid "Stabs"
@@ -1869,10 +1887,6 @@ msgctxt "lazarusidestrconsts.dlgenvtype"
 msgid "Type"
 msgstr "Type"
 
-#: lazarusidestrconsts.dlgeofocusmessagesatcompilation
-msgid "Focus messages at compilation"
-msgstr "Focus sur les messages lors de la compilation"
-
 #: lazarusidestrconsts.dlgextracharspacing
 msgid "Extra character spacing"
 msgstr "Espace supplémentaire entre les caractères"
@@ -2096,6 +2110,10 @@ msgstr "Commentaire { }"
 msgid "Case"
 msgstr "Case"
 
+#: lazarusidestrconsts.dlgfoldpascaseelse
+msgid "Otherwise/Else (Case)"
+msgstr ""
+
 #: lazarusidestrconsts.dlgfoldpasclass
 msgid "Class/Object"
 msgstr "Class/Object"
@@ -2278,6 +2296,12 @@ msgstr "&Depuis le début"
 #: lazarusidestrconsts.dlgfromcursor
 msgid "From c&ursor"
 msgstr "Depuis le c&urseur"
+
+#: lazarusidestrconsts.dlggeneral
+#, fuzzy
+msgctxt "lazarusidestrconsts.dlggeneral"
+msgid "General"
+msgstr "Général"
 
 #: lazarusidestrconsts.dlgglobal
 msgid "&Global"
@@ -2785,10 +2809,6 @@ msgstr "Exécutable Make"
 msgid "Manage desktops"
 msgstr "Gestion des bureaux"
 
-#: lazarusidestrconsts.dlgmargingutter
-msgid "Margin and gutter"
-msgstr "Marge et gouttière"
-
 #: lazarusidestrconsts.dlgmarkercolor
 msgid "Marker color"
 msgstr "Couleur de marqueur"
@@ -2981,14 +3001,6 @@ msgstr "La valeur 0 signifie illimité."
 #: lazarusidestrconsts.dlgmaxrecentprojs
 msgid "Max recent project files"
 msgstr "Maximum de fichiers de projets récents"
-
-#: lazarusidestrconsts.dlgmiddletabcloseotherpagesmod
-msgid "Middle-click-modifier to close all other tabs"
-msgstr "Clic moyen-modificateur pour fermer tous les autres onglets"
-
-#: lazarusidestrconsts.dlgmiddletabcloserightpagesmod
-msgid "Middle-click-modifier to close tabs on the right"
-msgstr "Clic moyen-modificateur pour fermer les onglets à droite"
 
 #: lazarusidestrconsts.dlgmixmethodsandproperties
 msgid "Mix methods and properties"
@@ -4337,10 +4349,6 @@ msgstr "Affichage des fenêtres"
 msgctxt "lazarusidestrconsts.dlgshowlinenumbers"
 msgid "Show line numbers"
 msgstr "Afficher les numéros de lignes"
-
-#: lazarusidestrconsts.dlgshowmessagesicons
-msgid "Show Messages Icons"
-msgstr "Afficher les icônes de messages"
 
 #: lazarusidestrconsts.dlgshownotes
 msgid "Show notes"
@@ -6511,6 +6519,11 @@ msgstr "Changer l'encodage"
 msgid "Change file"
 msgstr "Changer de fichier"
 
+#: lazarusidestrconsts.lischangemethodvisibilityto
+#, object-pascal-format
+msgid "Change method visibility to \"%s\""
+msgstr ""
+
 #: lazarusidestrconsts.lischangeparent
 msgid "Change Parent"
 msgstr "Changer le parent"
@@ -8619,7 +8632,9 @@ msgid "Additional search path"
 msgstr "Chemin de recherche additionnel"
 
 #: lazarusidestrconsts.lisdebugoptionsfrmallowfunctioncalls
-msgid "BETA: Allow function calls in watches (if supported by backend)"
+#, fuzzy
+#| msgid "BETA: Allow function calls in watches (if supported by backend)"
+msgid "Allow function calls in watches (if supported by backend)"
 msgstr "BETA : Autoriser les appels de fonction dans les suivis (si pris en charge par le backend)"
 
 #: lazarusidestrconsts.lisdebugoptionsfrmautocloseasm
@@ -8878,10 +8893,6 @@ msgstr "Le délimiteur est le point-virgule."
 #: lazarusidestrconsts.lisdelphicompatibleresources
 msgid "Delphi compatible resources. Recommended."
 msgstr "Ressources compatibles avec Delphi. Recommandées."
-
-#: lazarusidestrconsts.lisdesignerhasunsavedchanges
-msgid "Designer has unsaved changes"
-msgstr ""
 
 #: lazarusidestrconsts.lisdesigntimeonlypkg
 msgid "Designtime-only package"
@@ -9456,6 +9467,14 @@ msgstr "Activer Dwarf 2 avec les ensembles"
 #: lazarusidestrconsts.lisenableoptiondwarf3
 msgid "Enable Dwarf 3 (-gw3)"
 msgstr "Activer Dwarf 3 (-gw3)"
+
+#: lazarusidestrconsts.lisenableoptiondwarf4
+msgid "Enable Dwarf 4 (-gw4)"
+msgstr ""
+
+#: lazarusidestrconsts.lisenableoptiondwarf5
+msgid "Enable Dwarf 5 [FPC 3.3.1] (-gw5)"
+msgstr ""
 
 #: lazarusidestrconsts.lisenableoptionxg
 msgid "Enable Option -Xg?"
@@ -10104,6 +10123,10 @@ msgstr "&Premier essai"
 msgid "Fix LFM file"
 msgstr "Corriger le fichier LFM"
 
+#: lazarusidestrconsts.lisfocusatcompilation
+msgid "Focus at compilation"
+msgstr ""
+
 #: lazarusidestrconsts.lisfocushint
 msgid "Focus hint"
 msgstr "Bulle d'aide de focus"
@@ -10318,9 +10341,17 @@ msgstr "Identificateur : %s"
 msgid "in all open packages and projects"
 msgstr "dans tous les paquets et projets ouverts"
 
+#: lazarusidestrconsts.lisfriincurrentmethod
+msgid "in current method"
+msgstr ""
+
 #: lazarusidestrconsts.lisfriincurrentunit
 msgid "in current unit"
 msgstr "dans l'unité courante"
+
+#: lazarusidestrconsts.lisfriinlocalfunction
+msgid "in local function"
+msgstr ""
 
 #: lazarusidestrconsts.lisfriinmainproject
 msgid "in main project"
@@ -10329,10 +10360,6 @@ msgstr "dans le projet principal"
 #: lazarusidestrconsts.lisfriinprojectpackageowningcurrentunit
 msgid "in project/package owning current unit"
 msgstr "dans le projet/paquet possédant l'unité courante"
-
-#: lazarusidestrconsts.lisfriinvalididentifier
-msgid "Invalid Identifier"
-msgstr "Identificateur incorrect"
 
 #: lazarusidestrconsts.lisfrirenameallreferences
 msgid "Rename all References"
@@ -13510,6 +13537,10 @@ msgstr "Fenêtre des messages"
 msgid "Method class not found"
 msgstr "Classe de la méthode introuvable"
 
+#: lazarusidestrconsts.lismiddleclickmodifiers
+msgid "Middle-click-modifiers"
+msgstr ""
+
 #: lazarusidestrconsts.lismissingevents
 msgid "Missing Events"
 msgstr "Événements manquants"
@@ -13894,6 +13925,10 @@ msgstr "Couleurs des messages"
 #: lazarusidestrconsts.lismultipledirectoriesareseparatedwithsemicolons
 msgid "Multiple directories are separated with semicolons"
 msgstr "Les différents répertoires sont séparés par des points-virgules"
+
+#: lazarusidestrconsts.lismustbeopenedmanually
+msgid "Must be opened manually from View -> Messages."
+msgstr ""
 
 #: lazarusidestrconsts.lismvsavemessagestofiletxt
 msgid "Save messages to file (*.txt)"
@@ -14482,11 +14517,6 @@ msgstr "Remplacer la sous-cible du projet."
 #: lazarusidestrconsts.lisoverridetheprojectwidgetsetegdefault
 #, object-pascal-format
 msgid "Override the project widgetset. For example: %s. Default: %s."
-msgstr ""
-
-#: lazarusidestrconsts.lisoverwritedesignerchangesanyway
-#, object-pascal-format
-msgid "Unsaved designer changes for file \"%s\" will be lost. Overwrite anyway?"
 msgstr ""
 
 #: lazarusidestrconsts.lisownerisalreadyusedbytreadertwriterpleasechooseanot
@@ -16906,6 +16936,24 @@ msgstr "Afficher"
 msgid "Show abstract methods of \"%s\""
 msgstr "Montrer les méthodes abstraites de \"%s\""
 
+#: lazarusidestrconsts.lisshowautomatically
+msgid "Show automatically"
+msgstr ""
+
+#: lazarusidestrconsts.lisshowautonever
+#, fuzzy
+msgctxt "lazarusidestrconsts.lisshowautonever"
+msgid "Never"
+msgstr "Jamais"
+
+#: lazarusidestrconsts.lisshowautoonlywhenerrorsoccur
+msgid "Only when errors occur"
+msgstr ""
+
+#: lazarusidestrconsts.lisshowautowhencompiling
+msgid "When compiling"
+msgstr ""
+
 #: lazarusidestrconsts.lisshowcomponenttreeinobjectinspector
 msgid "Show component tree"
 msgstr "Afficher l'arbre des composants"
@@ -16946,6 +16994,10 @@ msgstr "Afficher l'aide"
 msgctxt "lazarusidestrconsts.lisshowhintsinobjectinspector"
 msgid "Show hints"
 msgstr "Afficher les conseils"
+
+#: lazarusidestrconsts.lisshowicons
+msgid "Show Icons"
+msgstr ""
 
 #: lazarusidestrconsts.lisshowidentifiers
 msgid "Show identifiers"
@@ -17235,6 +17287,10 @@ msgstr "Démarrer avec un nouveau projet"
 #: lazarusidestrconsts.lisstatusbarshowspropertysnameandclass
 msgid "Statusbar shows the property's name and the class where it is published."
 msgstr "La barre de statut montre le nom de la propriété et la classe où elle est publiée."
+
+#: lazarusidestrconsts.lisstayontop
+msgid "Stay on top"
+msgstr ""
 
 #: lazarusidestrconsts.lisstop
 msgctxt "lazarusidestrconsts.lisstop"
@@ -18521,6 +18577,11 @@ msgstr "Impossible de supprimer le projet mis à l'échelle depuis le code sourc
 msgid "Unable to remove project title from source.%s%s"
 msgstr "Impossible de supprimer du code source le titre du projet.%s%s"
 
+#: lazarusidestrconsts.lisunabletorenamefileto
+#, object-pascal-format
+msgid "Unable to rename file \"%s\" to \"%s\"."
+msgstr ""
+
 #: lazarusidestrconsts.lisunabletorenameforminsource
 msgid "Unable to rename form in source."
 msgstr "Impossible de renommer la fiche dans le code source."
@@ -18956,10 +19017,6 @@ msgstr "Le menu Fenêtre montre le nom de la fiche au lieu du titre"
 #: lazarusidestrconsts.liswindowmenuwithnamefordesignedformhint
 msgid "Useful especially if the caption is left empty."
 msgstr "Utile principalement lorsque le titre de la fiche est vide."
-
-#: lazarusidestrconsts.liswindowstaysontop
-msgid "Window stays on top"
-msgstr "La fenêtre reste en avant-plan"
 
 #: lazarusidestrconsts.liswithincludes2
 msgid ", with includes "

@@ -45,7 +45,9 @@ type
 
   TSynSpellCheckHighlighterOption = (
     hoNoNumbers,
-    hoNoKnownWords
+    hoNoKnownWords,
+    hoLimitToStrings,
+    hoLimitToComments
   );
   TSynSpellCheckHighlighterOptions = set of TSynSpellCheckHighlighterOption;
 
@@ -328,6 +330,7 @@ var
   LineIdx, WordStart, WordLen, ErrLen, hx: Integer;
   ErrStart: IntPos;
   MoreErr: Boolean;
+  tc: TLazEditTokenClass;
 begin
   if (FWordBreaker = nil) or (FWordChecker = nil) then exit;
 
@@ -343,16 +346,27 @@ begin
 
     WordBreaker.SetLine(LineTxt);
     while WordBreaker.NextWord(WordStart, WordLen) do begin
-      if FHighlighter <> nil then begin
+      if (FHighlighter <> nil) and (FHighlighterOpts <> []) then begin
         FHighlighter.NextToLogX(ToIdx(WordStart)+1);
+        tc := FHighlighter.GetTokenClass;
         hx := ToPos(FHighlighter.GetTokenPos);
+
         if (hx <= WordStart) and (hx + FHighlighter.GetTokenLen >= WordStart + WordLen) then begin
           if (hoNoNumbers in FHighlighterOpts) and
-             (FHighlighter.GetTokenClass in [tcNumber])
+             (tc in [tcNumber])
           then
             continue;
           if (hoNoKnownWords in FHighlighterOpts) and
              (tdKnownWord in FHighlighter.GetTokenDetails)
+          then
+            continue;
+        end;
+
+        if FHighlighterOpts * [hoLimitToStrings, hoLimitToComments] <> [] then begin
+          if not(
+            ( (hoLimitToComments in FHighlighterOpts) and (tc = tcComment) ) or
+            ( (hoLimitToStrings in FHighlighterOpts) and (tc = tcString) )
+          )
           then
             continue;
         end;

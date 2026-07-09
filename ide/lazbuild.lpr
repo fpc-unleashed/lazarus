@@ -57,15 +57,25 @@ type
     lpaAddPkgLinks // register, no build
     );
 
+  {$ScopedEnums on}
+  TBuildIDE = (
+    None,
+    User,
+    Minimal,
+    Release
+    );
+  {$ScopedEnums off}
+
   { TLazBuildApplication }
 
   TLazBuildApplication = class(TCustomApplication)
   private
     FBuildAll: boolean;
-    FBuildIDE: boolean;
+    FBuildIDE: TBuildIDE;
     FBuildIDEOptions: string;
     FBuildModeOverride: String;
     FBuildRecursive: boolean;
+    FBuildRelease: boolean;
     FBuildTwice: boolean;
     fCompilerInCfg: string;
     fCompilerOverride: String;
@@ -174,13 +184,13 @@ type
     procedure PrintErrorAndHalt(Code: Byte; const Msg: string);
 
     property PackageAction: TPkgAction read FPackageAction write FPackageAction;
-    property BuildAll: boolean read FBuildAll write FBuildAll;// build all files of project/package
+    property BuildAll: boolean read FBuildAll write FBuildAll;// build all files of project/package, option -B
     property BuildTwice: boolean read FBuildTwice write FBuildTwice;// build all packages twice
     property BuildRecursive: boolean read FBuildRecursive // apply BuildAll flag to dependencies
                                      write FBuildRecursive;
-    property SkipDependencies: boolean read FSkipDependencies
-                                            write FSkipDependencies;
-    property BuildIDE: boolean read FBuildIDE write FBuildIDE; // build IDE (as opposed to a project/package etc)
+    property SkipDependencies: boolean read FSkipDependencies write FSkipDependencies;
+    property BuildRelease: boolean read FBuildRelease write FBuildRelease;
+    property BuildIDE: TBuildIDE read FBuildIDE write FBuildIDE; // build IDE (as opposed to a project/package etc)
     property BuildIDEOptions: string read FBuildIDEOptions write FBuildIDEOptions;
     property CreateMakefile: boolean read FCreateMakefile write FCreateMakefile;
     property WidgetSetOverride: String read FWidgetsetOverride write FWidgetsetOverride;
@@ -602,6 +612,7 @@ begin
   if not Init then exit;
 
   LoadMiscellaneousOptions;
+
   BuildLazProfiles:=MiscellaneousOptions.BuildLazProfiles;
   CurProf:=BuildLazProfiles.Current;
   if BuildModeOverride<>'' then
@@ -627,7 +638,14 @@ begin
     CurProf:=BuildLazProfiles[i];
     BuildLazProfiles.CurrentIndex:=i;
   end;
-  PrintHint('Building Lazarus IDE with profile "' + CurProf.Name + '"');
+  case BuildIDE of
+    TBuildIDE.Minimal:
+      PrintHint('Building MINIMAL Lazarus IDE with defaults');
+    TBuildIDE.Release:
+      PrintHint('Building RELEASE Lazarus IDE with defaults');
+  else
+    PrintHint('Building Lazarus IDE with profile "' + CurProf.Name + '"');
+  end;
 
   if (Length(OSOverride) <> 0) then
     CurProf.TargetOS:=OSOverride;
@@ -654,7 +672,18 @@ begin
   Flags:=[];
 
   // try loading install packages
-  PackageGraph.LoadAutoInstallPackages(BuildLazProfiles.StaticAutoInstallPackages);
+  case BuildIDE of
+    TBuildIDE.None,
+    TBuildIDE.User:
+      // load user installed packages
+      PackageGraph.LoadAutoInstallPackages(BuildLazProfiles.StaticAutoInstallPackages);
+    TBuildIDE.Minimal: ;
+    TBuildIDE.Release:
+      begin
+        PackageGraph.LoadReleasePackages;
+        Include(Flags,blfKeepInstallPkgs);
+      end;
+  end;
 
   // create target directory
   TargetDir:=CurProf.TargetDirectory;
@@ -749,7 +778,7 @@ begin
   if APackage.Missing then
     PrintErrorAndHalt(ErrorBuildFailed, '"' + APackage.IDAsString + '": lpk file missing');
 
-  // check graph for circles and broken dependencies
+  // check graph for cycles and broken dependencies
   if not (pcfDoNotCompileDependencies in Flags) then begin
     CheckPackageGraphForCompilation(APackage,nil);
   end;
@@ -800,10 +829,10 @@ begin
     if PathList<>nil then
       PrintErrorAndHalt(ErrorLoadPackageFailed,'Broken dependency: '+PathListToString(PathList));
 
-    // check for circle dependencies
+    // check for cycle dependencies
     PathList:=PackageGraph.FindCycleDependencyPath(APackage,FirstDependency);
     if PathList<>nil then
-      PrintErrorAndHalt(ErrorLoadPackageFailed,'Circle dependency: '+PathListToString(PathList));
+      PrintErrorAndHalt(ErrorLoadPackageFailed,'Cycle dependency: '+PathListToString(PathList));
   finally
     PathList.Free;
   end;
@@ -1096,6 +1125,7 @@ begin
 
   Result.BeginUpdate(true);
   try
+    Result.BuildRelease:=BuildRelease;
     // read project info file
     if Result.ReadProject(AFilename,EnvironmentOptions.BuildMatrixOptions)<>mrOk then
       PrintErrorAndHalt(ErrorLoadProjectFailed,'Project '+AFilename);
@@ -1291,7 +1321,10 @@ procedure TLazBuildApplication.LoadMiscellaneousOptions;
 begin
   if MiscellaneousOptions<>nil then exit;
   MiscellaneousOptions:=TMiscellaneousOptions.Create;
-  MiscellaneousOptions.Load;
+  if BuildIDE in [TBuildIDE.None,TBuildIDE.User] then
+    MiscellaneousOptions.Load
+  else
+    MiscellaneousOptions.CreateDefaults;
 end;
 
 procedure TLazBuildApplication.SetupMacros;
@@ -1328,6 +1361,7 @@ begin
   PackageGraph.OnAddPackage:=@PackageGraphAddPackage;
   PackageGraph.OnCheckInterPkgFiles:=@PackageGraphCheckInterPkgFiles;
   PackageGraph.Verbosity:=PkgGraphVerbosity;
+  PackageGraph.BuildRelease:=BuildRelease;
 end;
 
 procedure TLazBuildApplication.SetupDialogs;
@@ -1341,6 +1375,7 @@ var
   StoreLazDir: Boolean;
   StoreCompPath: Boolean;
   Cfg: TXMLConfig;
+  Path: String;
 begin
   StoreLazDir:=(fLazarusDirInCfg='') and (EnvironmentOptions.LazarusDirectory<>'');
   StoreCompPath:=(fCompilerInCfg='') and (EnvironmentOptions.CompilerFilename<>'');
@@ -1353,14 +1388,17 @@ begin
     if StoreCompPath then
       PrintInfo('  Compiler path: "' + EnvironmentOptions.CompilerFilename + '"');
 
+    Path:='EnvironmentOptions/';
     Cfg:=TXMLConfig.Create(EnvironmentOptions.Filename);
     try
       if StoreLazDir then
-        Cfg.SetValue('EnvironmentOptions/LazarusDirectory/Value',
+        Cfg.SetValue(Path+'LazarusDirectory/Value',
                      EnvironmentOptions.LazarusDirectory);
       if StoreCompPath then
-        Cfg.SetValue('EnvironmentOptions/CompilerFilename/Value',
+        Cfg.SetValue(Path+'CompilerFilename/Value',
                      EnvironmentOptions.CompilerFilename);
+      Cfg.SetValue(Path+'Version/Value',EnvOptsVersion);
+      Cfg.SetValue(Path+'Version/Lazarus',LazarusVersionStr);
       Cfg.Flush;
     finally
       Cfg.Free;
@@ -1544,7 +1582,7 @@ begin
       PrintErrorAndHalt(ErrorBuildFailed, 'Adding package(s) links failed: "' + Files.Text + '"');
   end;
 
-  if BuildIDE then
+  if BuildIDE>TBuildIDE.None then
     if not BuildLazarusIDE then
       PrintErrorAndHalt(ErrorBuildFailed, '');
 end;
@@ -1631,7 +1669,10 @@ begin
     LongOptions.Add('add-package-link');
     LongOptions.Add('build-all');
     LongOptions.Add('build-ide::'); // value is optional
+    LongOptions.Add('build-ide-minimal');
+    LongOptions.Add('build-ide-release');
     LongOptions.Add('build-twice');
+    LongOptions.Add('pkg-release');
     LongOptions.Add('recursive');
     LongOptions.Add('skip-dependencies');
     LongOptions.Add('widgetset:');
@@ -1691,9 +1732,28 @@ begin
 
     // building IDE
     if HasOpt_GetValue('build-ide', FBuildIDEOptions) then begin
-      BuildIDE:=true;
+      BuildIDE:=TBuildIDE.User;
       FilesNeeded:=false;
       PrintInfo('Parameter: --build-ide="' + BuildIDEOptions + '"');
+    end;
+    // Note: --build-ide can be combined with --build-ide-minimal or --build-ide-release
+    if HasOption('build-ide-minimal') then begin
+      BuildIDE:=TBuildIDE.Minimal;
+      FilesNeeded:=false;
+      PrintInfo('Parameter: --build-ide-minimal');
+    end;
+    if HasOption('build-ide-release') then begin
+      if BuildIDE=TBuildIDE.Minimal then
+        PrintErrorAndHalt(ErrorInvalidSyntax,'either --build-ide-minimal or --build-ide-release');
+      BuildIDE:=TBuildIDE.Release;
+      FilesNeeded:=false;
+      PrintInfo('Parameter: --build-ide-release');
+    end;
+
+    // release
+    if HasOption('pkg-release') then begin
+      BuildRelease:=true;
+      PrintInfo('Parameter: --pkg-release');
     end;
 
     // files
@@ -1848,8 +1908,17 @@ begin
   writeln('-d, --skip-dependencies');
   w(lisDoNotCompileDependencies);
   writeln('');
-  writeln('--build-ide=<options>');
+  writeln('--build-ide, --build-ide=<options>');
   w(lisBuildIDEWithPackages);
+  writeln('');
+  writeln('--build-ide-minimal');
+  w('Build the minimal IDE with defaults.');
+  writeln('');
+  writeln('--build-ide-release');
+  w('Build the release IDE. Same as minimal plus a fixed set of extra packages.');
+  writeln('');
+  writeln('--pkg-release');
+  w('Build release packages. Store compiler checksum instead of date in package.compiled files.');
   writeln('');
   writeln('-v, --version');
   w(lisShowVersionAndExit);

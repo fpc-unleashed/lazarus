@@ -72,7 +72,124 @@ type
 implementation
 
 uses
-  graphtype,imglist,LResources, gtk3objects, gtk3procs;
+  Forms, graphtype,imglist,LResources, gtk3objects, gtk3procs;
+
+
+procedure ApplyGlyphTransparentKey(ASourceGlyph: TBitmap; ATargetBitmap: TBitmap);
+const
+  EDGE_ALPHA = 64; //maybe not correct
+var
+  Pixbuf: PGdkPixbuf;
+  W, H, Stride, NChan: integer;
+  Pixels, Row, P, NP: PByte;
+  X, Y, dx, dy, NX, NY: integer;
+  KeyR, KeyG, KeyB: Byte;
+  AllKey: Boolean;
+  IsKey: Boolean;
+  Mark: array of Byte;
+begin
+
+  if (ASourceGlyph = nil) or ASourceGlyph.Empty then
+    exit;
+
+  if (ATargetBitmap = nil) or ATargetBitmap.Empty then
+    exit;
+
+  if ASourceGlyph.RawImage.Description.AlphaPrec > 0 then
+    exit;
+
+  Pixbuf := TGtk3Image(ATargetBitmap.Handle).Handle;
+
+  if Pixbuf = nil then
+    exit;
+
+  if not Pixbuf^.get_has_alpha then
+    exit;
+
+  W := Pixbuf^.get_width;
+  H := Pixbuf^.get_height;
+
+  if (W < 1) or (H < 1) then
+    exit;
+
+  NChan := Pixbuf^.get_n_channels;
+
+  if NChan < 4 then
+    exit;
+
+  Stride := Pixbuf^.get_rowstride;
+  Pixels := Pixbuf^.get_pixels;
+  Row := Pixels + (H - 1) * Stride;
+
+  //writeln('ApplyGlyphTranspkey: Stride=',Stride,' Row[0]=',Row[0],' Row[1]=',Row[1],' Row[2]=',Row[2],' NChan=',NChan,' W=',W,' H=',H);
+  //writeln('ApplyGlyphTranspkey: Stride=',Stride,' Pixels=',Pixels,' Row=',Row,' NChan=',NChan);
+
+  KeyR := Row[0];
+  KeyG := Row[1];
+  KeyB := Row[2];
+  SetLength(Mark, W * H);
+
+  for Y := 0 to H - 1 do
+  begin
+    Row := Pixels + Y * Stride;
+    for X := 0 to W - 1 do
+    begin
+      P := Row + X * NChan;
+      IsKey := (P[0] = KeyR) and (P[1] = KeyG) and (P[2] = KeyB);
+
+      if not IsKey then
+      begin
+        Mark[Y * W + X] := 255;
+        continue;
+      end;
+
+      AllKey := True;
+      for dy := -1 to 1 do
+      begin
+        for dx := -1 to 1 do
+        begin
+
+          if (dx = 0) and (dy = 0) then
+            continue;
+
+          if (dx <> 0) and (dy <> 0) then
+            continue;
+
+          NX := X + dx;
+          NY := Y + dy;
+
+          if (NX < 0) or (NX >= W) or (NY < 0) or (NY >= H) then
+            continue;
+
+          NP := Pixels + NY * Stride + NX * NChan;
+
+          if (NP[0] <> KeyR) or (NP[1] <> KeyG) or (NP[2] <> KeyB) then
+          begin
+            AllKey := False;
+            break;
+          end;
+
+        end;
+        if not AllKey then
+          break;
+      end;
+      if AllKey then
+        Mark[Y * W + X] := 0
+      else
+        Mark[Y * W + X] := EDGE_ALPHA;
+    end;
+  end;
+  for Y := 0 to H - 1 do
+  begin
+    Row := Pixels + Y * Stride;
+    for X := 0 to W - 1 do
+      if Mark[Y * W + X] <> 255 then
+      begin
+        P := Row + X * NChan;
+        P[3] := Mark[Y * W + X];
+      end;
+  end;
+end;
 
 
 { TGtk3WSCustomBitBtn }
@@ -116,12 +233,14 @@ class procedure TGtk3WSBitBtn.SetGlyph(const ABitBtn: TCustomBitBtn;
 var
   AImage: PGtkImage;
   AGlyph: TBitmap;
-  resolution:TCustomImageListResolution;
+  resolution: TCustomImageListResolution;
   ScaleFactor: Double;
-  raw:TRawImage;
+  raw: TRawImage;
   AIndex: Integer;
   AEffect: TGraphicsDrawEffect;
   AImageRes: TScaledImageListResolution;
+  APPI, NominalW, TargetW, TargetH: Integer;
+  SrcPixbuf, ScaledPixbuf: PGdkPixbuf;
 begin
   {$IFDEF GTK3DEBUGCORE}
   DebugLn('TGtk3WSBitBtn.SetGlyph');
@@ -135,12 +254,10 @@ begin
     ScaleFactor := ABitBtn.GetCanvasScaleFactor;
     if (ABitBtn.ImageIndex>=0) and Assigned(ABitBtn.Images) then
     begin
-      { find imagelist scaled}
-      resolution:=ABitBtn.Images.Resolution[round(AbitBtn.Images.Width*ScaleFactor)];
+      { find imagelist scaled }
+      resolution := ABitBtn.Images.Resolution[round(AbitBtn.Images.Width*ScaleFactor)];
       resolution.GetRawImage(ABitBtn.ImageIndex,raw);
-      { convice the bitmap it has actually another format }
       AGlyph.BeginUpdate();
-     // raw.Description.Init_BPP32_R8G8B8A8_BIO_TTB(resolution.Width,resolution.Height);
       AGlyph.LoadFromRawImage(raw,false);
       AGlyph.EndUpdate();
     end else
@@ -148,6 +265,8 @@ begin
       AGlyph.BeginUpdate();
       AGlyph.LoadFromRawImage(AValue.Glyph.RawImage, false);
       AGlyph.EndUpdate();
+      //issue #42260
+      ApplyGlyphTransparentKey(AValue.Glyph, AGlyph);
     end;
 
     if AGlyph.Empty then
@@ -159,9 +278,31 @@ begin
     end;
 
     if not AGlyph.Empty then
-      AImage := gtk_image_new_from_pixbuf(TGtk3Image(AGlyph.Handle).Handle)
-    else
+    begin
+      SrcPixbuf := TGtk3Image(AGlyph.Handle).Handle;
+      ScaledPixbuf := nil;
+      APPI := Screen.PixelsPerInch;
+      if APPI <= 0 then
+        APPI := 96;
+      NominalW := MulDiv(16, APPI, 96);
+      if ScaleFactor > 1 then
+        NominalW := Round(NominalW * ScaleFactor);
+      if (AGlyph.Width > 0) and (AGlyph.Width < NominalW) then
+      begin
+        TargetW := NominalW;
+        TargetH := Round(AGlyph.Height * (TargetW / AGlyph.Width));
+        ScaledPixbuf := SrcPixbuf^.scale_simple(TargetW, TargetH,
+          GDK_INTERP_BILINEAR);
+      end;
+      if ScaledPixbuf <> nil then
+      begin
+        AImage := gtk_image_new_from_pixbuf(ScaledPixbuf);
+        g_object_unref(ScaledPixbuf);
+      end else
+        AImage := gtk_image_new_from_pixbuf(SrcPixbuf);
+    end else
       AImage := nil;
+
     if Assigned(AImage) then
       gtk_button_set_image(PGtkButton(TGtk3Button(ABitBtn.Handle).Widget), AImage)
     else

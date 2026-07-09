@@ -47,6 +47,7 @@ type
     title: String;
     tips: String;
     bordered: Boolean;
+    alternateIconName: String;
   end;
 
   { TCocoaConfigToolBarItemWithAction }
@@ -56,6 +57,14 @@ type
   end;
 
   TCocoaConfigToolBarItem = TCocoaConfigToolBarItemWithAction;
+
+  TCocoaConfigToolBarItemColorWell = object( TCocoaConfigToolBarItemWithAction )
+    wellStyle: NSColorWellStyle;  // only supported on macOS 13+
+    sizeWithStyle: NSSize;        // size on macOS 13+
+    sizeWithoutStyle: NSSize;     // size on macOS 13-
+    supportsAlpha: Boolean;       // whether the color picker supports alpha values
+    autoClose: Boolean;           // automatically close the Color Panel after selecting a color
+  end;
 
   TCocoaConfigToolBarItemSharing = object( TCocoaConfigToolBarItemWithUI )
     onGetItems: TCocoaToolBarItemSharingOnGetItems;
@@ -71,7 +80,6 @@ type
   TCocoaConfigToolBarItemMenu = object( TCocoaConfigToolBarItemWithAction )
     showsIndicator: Boolean;
     dynamic: Boolean;   // dynamically load each time before displaying the menu
-    menu: TMenu;
     onGetMenu: TCocoaToolBarItemMenuOnGetMenu;
   end;
 
@@ -91,6 +99,7 @@ type
     identifier: String;
     style: NSWindowToolbarStyle;
     displayMode: NSToolbarDisplayMode;
+    autoHideInFullScreen: Boolean;
     allowsUserCustomization: Boolean;
     autosavesConfiguration: Boolean;
     items: TCocoaConfigToolBarItems;
@@ -221,11 +230,6 @@ type
   end;
 
 type
-  TCocoaConfigSize = record
-    width: Double;
-    height: Double;
-  end;
-
   TCocoaConfigTableRow = record
     defaultHeight: Integer;
     imageLineSpacing: Integer;
@@ -255,7 +259,7 @@ type
   end;
 
   TCocoaConfigCollectionItem = record
-    minSize: TCocoaConfigSize;
+    minSize: NSSize;
     controlSpacing: Double;
     textFieldAlignment: NSTextAlignment;
     checkBoxOccupiedWidth: Double;
@@ -268,7 +272,7 @@ type
   end;
 
   TCocoaConfigCollectionIconImageView = record
-    minSize: TCocoaConfigSize;
+    minSize: NSSize;
     padding: Double;
   end;
 

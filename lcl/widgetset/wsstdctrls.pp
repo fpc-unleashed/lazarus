@@ -167,6 +167,7 @@ type
     class procedure SetSelLength(const ACustomEdit: TCustomEdit; NewLength: integer); virtual;
     class procedure SetSelText(const ACustomEdit: TCustomEdit; const NewSelText: string); virtual;
     class procedure SetTextHint(const ACustomEdit: TCustomEdit; const ATextHint: string); virtual;
+    class procedure SetTextLayout(const ACustomEdit: TCustomEdit; const ATextLayout: TTextLayout); virtual;
 
     class procedure Cut(const ACustomEdit: TCustomEdit); virtual;
     class procedure Copy(const ACustomEdit: TCustomEdit); virtual;
@@ -602,6 +603,11 @@ end;
 
 class procedure TWSCustomEdit.SetTextHint(const ACustomEdit: TCustomEdit;
   const ATextHint: string);
+begin
+end;
+
+class procedure TWSCustomEdit.SetTextLayout(
+  const ACustomEdit: TCustomEdit; const ATextLayout: TTextLayout);
 begin
 end;
 

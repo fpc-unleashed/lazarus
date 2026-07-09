@@ -37,6 +37,7 @@ type
     class function  GetSelStart(const ACustomEdit: TCustomEdit): integer; override;
     class function  GetSelLength(const ACustomEdit: TCustomEdit): integer; override;
     class procedure SetAlignment(const ACustomEdit: TCustomEdit; const NewAlignment: TAlignment); override;
+    class procedure SetTextLayout(const ACustomEdit: TCustomEdit; const ATextLayout: TTextLayout); override;
 
     {class procedure SetCharCase(const ACustomEdit: TCustomEdit; NewCase: TEditCharCase); override;
     class procedure SetEchoMode(const ACustomEdit: TCustomEdit; NewMode: TEchoMode); override;}
@@ -157,36 +158,16 @@ begin
 end;
 
 
-type
-  TCocoaVertCenterTextFieldCell = objcclass( NSTextFieldCell )
-    function drawingRectForBounds(theRect: NSRect): NSRect; override;
-  end;
-
-function TCocoaVertCenterTextFieldCell.drawingRectForBounds(theRect: NSRect): NSRect;
-var
-  centerRect: NSRect;
-begin
-  centerRect.origin.x:= theRect.origin.x;
-  centerRect.origin.y:= (theRect.size.height-cellSize.height)/2;
-  centerRect.size.width:= theRect.size.width;
-  centerRect.size.height:= cellSize.width;
-
-  Result:= inherited drawingRectForBounds(centerRect);
-end;
-
 procedure SetTextFieldCell( const edit: TCustomEdit ; const field: NSTextField );
 var
-  cell: NSTextFieldCell;
+  cell: TCocoaVertAlignTextFieldCell;
 begin
   if (field.respondsToSelector(ObjCSelector('cell'))) and Assigned(field.cell) then
   begin
-    if CocoaConfigEdit.vertAlignCenter then begin
-      cell:= TCocoaVertCenterTextFieldCell.new;
-      field.setCell( cell );
-      cell.release;
-    end else begin
-      cell:= NSTextFieldCell(field.cell);
-    end;
+    cell:= TCocoaVertAlignTextFieldCell.new;
+    cell.vertAlignment:= edit.Layout;
+    field.setCell( cell );
+    cell.release;
     cell.setWraps(false);
     cell.setScrollable(true);
   end;
@@ -194,7 +175,7 @@ begin
   if field.isKindOfClass(TCocoaTextField) and TCocoaTextField(field).fixedInitSetting then
     Exit;
 
-  TCocoaTextControlUtil.setBorderStyle(field, edit.BorderStyle);
+  TCocoaTextControlUtil.setBorderStyle(field, edit );
   TCocoaTextControlUtil.setAllignment(field, edit.Alignment);
   TCocoaViewUtil.updateFocusRing( field, edit );
 end;
@@ -210,11 +191,13 @@ begin
   end;
   SetTextFieldCell( TCustomEdit(AWinControl), field );
   Result:= TLCLHandle(field);
+  field.setDrawsBackground( True );
 end;
 
 class procedure TCocoaWSCustomEdit.SetColor(const AWinControl: TWinControl);
 var
   field : NSTextField;
+  backColor: NSColor;
 
   // maybe the bug of macOS, especially on macOS 26
   // changing the background color while editing may not work.
@@ -249,11 +232,18 @@ begin
   field := GetTextField(AWinControl);
   if not Assigned(field) then Exit;
 
-  if (AWinControl.Color = clDefault) or (AWinControl.Color = clWindow) or (AWinControl.Color = clBackground)  then
-    field.setBackgroundColor( NSColor.textBackgroundColor )
-  else
-    field.setBackgroundColor( TCocoaColorUtil.toColor(ColorToRGB(AWinControl.Color)));
-
+  case AWinControl.Color of
+    clNone:
+      backColor:= NSColor.clearColor;
+    clDefault,
+    clWindow,
+    clBackground:
+      backColor:= NSColor.textBackgroundColor;
+    else
+      backColor:= TCocoaColorUtil.toColor(AWinControl.Color);
+  end;
+  field.setBackgroundColor( backColor );
+  field.setDrawsBackground( AWinControl.Color <> clNone );
   ensureBackcolorApply;
 end;
 
@@ -277,14 +267,9 @@ var
   field: NSTextField;
 begin
   field:= GetTextField(AWinControl);
-  if not Assigned(field) then Exit;
-  {$ifdef BOOLFIX}
-  field.setBordered_( ObjCBool(ABorderStyle <> bsNone) );
-  field.setBezeled_( ObjCBool(ABorderStyle <> bsNone) );
-  {$else}
-  field.setBordered( ABorderStyle <> bsNone );
-  field.setBezeled( ABorderStyle <> bsNone );
-  {$endif}
+  if not Assigned(field) then
+    Exit;
+  TCocoaTextControlUtil.setBorderStyle( field, TCustomEdit(AWinControl) );
   TCocoaViewUtil.updateFocusRing( field, AWinControl );
 end;
 
@@ -327,6 +312,28 @@ begin
   if field.isKindOfClass(TCocoaTextField) and TCocoaTextField(field).fixedInitSetting then
     Exit;
   TCocoaTextControlUtil.setAllignment(field, NewAlignment);
+end;
+
+class procedure TCocoaWSCustomEdit.SetTextLayout(
+  const ACustomEdit: TCustomEdit;
+  const ATextLayout: TTextLayout);
+var
+  field: NSTextField;
+  cell: NSCell;
+begin
+  field:= self.GetTextField( ACustomEdit );
+  if NOT Assigned(field) then
+    Exit;
+  cell:= field.cell;
+  if NOT cell.isKindOfClass(TCocoaVertAlignTextFieldCell) then
+    Exit;
+  TCocoaVertAlignTextFieldCell(cell).vertAlignment:= ATextLayout;
+  TCocoaTextControlUtil.setBorderStyle( field, ACustomEdit );
+
+  // force cell.drawingRectForBounds() be called
+  field.setHidden( NOT field.isHidden );
+  field.setHidden( NOT field.isHidden );
+  field.lclInvalidate;
 end;
 
 class procedure TCocoaWSCustomEdit.SetMaxLength(const ACustomEdit: TCustomEdit;
@@ -784,7 +791,7 @@ begin
   if (AWinControl.Color = clDefault) or (AWinControl.Color = clWindow) or (AWinControl.Color = clBackground) then
     txt.setBackgroundColor( NSColor.textBackgroundColor )
   else
-    txt.setBackgroundColor( TCocoaColorUtil.toColor(ColorToRGB(AWinControl.Color)));
+    txt.setBackgroundColor( TCocoaColorUtil.toColor(AWinControl.Color));
 end;
 
 class procedure TCocoaWSCustomMemo.SetSelStart(const ACustomEdit: TCustomEdit;

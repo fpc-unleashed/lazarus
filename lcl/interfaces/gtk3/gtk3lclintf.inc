@@ -138,7 +138,7 @@ begin
   if (DX < 1) or (DY < 1) or (R.Right <= R.Left) or (R.Bottom <= R.Top) then
     exit;
 
-  gc := TColortoTGdkRGBA(ColorToRGB(GtkDC.CurrentPen.Color));
+  gc := TColortoTGdkRGBA(GtkDC.CurrentPen.Color);
   DotSize := Max(1, GtkDC.CurrentPen.Width);
 
   GtkDC.Save;
@@ -176,7 +176,7 @@ end;
 function TGtk3WidgetSet.ExtUTF8Out(DC: HDC; X, Y: Integer; Options: Longint;
   Rect: PRect; Str: PChar; Count: Longint; Dx: PInteger): Boolean;
 begin
-  // all fonts are UTF-8 under gtk2 => no mapping needed
+  // all fonts are UTF-8 under gtk3 => no mapping needed
   Result:=ExtTextOut(DC,X,Y,Options,Rect,Str,Count,Dx);
 end;
 
@@ -229,9 +229,8 @@ var
   x,y:integer;
   src,dst,SrcRowPtr,DstRowPtr:pbyte;
   ridx,gidx,bidx,aidx:byte;
-  Src1BitStride, MaskStride: PtrUInt;
-  MaskPtr: PByte;
-  ColorBit, MaskBit: Boolean;
+  Src1BitStride: PtrUInt;
+  ColorBit: Boolean;
 begin
   Result := False;
   ABitmap := 0;
@@ -269,9 +268,6 @@ begin
       ARowStride := PtrUInt(Desc.Width) * 4;
       FreeMem(NewData);
       NewData := AllocMem(ARowStride * Desc.Height);
-      MaskStride := 0;
-      if (ARawImage.Mask <> nil) and (ARawImage.MaskSize > 0) then
-        MaskStride := GetBytesPerLine(Desc.Width, 1, Desc.MaskLineEnd);
       SrcRowPtr := ARawImage.Data;
       DstRowPtr := NewData;
       for y := 0 to Integer(Desc.Height) - 1 do
@@ -284,19 +280,7 @@ begin
             ColorBit := (Src[x shr 3] and ($80 shr (x and 7))) <> 0
           else
             ColorBit := (Src[x shr 3] and (1 shl (x and 7))) <> 0;
-          MaskBit := False;
-          if MaskStride > 0 then
-          begin
-            MaskPtr := PByte(ARawImage.Mask) + PtrUInt(y) * MaskStride;
-            if Desc.MaskBitOrder = riboReversedBits then
-              MaskBit := (MaskPtr[x shr 3] and ($80 shr (x and 7))) <> 0
-            else
-              MaskBit := (MaskPtr[x shr 3] and (1 shl (x and 7))) <> 0;
-          end;
-          if MaskBit then
-          begin
-            Dst[0] := 0; Dst[1] := 0; Dst[2] := 0; Dst[3] := 0;
-          end else if ColorBit then
+          if ColorBit then
           begin
             Dst[0] := 255; Dst[1] := 255; Dst[2] := 255; Dst[3] := 255;
           end else
@@ -316,31 +300,30 @@ begin
     else if desc.BitsPerPixel = 16 then
     begin
       DbgS('Bit depth not implemented '+inttostr(desc.BitsPerPixel));
-    end
-    else if (desc.BitsPerPixel = 24) and ((Ridx <> 0) or (Gidx <> 1) or (Bidx <> 2) or (AIdx <> 3)) then
+    end else
+    if desc.BitsPerPixel = 24 then
     begin
-      // put components in right order
+      Src1BitStride := GetBytesPerLine(Desc.Width, 24, Desc.LineEnd);
+      ARowStride := PtrUInt(Desc.Width) * 4;
+      FreeMem(NewData);
+      NewData := AllocMem(ARowStride * Desc.Height);
+      SrcRowPtr := ARawImage.Data;
       DstRowPtr := NewData;
-      SrcRowPtr := ArawImage.Data;
-      y := Desc.Height;
-      while y > 0 do
+      for y := 0 to Integer(Desc.Height) - 1 do
       begin
         Src := SrcRowPtr;
         Dst := DstRowPtr;
-        x := Desc.Width;
-        while x > 0 do
+        for x := 0 to Integer(Desc.Width) - 1 do
         begin
-          Dst[0] := Src[Ridx];
-          Dst[1] := Src[Gidx];
-          Dst[2] := Src[Bidx];
-
+          Dst[Ridx] := Src[0];
+          Dst[Gidx] := Src[1];
+          Dst[Bidx] := Src[2];
+          Dst[3] := $FF;
           Inc(Src, 3);
-          Inc(Dst, 3);
-          Dec(x);
+          Inc(Dst, 4);
         end;
-        Inc(SrcRowPtr, ARowstride);
-        Inc(DstRowPtr, ARowstride);
-        Dec(y);
+        Inc(SrcRowPtr, Src1BitStride);
+        Inc(DstRowPtr, ARowStride);
       end;
     end else
     if (Ridx <> 0) or (Gidx <> 1) or (Bidx <> 2) or (AIdx <> 3) then
@@ -405,7 +388,7 @@ begin
   case Desc.BitsPerPixel of
     1: ImageFormat := CAIRO_FORMAT_ARGB32;
     8: ImageFormat := CAIRO_FORMAT_A8;
-    24: ImageFormat := CAIRO_FORMAT_RGB24;
+    24: ImageFormat := CAIRO_FORMAT_ARGB32;
     32: ImageFormat := CAIRO_FORMAT_ARGB32;
   else
     Exit(False);
@@ -423,14 +406,13 @@ begin
 
   if (ARawImage.Mask <> nil) and (ARawImage.MaskSize > 0) then
   begin
-    //Compute correct 1-bit mask row stride matching the description
     ARowStride := GetBytesPerLine(Desc.Width, 1, Desc.MaskLineEnd);
-    //Allocate and copy only the actual 1-bit mask data
-    NewData := GetMem(ARowStride * Desc.Height);
-    if ARowStride * PtrUInt(Desc.Height) <= ARawImage.MaskSize then
+    NewData := AllocMem(ARowStride * Desc.Height);
+    if ARawImage.MaskSize >= ARowStride * PtrUInt(Desc.Height) then
       Move(ARawImage.Mask^, NewData^, ARowStride * Desc.Height)
     else
-      FillChar(NewData^, ARowStride * Desc.Height, $00);
+    if ARawImage.MaskSize > 0 then
+      Move(ARawImage.Mask^, NewData^, ARawImage.MaskSize);
     //Store as width=1, height=H, rowstride=MaskRowStride RGBA pixbuf.
     //numBytes = ARowStride * H = exact 1-bit data size, so RawImage_FromBitmap
     //copies the right amount and GetMask_Generic reads correct bit values.
@@ -468,6 +450,9 @@ const
 //============================
 var
   Image: TGtk3Image absolute ABitmap;
+  AAlphaPtr: PByte;
+  APos, ANumBytes: PtrUInt;
+  AAllOpaque: Boolean;
 
 begin
   Result := False;
@@ -522,38 +507,39 @@ begin
       end;
     32:
       begin
-        ADesc.AlphaPrec := 8;
+        Image.UpdatePixbufFromSurface;
+        AAllOpaque := False;
+        if (Image.bits <> nil) and (Image.numBytes > 0) then
+        begin
+          AAllOpaque := True;
+          ANumBytes := Image.numBytes;
+          AAlphaPtr := Image.bits;
+          Inc(AAlphaPtr, 3);
+          APos := 3;
+          while APos < ANumBytes do
+          begin
+            if AAlphaPtr^ <> 255 then
+            begin
+              AAllOpaque := False;
+              break;
+            end;
+            Inc(AAlphaPtr, 4);
+            Inc(APos, 4);
+          end;
+        end;
+        if AAllOpaque then
+          ADesc.Depth := 24
+        else
+          ADesc.AlphaPrec := 8;
         ADesc.RedPrec := 8;
         ADesc.GreenPrec := 8;
         ADesc.BluePrec := 8;
-
         ADesc.AlphaShift := 24;
-        ADesc.RedShift := 0;
+        ADesc.RedShift := 16;
         ADesc.GreenShift := 8;
-        ADesc.BlueShift := 16;
+        ADesc.BlueShift := 0;
       end;
   end;
-  (*
-  if not IsValidGDIObject(ABitmap)
-  then begin
-    DebugLn('WARNING: [TGtk3WidgetSet.GetBitmapRawImageDescription] invalid Bitmap!');
-    exit;
-  end;
-
-  case GDIObject^.GDIBitmapType of
-    gbBitmap:
-      Result := RawImage_DescriptionFromDrawable(ADesc,
-        GdiObject^.GDIBitmapObject, False);
-    gbPixmap:
-      Result := RawImage_DescriptionFromDrawable(ADesc,
-        GdiObject^.GDIPixmapObject.Image, GdiObject^.GDIPixmapObject.Mask <> nil);
-    gbPixbuf:
-      Result := RawImage_DescriptionFromPixbuf(ADesc, GdiObject^.GDIPixbufObject);
-  else
-    DebugLn('WARNING: [TGtk3WidgetSet.RawImage_DescriptionFromBitmap] Unknown GDIBitmapType');
-    Exit;
-  end;
-  *)
 end;
 
 {------------------------------------------------------------------------------
@@ -858,17 +844,18 @@ function TGtk3WidgetSet.RawImage_QueryDescription(AFlags: TRawImageQueryFlags; v
 begin
   Result := inherited RawImage_QueryDescription(AFlags, ADesc);
   if ADesc.BitsPerPixel > 8 then
-    ADesc.BitsPerPixel := 32
+  begin
+    ADesc.BitsPerPixel := 32;
+    ADesc.RedPrec := 8;
+    ADesc.GreenPrec := 8;
+    ADesc.BluePrec := 8;
+    ADesc.RedShift := 16;
+    ADesc.GreenShift := 8;
+    ADesc.BlueShift := 0;
+  end
   else
   if ADesc.BitsPerPixel > 1 then
-    ADesc.BitsPerPixel := 8
-  else
-  if ADesc.BitsPerPixel = 32 then
-  begin
-    ADesc.Depth := 32;
-    ADesc.AlphaPrec := 8;
-    ADesc.AlphaShift := 24;
-  end;
+    ADesc.BitsPerPixel := 8;
 end;
 
 {------------------------------------------------------------------------------
@@ -884,8 +871,15 @@ var
   WorkImage, WorkMask: TGtk3Image;
   R: TRect;
   Width, Height: Integer;
-  //InvertPixels: Boolean;
-  //Px: Cardinal;
+  AHasAlpha: Boolean;
+  AAlphaPtr: PByte;
+  APos, ANumBytes: PtrUInt;
+  AMaskRowStride: PtrUInt;
+  AMaskData: PByte;
+  AMaskSrc: PByte;
+  x, y: Integer;
+  AByte: Byte;
+  ASwapPtr: PByte;
 begin
   Result := false;
 
@@ -931,44 +925,91 @@ begin
   Desc.Height := WorkImage.height;
 
   Image.UpdatePixbufFromSurface;
-  // copy data
   ARawImage.DataSize := WorkImage.numBytes;
   ReAllocMem(ARawImage.Data, ARawImage.DataSize);
 
   if ARawImage.DataSize > 0 then
+  begin
     Move(WorkImage.bits^, ARawImage.Data^, ARawImage.DataSize);
+    if Desc.BitsPerPixel = 32 then
+    begin
+      ASwapPtr := ARawImage.Data;
+      APos := 0;
+      while APos + 3 < ARawImage.DataSize do
+      begin
+        AByte := ASwapPtr[0];
+        ASwapPtr[0] := ASwapPtr[2];
+        ASwapPtr[2] := AByte;
+        Inc(ASwapPtr, 4);
+        Inc(APos, 4);
+      end;
+    end;
+  end;
 
-  if WorkMask <> nil then
+  AHasAlpha := False;
+  if (WorkMask <> nil) and (Desc.AlphaPrec > 0) and
+    (Desc.BitsPerPixel = 32) and (WorkImage.bits <> nil) then
+  begin
+
+    ANumBytes := WorkImage.numBytes;
+    AAlphaPtr := WorkImage.bits;
+
+    Inc(AAlphaPtr, 3);
+    APos := 3;
+
+    while APos < ANumBytes do
+    begin
+      if AAlphaPtr^ <> 255 then
+      begin
+        AHasAlpha := True;
+        break;
+      end;
+      Inc(AAlphaPtr, 4);
+      Inc(APos, 4);
+    end;
+
+  end;
+
+  if (WorkMask <> nil) and not AHasAlpha then
   begin
     Desc.MaskLineEnd := rileDWordBoundary;
     Desc.MaskBitOrder := riboReversedBits;
     Desc.MaskBitsPerPixel := 1;
-    ARawImage.MaskSize := WorkMask.numBytes;
-    ReAllocMem(ARawImage.Mask, ARawImage.MaskSize);
-    if ARawImage.MaskSize > 0 then
+
+    if WorkMask.width > 1 then
     begin
-      (*
-      InvertPixels := False;
-      if WorkImage <> nil then
+      AMaskRowStride := GetBytesPerLine(Width, 1, rileDWordBoundary);
+      ARawImage.MaskSize := AMaskRowStride * PtrUInt(Height);
+      ReAllocMem(ARawImage.Mask, ARawImage.MaskSize);
+      if (ARawImage.Mask <> nil) and (WorkMask.bits <> nil) then
       begin
-        Px := QImage_pixel(WorkImage.Handle, 0, 0);
-        InvertPixels :=
-          not QImage_hasAlphaChannel(WorkMask.Handle) and
-          not QImage_hasAlphaChannel(WorkImage.Handle) and
-          // invert only if WorkImage is RGB32 fmt and allGray
-          (WorkImage.getFormat = QImageFormat_RGB32) and
-          QImage_allGray(WorkImage.Handle) and
-          ((Px = 0) or (Px = $FF))
+        FillChar(ARawImage.Mask^, ARawImage.MaskSize, 0);
+        AMaskData := ARawImage.Mask;
+        for y := 0 to Height - 1 do
+        begin
+          AMaskSrc := WorkMask.bits;
+          Inc(AMaskSrc, PtrUInt(y) * PtrUInt(WorkMask.bytesPerLine));
+          for x := 0 to Width - 1 do
+          begin
+            if AMaskSrc[x * 4] <> 0 then
+            begin
+              AByte := $80 shr (x and 7);
+              AMaskData[PtrUInt(y) * AMaskRowStride + PtrUInt(x shr 3)] :=
+                AMaskData[PtrUInt(y) * AMaskRowStride + PtrUInt(x shr 3)] or AByte;
+            end;
+          end;
+        end;
       end;
-      if InvertPixels then
-        WorkMask.invertPixels(QImageInvertRGB);
-        *)
-      if (WorkMask.bits<>nil) and (ARawImage.Mask<>nil) then
-      Move(WorkMask.bits^, ARawImage.Mask^, ARawImage.MaskSize);
-      // if InvertPixels then
-      //  WorkMask.invertPixels(QImageInvertRGB);
+    end else
+    begin
+      ARawImage.MaskSize := WorkMask.numBytes;
+      ReAllocMem(ARawImage.Mask, ARawImage.MaskSize);
+      if (ARawImage.MaskSize > 0) and (WorkMask.bits <> nil) and (ARawImage.Mask <> nil) then
+        Move(WorkMask.bits^, ARawImage.Mask^, ARawImage.MaskSize);
     end;
-  end;
+
+  end else
+    Desc.MaskBitsPerPixel := 0;
 
   if WorkImage <> Image then
     WorkImage.Free;
@@ -976,73 +1017,6 @@ begin
     WorkMask.Free;
 
   Result := True;
-
-  (*
-  {$IFDEF VerboseRawImage}
-  DebugLn('TGtk3WidgetSet.GetRawImageFromBitmap A');
-  {$ENDIF}
-  ARawImage.Init;
-
-  if not IsValidGDIObject(ABitmap)
-  then begin
-    DebugLn('WARNING: [TGtk3WidgetSet.RawImage_FromBitmap] invalid Bitmap!');
-    exit;
-  end;
-  if (AMask <> 0) and not IsValidGDIObject(AMask)
-  then begin
-    DebugLn('WARNING: [TGtk3WidgetSet.RawImage_FromBitmap] invalid Mask');
-    exit;
-  end;
-
-  try
-    // get rawimage for Bitmap
-    case GdiBitmap^.GDIBitmapType of
-      gbBitmap: begin
-        Drawable := GdiBitmap^.GDIBitmapObject;
-        Bitmap := nil;
-      end;
-      gbPixmap: begin
-        Drawable := GdiBitmap^.GDIPixmapObject.Image;
-        Bitmap := GdiBitmap^.GDIPixmapObject.Mask;
-      end;
-      gbPixbuf: begin
-        Result := RawImage_FromPixbuf(ARawImage, GdiBitmap^.GDIPixbufObject, ARect);
-        Exit;
-      end;
-    else
-      DebugLn('WARNING: [TGtk3WidgetSet.RawImage_FromBitmap] Unknown GDIBitmapType');
-      Exit;
-    end;
-    {$IFDEF VerboseRawImage}
-    DebugLn('TGtk3WidgetSet.RawImage_FromBitmap A GdkPixmap=',DbgS(Drawable),' SrcMaskBitmap=',DbgS(Bitmap));
-    {$ENDIF}
-
-    //DbgDumpPixmap(Drawable, 'RawImage_FromBitmap - drawable');
-    //DbgDumpBitmap(Bitmap, 'RawImage_FromBitmap - alpha');
-
-    Result := RawImage_FromDrawable(ARawImage, Drawable, Bitmap, ARect);
-    if Result and (AMask <> 0)
-    then begin
-      if GdiMask^.GDIBitmapType <> gbBitmap
-      then begin
-        DebugLn('WARNING: [TGtk3WidgetSet.RawImage_FromBitmap] Unsupported GDIBitmapType for mask');
-        Exit;
-      end;
-      
-      Bitmap := GdiMask^.GDIBitmapObject;
-      RawImage_AddMask(ARawImage, Bitmap, ARect);
-      //DbgDumpBitmap(Bitmap, 'RawImage_FromBitmap - mask');
-    end
-    else
-      ARawImage.Description.MaskBitsPerPixel := 0;
-
-    if not Result
-    then DebugLn('WARNING: [TGtk3WidgetSet.RawImage_FromBitmap] unable to GetRawImageFromGdkWindow Image');
-
-  except
-    ARawImage.FreeData;
-  end;
-  *)
 end;
 
 {------------------------------------------------------------------------------
@@ -1109,11 +1083,6 @@ begin
     begin
       try
         RawImage_FromImage(Pixmap);
-        // if you have dual monitors then getDeviceSize return
-        // more width than screen width, but grabWindow will only grab one
-        // screen, so its width will be less
-        // Solution: we can either pass prefered size to grabWindow or
-        // correct Description size after. I see the first solution as more correct.
       finally
         g_object_unref(Pixmap);
       end;
@@ -1138,11 +1107,6 @@ begin
       begin
         try
           RawImage_FromImage(Pixmap);
-          // if you have dual monitors then getDeviceSize return
-          // more width than screen width, but grabWindow will only grab one
-          // screen, so its width will be less
-          // Solution: we can either pass prefered size to grabWindow or
-          // correct Description size after. I see the first solution as more correct.
         finally
           g_object_unref(Pixmap);
         end;
@@ -1159,33 +1123,6 @@ begin
   {$ifdef VerboseGtk3WinApi}
   DebugLn('Trace:< [WinAPI GetRawImageFromDevice]');
   {$endif}
-
-  (*
-  DCOrigin := DevCtx.Offset;
-  {$IFDEF VerboseRawImage}
-  DebugLn('TGtk3WidgetSet.GetRawImageFromDevice A DCOrigin=',dbgs(DCOrigin.X),',',dbgs(DCOrigin.Y),' SrcRect=',dbgs(ARect.Left),',',dbgs(ARect.Top),',',dbgs(ARect.Right),',',dbgs(ARect.Bottom));
-  {$ENDIF}
-  R := ARect;
-  LPtoDP(ADC, R, 2);
-  OffSetRect(R, DCOrigin.x, DCOrigin.y);
-
-  Drawable := DevCtx.Widget;
-  if Drawable = nil then
-  begin
-    // get screen shot
-    // Drawable := gdk_cairo_set_source_window();
-    AWindow := gdk_screen_get_root_window(gdk_screen_get_default);
-    Drawable := gdk_cairo_create(AWindow);
-    // Result := RawImage_FromDrawable(ARawImage, Drawable, nil, @R);
-
-    cairo_destroy(Drawable);
-  end else
-  begin
-    // Result :=
-    // RawImage_FromDrawable(ARawImage, Drawable, nil, @R);
-  end;
-  *)
-
 end;
 
 {------------------------------------------------------------------------------
@@ -1436,32 +1373,37 @@ type
     OnEvent: TPipeEvent;
   end;
 
+const
+  GIO_IN_FLAG = 1 shl Ord(G_IO_IN);
+  GIO_OUT_FLAG = 1 shl Ord(G_IO_OUT);
+  GIO_HUP_FLAG = 1 shl Ord(G_IO_HUP);
+
 function TGtk3WidgetSet.AddPipeEventHandler(AHandle: TLCLHandle;
   AEventHandler: TPipeEvent; AData: PtrInt): PPipeEventHandler;
 var
   lPipeEventInfo: PPipeEventInfo;
 begin
+  Result := nil;
   if AEventHandler = nil then exit;
   New(lPipeEventInfo);
   lPipeEventInfo^.UserData := AData;
   lPipeEventInfo^.OnEvent := AEventHandler;
-  // lPipeEventInfo^.Handler := AddEventHandler(AHandle, G_IO_IN or G_IO_HUP or G_IO_OUT,
-  //  @HandlePipeEvent, {%H-}PtrUInt(lPipeEventInfo));
+  lPipeEventInfo^.Handler := AddEventHandler(AHandle, GIO_IN_FLAG or GIO_HUP_FLAG or GIO_OUT_FLAG,
+    @HandlePipeEvent, {%H-}PtrUInt(lPipeEventInfo));
   Result := lPipeEventInfo;
 end;
 
-(*
 procedure TGtk3WidgetSet.HandlePipeEvent(AData: PtrInt; AFlags: dword);
 var
   lPipeEventInfo: PPipeEventInfo absolute AData;
   lReasons: TPipeReasons;
 begin
   lReasons := [];
-  if AFlags and G_IO_IN = G_IO_IN then
+  if AFlags and GIO_IN_FLAG <> 0 then
     Include(lReasons, prDataAvailable);
-  if AFlags and G_IO_OUT = G_IO_OUT then
+  if AFlags and GIO_OUT_FLAG <> 0 then
     Include(lReasons, prCanWrite);
-  if AFlags and G_IO_HUP = G_IO_HUP then
+  if AFlags and GIO_HUP_FLAG <> 0 then
     Include(lReasons, prBroken);
 
   lPipeEventInfo^.OnEvent(lPipeEventInfo^.UserData, lReasons);
@@ -1476,17 +1418,15 @@ begin
   Dispose(lPipeEventInfo);
   AHandler := nil;
 end;
-*)
 
 {$ifdef UNIX}
 function TGtk3WidgetSet.AddProcessEventHandler(AHandle: TLCLHandle;
   AEventHandler: TChildExitEvent; AData: PtrInt): PProcessEventHandler;
-// var
-//  lHandler: PChildSignalEventHandler;
+var
+  lHandler: PChildSignalEventHandler;
 begin
   Result := nil;
-  if AEventHandler = nil then exit(nil);
-  (*
+  if AEventHandler = nil then exit;
   New(lHandler);
   lHandler^.PID := TPid(AHandle);
   lHandler^.UserData := AData;
@@ -1497,15 +1437,13 @@ begin
     FChildSignalHandlers^.PrevHandler := lHandler;
   FChildSignalHandlers := lHandler;
   Result := lHandler;
-  *)
 end;
 
 procedure TGtk3WidgetSet.RemoveProcessEventHandler(var AHandler: PProcessEventHandler);
-// var
-//  lHandler: PChildSignalEventHandler absolute AHandler;
+var
+  lHandler: PChildSignalEventHandler absolute AHandler;
 begin
   if AHandler = nil then exit;
-  (*
   if lHandler^.PrevHandler = nil then
     FChildSignalHandlers := lHandler^.NextHandler
   else
@@ -1514,7 +1452,6 @@ begin
     lHandler^.NextHandler^.PrevHandler := lHandler^.PrevHandler;
   Dispose(lHandler);
   AHandler := nil;
-  *)
 end;
 {$else}
 {$IFDEF VerboseGtkToDos}{$warning TGtk3WidgetSet.RemoveProcessEventHandler and TGtk3WidgetSet.AddProcessEventHandler not implemented on this OS}{$ENDIF}

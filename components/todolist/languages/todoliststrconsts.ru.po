@@ -144,6 +144,11 @@ msgstr "Перейти"
 msgid "%d items"
 msgstr "Элементов: %d"
 
+#: todoliststrconsts.listodolcategory
+msgctxt "todoliststrconsts.listodolcategory"
+msgid "Category"
+msgstr "Категория"
+
 #: todoliststrconsts.listodoldescription
 msgid "Description"
 msgstr "Описание"
@@ -151,6 +156,10 @@ msgstr "Описание"
 #: todoliststrconsts.listodolfile
 msgid "Module"
 msgstr "Модуль"
+
+#: todoliststrconsts.listodolfilepath
+msgid "Path"
+msgstr "Путь"
 
 #: todoliststrconsts.listodolissue
 msgid "Issue ID"
@@ -170,21 +179,25 @@ msgstr "Редактировать выбранный элемент"
 
 #: todoliststrconsts.listodolistfornewproject
 msgid "ToDo List for new Project"
-msgstr "Список ToDo для нового проекта"
+msgstr "Список ToDo нового проекта"
 
 #: todoliststrconsts.listodolistforpackage
 #, object-pascal-format
 msgid "ToDo List for Package \"%s\""
-msgstr "Список ToDo для пакета \"%s\""
+msgstr "Список ToDo пакета \"%s\""
 
 #: todoliststrconsts.listodolistforproject
 #, object-pascal-format
 msgid "ToDo List for Project \"%s\""
-msgstr "Список ToDo для проекта \"%s\""
+msgstr "Список ToDo проекта \"%s\""
 
 #: todoliststrconsts.listodolistgotoline
 msgid "Goto selected source line"
 msgstr "Перейти к выделенной строке исходного кода"
+
+#: todoliststrconsts.listodolistofproject
+msgid "ToDo List of Project"
+msgstr "Список ToDo проекта"
 
 #: todoliststrconsts.listodolistrefresh
 msgid "Refresh ToDo items"
@@ -198,9 +211,19 @@ msgstr "Строка"
 msgid "Owner"
 msgstr "Владелец"
 
+#: todoliststrconsts.listodolpackage
+msgctxt "todoliststrconsts.listodolpackage"
+msgid "(Package)"
+msgstr "(Пакет)"
+
 #: todoliststrconsts.listodolpriority
 msgid "Priority"
 msgstr "Приоритет"
+
+#: todoliststrconsts.listodolproject
+msgctxt "todoliststrconsts.listodolproject"
+msgid "(Project)"
+msgstr "(Проект)"
 
 #: todoliststrconsts.listodoltype
 msgid "Type"
@@ -213,10 +236,6 @@ msgstr "Тип элемента ToDo"
 #: todoliststrconsts.listodousedunits
 msgid "Used units"
 msgstr "Используемые модули"
-
-#: todoliststrconsts.listtodolcategory
-msgid "Category"
-msgstr "Категория"
 
 #: todoliststrconsts.lisviewtodolist
 msgid "View ToDo List"

@@ -5,9 +5,9 @@ unit TestDisAss;
 interface
 
 uses
-  Classes, SysUtils, fpcunit, testutils, testregistry, LCLProc,
-  DbgIntfBaseTypes, DbgIntfDebuggerBase, GDBMIDebugger, TestBase, maps,
-  TTestDebuggerClasses, LazDebuggerIntf, LazDebuggerIntfBaseTypes;
+  Classes, SysUtils, fpcunit, testutils, testregistry, LCLProc, DbgIntfBaseTypes,
+  DbgIntfDebuggerBase, GDBMIDebugger, TestBase, maps, TTestDebuggerClasses, TTestDbgExecuteables,
+  LazDebuggerIntf, LazDebuggerIntfBaseTypes, LazDebuggerIntfExceptions;
 
 type
   TTestDisAssRegion = record
@@ -44,7 +44,7 @@ type
   TTestDisAss = class(TTestCase)
   protected
     FCallStack: TTestCallStackMonitor;
-    FExceptions: TBaseExceptions;
+    FExceptions: TTestDbgExceptions;
     //FSignals: TBaseSignals;
     //FBreakPoints: TIDEBreakPoints;
     //FBreakPointGroups: TIDEBreakPointGroups;
@@ -199,7 +199,7 @@ begin
                               [CurLine, Rgn.FileName]);
   end;
 
-  while CurAddr <= AEndAddr do begin;
+  while CurAddr <= AEndAddr do begin
     if AWithSrc and (lc >= Rgn.InstrPerLine) then begin
       Result := Result + ']}';
       Result := Result + Format(',src_and_asm_line={line="%d",file="%s",line_asm_insn=[ ',
@@ -339,7 +339,7 @@ var
 
     FWatches := TTestWatchesMonitor.Create;
     FThreads := TThreadsMonitor.Create;
-    FExceptions := TBaseExceptions.Create(TBaseException);
+    FExceptions := TTestDbgExceptions.Create;
     //FSignals := TBaseSignals.Create(TBaseSignal);
 //    FLocals := TLocalsMonitor.Create;
     FLineInfo := TBaseLineInfo.Create;

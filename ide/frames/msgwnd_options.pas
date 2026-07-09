@@ -48,6 +48,9 @@ type
   { TMsgWndOptionsFrame }
 
   TMsgWndOptionsFrame = class(TAbstractIDEOptionsEditor)
+    cbShowAutomatically: TComboBox;
+    lbShowAutomatically: TLabel;
+    lbWarning: TLabel;
     OptionsBevel: TDividerBevel;
     MWCtrlLeftActionComboBox: TComboBox;
     MsgColorBox: TColorBox;
@@ -67,6 +70,7 @@ type
     MWSetDefaultColorsButton: TBitBtn;
     MWSetEditorColorsButton: TButton;
     MWSpeedSetColorsGroupBox: TGroupBox;
+    procedure cbShowAutomaticallyChange(Sender: TObject);
     procedure MsgColorBoxChange(Sender: TObject);
     procedure MsgColorListBoxGetColors(Sender: TCustomColorListBox; Items: TStrings);
     procedure MsgColorListBoxSelectionChange(Sender: TObject; User: boolean);
@@ -128,6 +132,15 @@ begin
   if not fReady or (i < 0) then
     exit;
   MsgColorListBox.Colors[i]:=MsgColorBox.Selected;
+end;
+
+procedure TMsgWndOptionsFrame.cbShowAutomaticallyChange(Sender: TObject);
+var
+  SA: TMsgWndShowAutomatically;
+begin
+  SA := TMsgWndShowAutomatically((Sender as TComboBox).ItemIndex);
+  cbFocusAtCompilation.Enabled := SA = mwsaCompiling;
+  lbWarning.Visible := SA = mwsaNever;
 end;
 
 procedure TMsgWndOptionsFrame.MsgColorListBoxGetColors(Sender: TCustomColorListBox;
@@ -222,25 +235,32 @@ end;
 constructor TMsgWndOptionsFrame.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  OptionsBevel.Caption:=lisOptions;
-  MWColorsGroupBox.Caption:= lisHeaderColors;
-  MsgColorGroupBox.Caption:= lisMsgColors;
-  MWSpeedSetColorsGroupBox.Caption:=lisSetAllColors;
-  MWSetDefaultColorsButton.Caption:=lisLazarusDefault;
+  OptionsBevel.Caption := lisOptions;
+  MWColorsGroupBox.Caption := lisHeaderColors;
+  MsgColorGroupBox.Caption := lisMsgColors;
+  MWSpeedSetColorsGroupBox.Caption := lisSetAllColors;
+  MWSetDefaultColorsButton.Caption := lisLazarusDefault;
   IDEImages.AssignImage(MWSetDefaultColorsButton, 'restore_defaults');
-  MWSetPastelColorsButton.Caption:=lisPastelColors;
+  MWSetPastelColorsButton.Caption := lisPastelColors;
   IDEImages.AssignImage(MWSetPastelColorsButton, 'pastel_colors');
-  MWSetEditorColorsButton.Caption:=lisEditorColors;
-  cbStayOnTop.Caption:=lisWindowStaysOnTop;
-  cbShowIcons.Caption:=dlgShowMessagesIcons;
-  cbShowIcons.Hint:=dlgAnIconForErrorWarningHintIsShown;
-  cbAlwaysDrawFocused.Caption:=lisAlwaysDrawSelectedItemsFocused;
-  cbAlwaysDrawFocused.Hint:=lisDrawTheSelectionFocusedEvenIfTheMessagesWindowHasN;
-  cbFocusAtCompilation.Caption:=dlgEOFocusMessagesAtCompilation;
-  lbMaxProcs.Caption:=Format(lisMaximumParallelProcesses0MeansDefault,
-                                  [IntToStr(DefaultMaxProcessCount)]);
-  cbShowFPCLinesCompiled.Caption:=lisShowFPCMessageLinesCompiled;
-  cbShowFPCLinesCompiled.Hint:=lisElevateTheMessagePriorityToAlwaysShowItByDefaultIt;
+  MWSetEditorColorsButton.Caption := lisEditorColors;
+
+  cbStayOnTop.Caption := lisStayOnTop;
+  cbAlwaysDrawFocused.Caption := lisAlwaysDrawSelectedItemsFocused;
+  cbAlwaysDrawFocused.Hint := lisDrawTheSelectionFocusedEvenIfTheMessagesWindowHasN;
+  cbShowFPCLinesCompiled.Caption := lisShowFPCMessageLinesCompiled;
+  cbShowFPCLinesCompiled.Hint := lisElevateTheMessagePriorityToAlwaysShowItByDefaultIt;
+  cbShowIcons.Caption := lisShowIcons;
+  cbShowIcons.Hint := dlgAnIconForErrorWarningHintIsShown;
+  lbMaxProcs.Caption := Format(lisMaximumParallelProcesses0MeansDefault,
+                               [IntToStr(DefaultMaxProcessCount)]);
+  lbShowAutomatically.Caption := lisShowAutomatically;
+  cbShowAutomatically.Items.Add(lisShowAutoWhenCompiling);
+  cbShowAutomatically.Items.Add(lisShowAutoOnlyWhenErrorsOccur);
+  cbShowAutomatically.Items.Add(lisShowAutoNever);
+  cbShowAutomatically.ItemIndex := 0;
+  cbFocusAtCompilation.Caption := lisFocusAtCompilation;
+  lbWarning.Caption := lisMustBeOpenedManually;
 end;
 
 function TMsgWndOptionsFrame.GetTitle: String;
@@ -250,7 +270,7 @@ end;
 
 procedure TMsgWndOptionsFrame.Setup(ADialog: TAbstractOptionsEditorDialog);
 begin
-  fReady:=false;
+  fReady := false;
   FDialog := ADialog;
   MWSetEditorColorsButton.Visible:=false;
 end;
@@ -275,6 +295,8 @@ begin
     cbShowIcons.Checked := ShowMessagesIcons;
     cbAlwaysDrawFocused.Checked := MsgViewAlwaysDrawFocused;
     cbFocusAtCompilation.Checked := MsgViewFocus;
+    cbShowAutomatically.ItemIndex := Integer(MsgViewShowAutomatically);
+    cbShowAutomaticallyChange(cbShowAutomatically); // Update the warning.
   end;
   cbShowFPCLinesCompiled.Checked := EnvOpt.MsgViewShowFPCMsgLinesCompiled;
   MaxProcsSpinEdit.Value := EnvOpt.MaxExtToolsInParallel;
@@ -300,6 +322,7 @@ begin
     ShowMessagesIcons := cbShowIcons.Checked;
     MsgViewAlwaysDrawFocused := cbAlwaysDrawFocused.Checked;
     MsgViewFocus := cbFocusAtCompilation.Checked;
+    MsgViewShowAutomatically := TMsgWndShowAutomatically(cbShowAutomatically.ItemIndex);
   end;
   EnvOpt.MsgViewShowFPCMsgLinesCompiled := cbShowFPCLinesCompiled.Checked;
   EnvOpt.MaxExtToolsInParallel := MaxProcsSpinEdit.Value;

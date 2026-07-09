@@ -75,7 +75,6 @@ type
     procedure Prepare(AProfiles: TBuildLazarusProfiles);
     // Assigned by caller when opening/closing this form.
     property  ProfsToManage: TBuildLazarusProfiles read fProfsToManage;
-
   end; 
 
 var

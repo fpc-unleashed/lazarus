@@ -26,7 +26,7 @@ uses
   {$ENDIF}
   SysUtils, Classes, types, Math, FPImage,
   // LazUtils
-  LazTracer, LazUTF8, IntegerList, GraphType, LazUtilities,
+  LazTracer, LazUTF8, IntegerList, GraphType, LazUtilities, Maps,
   // LCL
   LCLPlatformDef, InterfaceBase, LCLProc, LCLType, LMessages, LCLMessageGlue,
   LazLogger, LCLStrConsts,
@@ -62,6 +62,9 @@ type
   TGtk3WidgetSet = class(TWidgetSet)
   private
     FIsWayland: boolean;
+    FWMName: string;
+    FWMNameCached: boolean;
+    FTrackBarKnobSize: Integer;
     FActivityCounter: integer;
     FLastUserEventTime: guint32;
     FAppFocusTimerID: guint;
@@ -73,6 +76,10 @@ type
     FMainPoll: PGPollFD;
     FGtk3Application: PGtkApplication;
     FDefaultAppFontName: String;
+    FIMContext: PGtkIMContext;
+    FIMCommitStr: string;
+    FIMInFilter: Boolean;
+    FIMTarget: TObject;
     FWaitHandles: PWaitHandleEventHandler;
     {$IFDEF UNIX}
     FChildSignalHandlers: PChildSignalEventHandler;
@@ -89,6 +96,7 @@ type
     procedure SetDefaultAppFontName;
     procedure InitSysColorBrushes;
     procedure FreeSysColorBrushes;
+    procedure LoadThemeMetrics;
   protected
     {shared stuff}
     FSystemMetricsList: TIntegerList;
@@ -122,6 +130,7 @@ type
     function CreateThemeServices: TThemeServices; override;
 
   public
+    StayOnTopList: TMap;
     FGtk3KeyStates: array[Byte] of Boolean;
     // LCL drag cursor state. Used by SetGlobalCursor in gtk3procs and ReleaseCapture.
     FDragIPCWidget: PGtkWidget;
@@ -130,8 +139,12 @@ type
     FDragGrabBrokenHandlerID: gulong;
     FLCLCaptureWidget: PGtkWidget;
     function IsWayland: boolean;
+    function IsKDEPlasmaWaylandSession: boolean;
+    function GetWMName: string;
+    function IsMarcoWM: boolean;
     function CreateDCForWidget(AWidget: PGtkWidget; AWindow: PGdkWindow; cr: Pcairo_t): HDC;
     procedure AddWindow(AWindow: PGtkWindow);
+    procedure HandlePipeEvent(AData: PtrInt; AFlags: dword);
     {$IFDEF UNIX}
     procedure InitSynchronizeSupport;
     procedure ProcessChildSignal;
@@ -176,6 +189,8 @@ type
     procedure DCSetPixel(CanvasHandle: HDC; X, Y: integer; AColor: TGraphicsColor); override;
     procedure DCRedraw(CanvasHandle: HDC); override;
     procedure DCSetAntialiasing(CanvasHandle: HDC; AEnabled: Boolean); override;
+    procedure SetDCOpacity(DC: HDC; AOpacity: Byte); override;
+    function GetDCOpacity(DC: HDC): Byte; override;
     procedure SetDesigning(AComponent: TComponent); override;
     function  GetLCLCapability(ACapability: TLCLCapability): PtrUInt; override;
 
@@ -202,7 +217,12 @@ type
     property DefaultAppFontName: String read FDefaultAppFontName;
     property Gtk3Application: PGtkApplication read FGtk3Application;
     property LastUserEventTime: guint32 read FLastUserEventTime write FLastUserEventTime;
+    property TrackBarKnobSize: Integer read FTrackBarKnobSize write FTrackBarKnobSize;
     property OverlayScrolling: gboolean read FOverlayScrolling write FOverlayScrolling;
+    property IMContext: PGtkIMContext read FIMContext;
+    property IMCommitStr: string read FIMCommitStr write FIMCommitStr;
+    property IMInFilter: Boolean read FIMInFilter write FIMInFilter;
+    property IMTarget: TObject read FIMTarget write FIMTarget;
 
     {$i gtk3winapih.inc}
     {$i gtk3lclintfh.inc}

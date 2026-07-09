@@ -474,9 +474,17 @@ begin
 end;
 
 function TQtWidgetSet.CreateCaret(Handle: HWND; Bitmap: hBitmap; Width, Height: Integer): Boolean;
+var
+  APixmap: QPixmapH;
 begin
-  Result := (Handle <> 0) and
-    QtCaret.CreateCaret(TQtWidget(Handle), Bitmap, Width, Height);
+  if (Handle <> 0) and (Bitmap <> 0) then
+  begin
+    APixmap := TQtImage(Bitmap).AsPixmap;
+    Result := QtCaret.CreateCaret(TQtWidget(Handle), APixmap, Width, Height);
+    QPixmap_destroy(APixmap);
+  end else
+    Result := (Handle <> 0) and
+      QtCaret.CreateCaret(TQtWidget(Handle), Bitmap, Width, Height);
 end;
 
 {------------------------------------------------------------------------------
@@ -4247,8 +4255,8 @@ begin
   Size.cy := 0;
   if (Count <= 0) or (Str = nil) or (StrPas(Str) = '') then
     exit;
-  WideStr := {%H-}Str;
-  Size.cx := QtDC.Metrics.width(@WideStr, UTF8Length(Str, Count));
+  WideStr := UTF8ToUTF16({%H-}Copy(Str, 1, Count));
+  Size.cx := QtDC.Metrics.width(@WideStr, Length(WideStr));
   Size.cy := QtDC.Metrics.height;
 
   Result := True;
@@ -6933,8 +6941,16 @@ var
     AMaskPix, AScaledPix: QPixmapH;
     ARenderHints: QPainterRenderHints;
     ARenderHint: Boolean;
+    DPR: Double;
+    IsPreScaled: Boolean;
   begin
     ATempPixmap := QPixmap_create();
+
+    DPR := QPaintDevice_devicePixelRatioF(QPaintEngine_paintDevice(QPainter_paintEngine(DstQDC.Widget)));
+    if DPR < 1.0 then
+      DPR := 1.0;
+    IsPreScaled := (DPR > 1.0) and (AMaskImg = nil) and
+      (QPixmap_width(APixmap) >= Round(Width * DPR));
 
     ARenderHints := QPainter_renderHints(DstQDC.Widget);
     ARenderHint := (AHighQuality and not EqualRect(DstRect, SrcRect)) and
@@ -6944,6 +6960,11 @@ var
     if ARenderHint and (ARenderHints and QPainterSmoothPixmapTransform <> 0) then
       ARenderHint := False; // do not touch render hints
 
+    if IsPreScaled then
+    begin
+      QPixmap_copy(APixmap, ATempPixmap, 0, 0, QPixmap_width(APixmap), QPixmap_height(APixmap));
+      QPixmap_setDevicePixelRatio(ATempPixmap, DPR);
+    end else
     if NeedScaling(DstRect, SrcRect) then
       QPixmap_scaled(APixmap, ATempPixmap, Width, Height)
     else

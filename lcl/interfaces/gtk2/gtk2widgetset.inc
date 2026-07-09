@@ -234,27 +234,39 @@ procedure gtk_commit_cb ({%H-}context: PGtkIMContext; const Str: Pgchar;
   {%H-}Data: Pointer); cdecl;
 {$IFDEF WITH_GTK2_IM}
 var
-  control:TWinControl;
-  i:Integer;
+  control: TWinControl;
+  UseCommitPath: Boolean;
 {$ENDIF}
 begin
   {$IFDEF WITH_GTK2_IM}
   //DebugLn(['gtk_commit_cb ',dbgstr(Str),'="',Str,'"']);
-  { fix double normal character input }
-  if not im_context_use then
-    im_context_string:=Str // key at non-composition
-    else
-      im_context_string_commit:=Str; // key at composition
-  { commit composition string, not key }
-  if (im_context_widget<>nil) then
-      begin
-        im_context_skipdelete:=True;
-        Control:=TWinControl(GetNearestLCLObject(im_context_widget));
-        SendMessage(control.Handle,LM_IM_COMPOSITION,GTK_IM_FLAG_COMMIT,LPARAM(pchar(im_context_string_commit)));
-        im_context_string_commit:='';
-      end;
+
+  { Determine if this commit is IME output or a normal key.
+    im_context_use is set by preedit-start/preedit-changed, but some IMEs
+    fire commit before preedit-start. Detect IME output by content:
+    Length > 1 covers multi-char words AND multi-byte CJK characters
+    (in UTF-8, any non-ASCII char is >= 2 bytes).
+    Use a local variable to avoid polluting im_context_use — if it stays
+    True after a forced commit (no preedit-end fires), subsequent normal
+    keys would wrongly take the composition path. }
+  UseCommitPath := im_context_use or (Length(Str) > 1);
+
+  if not UseCommitPath then
+    im_context_string := Str  // normal key: consumed by keypress handler
+  else
+  begin
+    im_context_string_commit := Str;  // IME commit: send full string
+    if im_context_widget <> nil then
+    begin
+      im_context_skipdelete := True;
+      Control := TWinControl(GetNearestLCLObject(im_context_widget));
+      SendMessage(Control.Handle, LM_IM_COMPOSITION, GTK_IM_FLAG_COMMIT,
+                  LPARAM(PChar(im_context_string_commit)));
+      im_context_string_commit := '';
+    end;
+  end;
   {$ELSE}
-  im_context_string:=Str;
+  im_context_string := Str;
   {$ENDIF}
 end;
 
@@ -3397,7 +3409,7 @@ begin
     ADesc.Depth := 32;
     ADesc.BitsPerPixel := 32;
     ADesc.LineEnd := rileDWordBoundary;
-    ADesc.ByteOrder := riboLSBFirst;
+    ADesc.ByteOrder := DefaultByteOrder;
 
     ADesc.RedPrec := 8;
     ADesc.RedShift := 0;
@@ -3415,10 +3427,11 @@ begin
   end
   else
   begin
+    ADesc.Format := ricfRGBA;
     ADesc.Depth := Depth;
     ADesc.BitsPerPixel := 32;
     ADesc.LineEnd := rileDWordBoundary;
-    ADesc.ByteOrder := riboLSBFirst;
+    ADesc.ByteOrder := DefaultByteOrder;
     ADesc.MaskBitsPerPixel := 0;
     ADesc.MaskShift := 0;
     ADesc.MaskLineEnd := rileByteBoundary;
@@ -6021,7 +6034,7 @@ begin
 
           if (Visual <> nil) and (not SystemVisual) then
             gdk_visual_unref(Visual);
-          if Colormap <> nil then
+          if (Colormap <> nil) and (not SystemColormap) then
             gdk_colormap_unref(Colormap);
           {$IFDEF DebugGDKTraps}
           EndGDKErrorTrap;
@@ -6042,7 +6055,7 @@ begin
           {$IFDEF DebugGDKTraps}
           BeginGDKErrorTrap;
           {$ENDIF}
-          If PaletteVisual <> nil then
+          If (PaletteVisual <> nil) and (not SystemPaletteVisual) then
             gdk_visual_unref(PaletteVisual);
           If PaletteColormap <> nil then
             gdk_colormap_unref(PaletteColormap);

@@ -289,6 +289,7 @@ type
     procedure EditorKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure EditorKeyUp({%H-}Sender: TObject; var {%H-}Key: Word; {%H-}Shift: TShiftState);
     procedure EditorStatusChanged(Sender: TObject; {%H-}Changes: TSynStatusChanges);
+    procedure EditorTextChanged(Sender: TObject);
     procedure EditorPaste(Sender: TObject; var AText: String;
          var AMode: TSynSelectionMode; ALogStartPos: TPoint;
          var AnAction: TSynCopyPasteAction);
@@ -1034,6 +1035,7 @@ type
     procedure SetActiveEditor(const AValue: TSourceEditorInterface); override;
     procedure DoActiveEditorChanged;
     procedure DoEditorStatusChanged(AEditor: TSourceEditor);
+    procedure DoEditorTextChanged(AEditor: TSourceEditor);
     function  GetSourceEditors(Index: integer): TSourceEditorInterface; override;
     function  GetUniqueSourceEditors(Index: integer): TSourceEditorInterface; override;
     function GetMarklingProducers(Index: integer): TSourceMarklingProducer; override;
@@ -1884,7 +1886,7 @@ begin
 
       // register the Debug submenu items
       SrcEditMenuToggleBreakpoint:=RegisterIDEMenuCommand(AParent,
-          'Toggle Breakpoint', uemToggleBreakpoint, nil, @ExecuteIdeMenuClick);
+          'Toggle Breakpoint', uemToggleBreakpoint, nil, @ExecuteIdeMenuClick, nil, 'ActiveBreakPoint');
       SrcEditMenuEvaluateModify:=RegisterIDEMenuCommand(AParent,
           'Evaluate/Modify...', uemEvaluateModify, nil, nil, nil, 'debugger_modify');
       SrcEditMenuEvaluateModify.Enabled:=False;
@@ -3256,8 +3258,8 @@ begin
         if assigned(SharedEdit.FEditPlugin) then
           SharedEdit.FEditPlugin.Changes := ETChanges;
       end;
-      if MessagesView<>nil then
-        MessagesView.MessagesFrame1.CreateMarksForFile(SynEditor,FCodeBuffer.Filename,true);
+      Assert(Assigned(MessagesView), 'MessagesView=Nil');
+      MessagesView.MessagesFrame1.CreateMarksForFile(SynEditor,FCodeBuffer.Filename,true);
       if (FIgnoreCodeBufferLock <= 0) and (not FCodeBuffer.IsEqual(SynEditor.Lines))
       then begin
         {$IFDEF IDE_DEBUG}
@@ -3420,6 +3422,11 @@ begin
 
       for i := 0 to SharedEditorCount-1 do
         SharedEditors[i].AfterCodeBufferReplace;
+      // AssignTo replaces the whole text without going through the SynEdit
+      // OnChange event (e.g. when the file was reverted/reloaded from disk),
+      // so notify the text change explicitly.
+      for i := 0 to FSharedEditorList.Count - 1 do
+        SharedEditors[i].EditorTextChanged(SharedEditors[i].EditorComponent);
       // HasExecutionMarks is shared through synedit => this is only needed once // but HasExecutionMarks must be called on each synedit, so each synedit is notified
       for i := 0 to FSharedEditorList.Count - 1 do begin
         SharedEditors[i].FillExecutionMarks;
@@ -4525,6 +4532,12 @@ Begin
     IDECommandList.PostponeUpdateEvents;
 end;
 
+procedure TSourceEditor.EditorTextChanged(Sender: TObject);
+begin
+  if Manager<>nil then
+    Manager.DoEditorTextChanged(Self);
+end;
+
 function TSourceEditor.SelectionAvailable: boolean;
 begin
   Result := EditorComponent.SelAvail;
@@ -5458,6 +5471,7 @@ Begin
 
       // IMPORTANT: when you change below, don't forget updating UnbindEditor
       OnStatusChange := @EditorStatusChanged;
+      OnChange := @EditorTextChanged;
       OnProcessCommand := @ProcessCommand;
       OnProcessUserCommand := @ProcessUserCommand;
       OnCommandProcessed := @UserCommandProcessed;
@@ -6858,6 +6872,7 @@ var
 begin
   with EditorComponent do begin
     OnStatusChange := nil;
+    OnChange := nil;
     OnProcessCommand := nil;
     OnProcessUserCommand := nil;
     OnCommandProcessed := nil;
@@ -7626,8 +7641,7 @@ begin
         Marks[i].CreatePopupMenuItems(@AddUserDefinedPopupMenuItem);
       FreeMem(Marks);
     end;
-    if (EditorCaret.Y<=EditorComp.Lines.Count)
-    and (MessagesView<>nil) then
+    if EditorCaret.Y<=EditorComp.Lines.Count then
       MessagesView.SourceEditorPopup(EditorComp.Marks.Line[EditorCaret.Y],
         EditorComp.LogicalCaretXY);
   end;
@@ -9949,6 +9963,7 @@ var
   NewIndent: TFABIndentationPolicy;
   Indent: LongInt;
   CodeBuf: TCodeBuffer;
+  Edit: TIDESynEditor;
 begin
   Result:=false;
   // SynBeautifier is shared arrcoss SynEdits, and may call the wrong SrcNoteBook
@@ -9984,6 +9999,10 @@ begin
   DebugLn(['TSourceNotebook.EditorGetIndent CodeBuffer: ',dbgstr(copy(CodeBuf.Source,p-10,10)),'|',dbgstr(copy(CodeBuf.Source,p,10))]);
   DebugLn(['TSourceNotebook.EditorGetIndent CodeBuffer: "',copy(CodeBuf.Source,p-10,10),'|',copy(CodeBuf.Source,p,10)]);
   {$ENDIF}
+  Edit:=SrcEdit.EditorComponent;
+  CodeToolBoss.TabWidth:=Edit.TabWidth;
+  CodeToolBoss.IndentSize:=Edit.BlockIndent+Edit.BlockTabIndent*Edit.TabWidth;
+  CodeToolBoss.UseTabs:=Edit.BlockTabIndent>0;
   NestedComments:=CodeToolBoss.GetNestedCommentsFlagForFile(CodeBuf.Filename);
   if not CodeToolBoss.Indenter.GetIndent(CodeBuf.Source,p,NestedComments,
     True,NewIndent,CodeToolsOpts.IndentContextSensitive)
@@ -10065,9 +10084,8 @@ begin
           if HintStr<>'' then HintStr:=HintStr+LineEnding;
           HintStr:=HintStr+CurHint;
         end;
-
-        if (MessagesView<>nil) then
-          MessagesView.SourceEditorHint(MLine,HintStr);
+        Assert(Assigned(MessagesView), 'MessagesView=Nil');
+        MessagesView.SourceEditorHint(MLine,HintStr);
       end;
 
       if HintStr<>'' then
@@ -10325,6 +10343,11 @@ procedure TSourceEditorManagerBase.DoEditorStatusChanged(AEditor: TSourceEditor)
 begin
   CodeToolsToSrcEditTimer.Enabled:=false;
   FChangeNotifyLists[semEditorStatus].CallNotifyEvents(AEditor);
+end;
+
+procedure TSourceEditorManagerBase.DoEditorTextChanged(AEditor: TSourceEditor);
+begin
+  FChangeNotifyLists[semEditorTextChanged].CallNotifyEvents(AEditor);
 end;
 
 function TSourceEditorManagerBase.GetSourceEditors(Index: integer): TSourceEditorInterface;

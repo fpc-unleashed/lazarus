@@ -163,6 +163,7 @@ type
     procedure Terminate(Tool: TExternalTool);
     procedure TerminateAll; override;
     procedure Clear; override;
+    procedure WaitForAll(Timeout: word);
     function RunningCount: integer;
     property RunningTools[Index: integer]: TExternalTool read GetRunningTools;
     procedure EnterCriticalSection; override;
@@ -277,8 +278,6 @@ begin
   if ErrorMessage<>'' then
     DebuglnThreadLog(['TExternalTool.ThreadStopped ',Title,' ErrorMessage=',ErrorMessage]);
   {$ENDIF}
-  if Thread<>nil then
-    Thread.Tool:=nil;
   EnterCriticalSection;
   try
     if (not Terminated) and (ErrorMessage='') then
@@ -306,6 +305,7 @@ begin
   end;
   if Tools<>nil then
     TExternalTools(Tools).RemoveRunningTool(Self);
+
   TThread.Synchronize(nil,@NotifyHandlerStopped);
 end;
 
@@ -513,7 +513,10 @@ begin
   OldThread:=FThread;
   FThread:=AValue;
   if OldThread<>nil then
+  begin
+    TExternalTools(Tools).AddOldThread(OldThread);
     OldThread.Tool:=nil;
+  end;
   if FThread<>nil then
     FThread.Tool:=Self;
 end;
@@ -724,8 +727,8 @@ begin
   if Thread=nil then begin
     FThread:=TExternalToolThread.Create(true);
     Thread.Tool:=Self;
-    FThread.FreeOnTerminate:=false;
-    FThread.OnTerminate:=@TExternalTools(Tools).OnThreadTerminate;
+    Thread.FreeOnTerminate:=false;
+    Thread.OnTerminate:=@TExternalTools(Tools).OnThreadTerminate;
   end;
   if ConsoleVerbosity>=0 then begin
     debugln(['Info: (lazarus) Execute Title="',Title,'"']);
@@ -837,7 +840,7 @@ procedure TExternalTool.AddExecuteBefore(Tool: TAbstractExternalTool);
 begin
   //debugln(['TExternalTool.AddExecuteBefore Self=',Title,' Tool=',Tool.Title]);
   if (Tool=Self) or (Tool.IsExecutedBefore(Self)) then
-    raise Exception.Create('TExternalTool.AddExecuteBefore: that would create a circle');
+    raise Exception.Create('TExternalTool.AddExecuteBefore: that would create a cycle');
   if (fExecuteBefore<>nil) and (fExecuteBefore.IndexOf(Tool)<0) then
     fExecuteBefore.Add(Tool);
   if (TExternalTool(Tool).fExecuteAfter<>nil)
@@ -1236,14 +1239,19 @@ var
   i: Integer;
   aThread: TExternalToolThread;
 begin
-  for i:=fOldThreads.Count-1 downto 0 do
-  begin
-    aThread:=TExternalToolThread(fOldThreads[i]);
-    if aThread.Finished then
+  EnterCriticalSection;
+  try
+    for i:=fOldThreads.Count-1 downto 0 do
     begin
-      fOldThreads.Delete(i);
-      aThread.Free;
+      aThread:=TExternalToolThread(fOldThreads[i]);
+      if aThread.Finished then
+      begin
+        fOldThreads.Delete(i);
+        aThread.Free;
+      end;
     end;
+  finally
+    LeaveCriticalSection;
   end;
 end;
 
@@ -1256,13 +1264,18 @@ procedure TExternalTools.AddOldThread(aThread: TExternalToolThread);
 var
   OldTool: TExternalTool;
 begin
-  OldTool:=aThread.Tool;
-  aThread.Tool:=nil;
-  if fOldThreads.IndexOf(aThread)<0 then
-    fOldThreads.Add(aThread);
+  EnterCriticalSection;
+  try
+    OldTool:=aThread.Tool;
+    aThread.Tool:=nil;
+    if fOldThreads.IndexOf(aThread)<0 then
+      fOldThreads.Add(aThread);
 
-  if OldTool<>nil then
-    OldTool.AutoFree;
+    if OldTool<>nil then
+      OldTool.AutoFree;
+  finally
+    LeaveCriticalSection;
+  end;
 end;
 
 function TExternalTools.GetRunningTools(Index: integer): TExternalTool;
@@ -1336,6 +1349,8 @@ begin
   try
     if fRunning.Count>0 then
       raise Exception.Create('TExternalTools.Destroy some tools still running');
+    if fOldThreads.Count>0 then
+      raise Exception.Create('TExternalTools.Destroy some threads were not freed');
     inherited Destroy;
     FreeAndNil(fRunning);
     FreeAndNil(fParsers);
@@ -1409,7 +1424,7 @@ var
 begin
   for i:=Count-1 downto 0 do
     Terminate(Items[i] as TExternalTool);
-  FreeFinishedThreads;
+  WaitForAll(500);
 end;
 
 procedure TExternalTools.Clear;
@@ -1417,6 +1432,33 @@ begin
   TerminateAll;
   while Count>0 do
     Items[0].Free;
+end;
+
+procedure TExternalTools.WaitForAll(Timeout: word);
+var
+  t: QWord;
+  i: Integer;
+  Tool: TExternalTool;
+begin
+  // always call synchronize, so terminated threads can add themselves to fOldThreads
+  CheckSynchronize;
+  FreeFinishedThreads;
+  if (RunningCount=0) and (fOldThreads.Count=0) then exit;
+  t:=GetTickCount64;
+  repeat
+    CheckSynchronize(50);
+    FreeFinishedThreads;
+    if (RunningCount=0) and (fOldThreads.Count=0) then exit;
+  until GetTickCount64-t>Timeout;
+  if RunningCount>0 then
+  begin
+    debugln(['Info: (lazarus) TExternalTools.WaitForAll some threads have not yet finished:']);
+    for i:=0 to Count-1 do
+    begin
+      Tool:=TExternalTool(Items[i]);
+      debugln(['Info: (lazarus) Tool ',i,' Stage=',dbgs(Tool.Stage),' "',Tool.Title,'"']);
+    end;
+  end;
 end;
 
 function TExternalTools.RunningCount: integer;

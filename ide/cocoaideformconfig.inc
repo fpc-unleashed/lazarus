@@ -131,7 +131,6 @@ const
     onAction: nil;
 
     showsIndicator: False;
-    menu: nil;
     onGetMenu: @onGetCommandMenu;
   );
 
@@ -151,6 +150,7 @@ const
       identifier: 'MainIDE.ToolBar';
       style: NSWindowToolbarStyleUnifiedCompact;
       displayMode: NSToolbarDisplayModeIconOnly;
+      autoHideInFullScreen: True;
 
       allowsUserCustomization: False;
       autosavesConfiguration: False;

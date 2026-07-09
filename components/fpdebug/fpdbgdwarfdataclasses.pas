@@ -278,8 +278,8 @@ type
   *)
   TDwarfScopeInfoRec = record
     Link: Integer;
-    Entry: Pointer;
     NameHash: Word;
+    Entry: Pointer;
   end;
   PDwarfScopeInfoRec = ^TDwarfScopeInfoRec;
   TDwarfScopeArray = Array of TDwarfScopeInfoRec;
@@ -2776,6 +2776,57 @@ begin
       DW_OP_stack_value: begin
           EntryP := FStack.Peek;
           EntryP^.MType := mlfConstantDeref;
+      end;
+      // dwarf 5
+      // dwarf 6
+      DW_OP_offset: begin
+          if not AssertMinCount(2) then exit;
+          Entry  := FStack.Pop;          // constant offset
+          EntryP := FStack.PeekForDeref; // the address
+          if (EntryP^.MType = mlfConstantDeref) and
+             (Entry.Address < SizeOf(TDbgPtr)) // includes negative // SHL does not make sense, as it pretends there would be data
+          {$PUSH}{$R-}{$Q-}
+          then begin
+            EntryP^.Address := EntryP^.Address shr (Entry.Address * 8);
+          end
+          else
+          if (EntryP^.MType in [mlfTargetMem, mlfSelfMem]) then begin
+            EntryP^.Address := Entry.Address+EntryP^.Address;
+          end
+          {$POP}
+          else begin
+            SetError(fpErrLocationParser);
+            exit;
+          end;
+      end;
+      DW_OP_bit_offset: begin
+          if not AssertMinCount(2) then exit;
+          Entry  := FStack.Pop;          // constant offset
+          EntryP := FStack.PeekForDeref; // the address
+          if (EntryP^.MType = mlfConstantDeref) and
+             (Entry.Address < SizeOf(TDbgPtr)*8) // includes negative // SHL does not make sense, as it pretends there would be data
+          {$PUSH}{$R-}{$Q-}
+          then begin
+            EntryP^.Address := EntryP^.Address shr (Entry.Address);
+          end
+          else
+          if (EntryP^.MType in [mlfTargetMem, mlfSelfMem]) then begin
+            EntryP^ := AddBitOffset(EntryP^, Entry.Address);
+          end
+          {$POP}
+          else
+          if (EntryP^.MType = mlfTargetRegister) and (abs(Int64(Entry.Address)) < 64) then begin
+            x := EntryP^.BitOffset + Int64(Entry.Address);
+            if (x < 0) or (x >= 64) then begin
+              SetError(fpErrLocationParser);
+              exit;
+            end;
+            EntryP^.BitOffset := x;
+          end
+          else begin
+            SetError(fpErrLocationParser);
+            exit;
+          end;
       end;
 
       else
@@ -5593,6 +5644,9 @@ end;
 
 constructor TDwarfCompilationUnit.Create(AOwner: TFpDwarfInfo; ADebugFile: PDwarfDebugFile; ADataOffset: QWord; ALength: QWord; AVersion: Word; AAbbrevOffset: QWord; AAddressSize: Byte; AIsDwarf64: Boolean);
   procedure FillLineInfo(AData: Pointer);
+  var
+    Version: Word;
+
     function CheckOldFpc322: boolean;
     var
       s: String;
@@ -5666,7 +5720,7 @@ constructor TDwarfCompilationUnit.Create(AOwner: TFpDwarfInfo; ADebugFile: PDwar
             debugln(FPDBG_DWARF_ERRORS or FPDBG_DWARF_VERBOSE, ['ReadDirectoryList unknown content type: ', FileDirFormatEncoding[i].ContentType]);
             exit;
           end;
-          if not SkipEntryDataForForm(AData, FileDirFormatEncoding[i].Form, FLineInfo.AddrSize, FIsDwarf64, FVersion) then begin
+          if not SkipEntryDataForForm(AData, FileDirFormatEncoding[i].Form, FLineInfo.AddrSize, FIsDwarf64, Version) then begin
             debugln(FPDBG_DWARF_ERRORS or FPDBG_DWARF_VERBOSE, ['ReadDirectoryList failed skip: ', FileDirFormatEncoding[i].Form]);
             exit;
           end;
@@ -5730,7 +5784,7 @@ constructor TDwarfCompilationUnit.Create(AOwner: TFpDwarfInfo; ADebugFile: PDwar
             debugln(FPDBG_DWARF_ERRORS or FPDBG_DWARF_VERBOSE, ['ReadFileList unknown content type: ', FileDirFormatEncoding[i].ContentType]);
             exit;
           end;
-          if not SkipEntryDataForForm(AData, FileDirFormatEncoding[i].Form, FLineInfo.AddrSize, FIsDwarf64, FVersion) then begin
+          if not SkipEntryDataForForm(AData, FileDirFormatEncoding[i].Form, FLineInfo.AddrSize, FIsDwarf64, Version) then begin
             debugln(FPDBG_DWARF_ERRORS or FPDBG_DWARF_VERBOSE, ['ReadFileList failed skip: ', FileDirFormatEncoding[i].Form]);
             exit;
           end;
@@ -5764,26 +5818,23 @@ constructor TDwarfCompilationUnit.Create(AOwner: TFpDwarfInfo; ADebugFile: PDwar
     Info: PDwarfLNPInfoHeader;
 
     UnitLength: QWord;
-    Version: Word;
     HeaderLength: QWord;
     Name: PChar;
     diridx: Cardinal;
     S, S2: String;
     pb: PByte absolute Name;
-    oldFpc: Boolean;
-    i: SizeInt;
   begin
     FLineInfo.Header := AData;
     FLineInfo.AddrSize := FAddressSize;
 
     if LNP64^.Signature = DWARF_HEADER64_SIGNATURE
     then begin
-      if FVersion < 3 then
-        DebugLn(FPDBG_DWARF_WARNINGS, ['Unexpected 64 bit signature found for DWARF version 2']); // or version 1...
       UnitLength := LNP64^.UnitLength;
       FLineInfo.DataEnd := Pointer(@LNP64^.Version) + UnitLength;
       Version := LNP64^.Version;
-      if FVersion < 5 then begin
+      if Version < 3 then
+        DebugLn(FPDBG_DWARF_WARNINGS, ['Unexpected 64 bit signature found for DWARF version 2']); // or version 1...
+      if Version < 5 then begin
         HeaderLength := LNP64^.HeaderLength;
         Info := @LNP64^.Info;
       end
@@ -5797,7 +5848,7 @@ constructor TDwarfCompilationUnit.Create(AOwner: TFpDwarfInfo; ADebugFile: PDwar
       UnitLength := LNP32^.UnitLength;
       FLineInfo.DataEnd := Pointer(@LNP32^.Version) + UnitLength;
       Version := LNP32^.Version;
-      if FVersion < 5 then begin
+      if Version < 5 then begin
         HeaderLength := LNP32^.HeaderLength;
         Info := @LNP32^.Info;
       end
@@ -5820,7 +5871,7 @@ constructor TDwarfCompilationUnit.Create(AOwner: TFpDwarfInfo; ADebugFile: PDwar
       (* Version 4 up, has an extra field => adjust the pointer
          Except for older FPC, which erroneously did not add the field
       *)
-      if (FVersion <> 4) or not CheckOldFpc322 then begin
+      if (Version <> 4) or not CheckOldFpc322 then begin
         inc(PByte(Info)); // All fields move by 1 byte // Dwarf-4 has a new field
         FLineInfo.MaximumInstructionLength := Info^.MinimumInstructionLength;
       end;
@@ -5839,7 +5890,7 @@ constructor TDwarfCompilationUnit.Create(AOwner: TFpDwarfInfo; ADebugFile: PDwar
 
     Name := PChar(@Info^.StandardOpcodeLengths);
     Inc(Name, Info^.OpcodeBase-1);
-    if FVersion < 5 then begin
+    if Version < 5 then begin
       FLineInfo.Directories.Add(''); // current dir
 
       // directories

@@ -25,7 +25,7 @@ located at http://SynEdit.SourceForge.net
 Known Issues:
 -------------------------------------------------------------------------------}
 
-unit SynEditHighlighter;
+unit SynEditHighlighter deprecated 'Use LazEditHighlighter / this unit will be removed in 5.99';
 
 {$I synedit.inc}
 
@@ -39,7 +39,7 @@ uses
   LazUTF8, LazMethodList,
   // SynEdit
   SynEditTypes, SynEditTextBase, SynEditMiscProcs, LazEditTextAttributes, LazEditHighlighterUtils,
-  LazEditHighlighter;
+  LazEditHighlighter, LazEditFoldHighlighter;
 
 type
   TSynHighlighterRangeList = TLazHighlighterLineRangeList deprecated 'use TLazHighlighterLineRangeList or TLazHighlighterLineRangeShiftList / to be removed in 5.99';
@@ -49,6 +49,9 @@ type
   TSynHighlighterAttributesModifier = TLazEditHighlighterAttributesModifier deprecated 'use TLazEditTextAttribute // to be removed in 5.99';
   TSynHighlighterAttributes_Eol = TLazEditHighlighterAttributes_Eol deprecated 'use TLazEditTextAttribute // to be removed in 5.99';
   TSynHighlighterAttributesModifier_Eol = TLazEditHighlighterAttributesModifier_Eol deprecated 'use TLazEditTextAttribute // to be removed in 5.99';
+
+  TLazEditCustomHighlighter = LazEditHighlighter.TLazEditCustomHighlighter deprecated 'Use LazEditHighlighter';
+  TLazEditCustomRangesHighlighter = LazEditHighlighter.TLazEditCustomRangesHighlighter deprecated 'Use LazEditHighlighter';
 
   { TSynHighlighterAttributesHelper }
 
@@ -106,14 +109,13 @@ type
 
   { TSynCustomHighlighter }
 
-  TSynCustomHighlighter = class(TLazEditCustomRangesHighlighter)
+  TSynCustomHighlighter = class(TLazEditCustomFoldHighlighter)
   private
     fAttrChangeHooks: TMethodList;
     FCapabilities: TSynHighlighterCapabilities deprecated;
     FDrawDividerLevel: Integer deprecated;
     fEnabled: Boolean deprecated;
     fWordBreakChars: TSynIdentChars deprecated;
-    function GetKnownLines: TLazEditHighlighterAttachedLines; deprecated;
     procedure SetDrawDividerLevel(const AValue: Integer); deprecated;
     procedure SetEnabled(const Value: boolean);                                 //DDH 2001-10-23
   protected
@@ -134,7 +136,6 @@ type
     procedure BeforeDetachedFromRangeList(ARangeList: TLazHighlighterLineRangeList); virtual; deprecated 'use DoDetachingFromLines // to be removed in 5.99';
     // code fold - only valid if hcCodeFolding in Capabilities
     function PerformScan(StartIndex, EndIndex: Integer; ForceEndIndex: Boolean = False): Integer; virtual;  deprecated 'use DoPrepareLines / to be removed in 5.99';
-    property KnownLines: TLazEditHighlighterAttachedLines read GetKnownLines; deprecated 'use AttachedLines // to be removed in 5.99';
     procedure RequestFullRescan; reintroduce; // deprecated 'to be removed in 5.99' // only needed to force a call to fAttrChangeHooks
     procedure SendAttributeChangeNotification; reintroduce; // deprecated 'to be removed in 5.99'
     procedure DoEndUpdate; override;
@@ -147,10 +148,6 @@ type
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-    function AddSpecialAttribute(const aCaption: string;
-                     const aStoredName: String = ''): TLazEditTextAttribute;
-    function AddSpecialAttribute(const aCaption: PString;
-                     const aStoredName: String = ''): TLazEditTextAttribute;
     procedure Assign(Source: TPersistent); override;
   public
     procedure InitForScanningLine; override;
@@ -163,15 +160,12 @@ type
 
     property DrawDividerLevel: Integer read FDrawDividerLevel write SetDrawDividerLevel; deprecated;
   public
-    procedure ScanRanges; deprecated 'use PrepareLines / to be removed in 5.99';
     (* IdleScanRanges
        Scan in small chunks during OnIdle; Return True, if more work avail
        This method is still under development. It may be changed, removed, un-virtualized, or anything.
        In future SynEdit & HL may have other IDLE tasks, and if and when that happens, there will be new ways to control this
     *)
     function  IdleScanRanges: Boolean; virtual; experimental;  deprecated 'use PrepareLines / to be removed in 5.99';
-    function NeedScan: Boolean;  deprecated 'use FirstUnpreparedLine / to be removed in 5.99';
-    procedure ScanAllRanges; deprecated 'use MarkUnprepared / to be removed in 5.99';
     procedure SetLine(const NewValue: String;
                       LineNumber:Integer // 0 based
                       ); virtual; deprecated 'Use InitForScanningLine // to be removed in 5.99';
@@ -180,8 +174,6 @@ type
     procedure EnumUserSettings(Settings: TStrings); virtual;
     function LoadFromRegistry(RootKey: HKEY; Key: string): boolean; virtual;
     function SaveToRegistry(RootKey: HKEY; Key: string): boolean; virtual;
-    function LoadFromFile(AFileName: String): boolean;                          //DDH 10/16/01
-    function SaveToFile(AFileName: String): boolean;                            //DDH 10/16/01
     procedure HookAttrChangeEvent(ANotifyEvent: TNotifyEvent);  deprecated 'use senrHighlightRescanNeeded // to be removed in 5.99';
     procedure UnhookAttrChangeEvent(ANotifyEvent: TNotifyEvent);  deprecated 'use senrHighlightRescanNeeded // to be removed in 5.99';
     property WordBreakChars: TSynIdentChars read GetWordBreakChars write SetWordBreakChars;  deprecated 'to become read-only in 5.99';
@@ -192,17 +184,38 @@ type
   public
     property Enabled: boolean read fEnabled write SetEnabled default TRUE;      //DDH 2001-10-23
         deprecated 'to be removed in 5.99 / no replacement - was never implemented';
-  end;
+  end deprecated 'Use TLazEditCustomHighlighter / this class will be removed in 5.99';
 
   TSynCustomHighlighterClass = class of TSynCustomHighlighter;
 
   { TSynCustomHighlighterLazEditHelper }
 
+  { TSynCustomRangeHighlighterLazEditHelper }
+
+  TSynCustomRangeHighlighterLazEditHelper = class helper for TLazEditCustomRangesHighlighter
+    function TheCurrentRanges: TLazHighlighterLineRangeList;
+  end;
+
   TSynCustomHighlighterLazEditHelper = class helper for TLazEditCustomHighlighter
   private
     function GetAttributeChangeNeedScan: Boolean;
     function GetDefaultAttrib(AIndex: Integer): TLazEditHighlighterAttributes;
+    function GetKnownLines: TLazEditCustomHighlighter.TLazEditHighlighterAttachedLines; deprecated;
+  protected
+    property KnownLines: TLazEditCustomHighlighter.TLazEditHighlighterAttachedLines read GetKnownLines; deprecated 'use AttachedLines // to be removed in 5.99';
   public
+    function AddSpecialAttribute(const aCaption: string;
+                     const aStoredName: String = ''): TLazEditTextAttribute; deprecated 'use AddAttribute // to be removed in 5.99';
+    function AddSpecialAttribute(const aCaption: PString;
+                     const aStoredName: String = ''): TLazEditTextAttribute; deprecated 'use AddAttribute // to be removed in 5.99';
+
+    procedure ScanRanges; deprecated 'use PrepareLines / to be removed in 5.99';
+    function NeedScan: Boolean;  deprecated 'use FirstUnpreparedLine / to be removed in 5.99';
+    procedure ScanAllRanges; deprecated 'use MarkUnprepared / to be removed in 5.99';
+
+    function LoadFromFile(AFileName: String): boolean;                          //DDH 10/16/01
+    function SaveToFile(AFileName: String): boolean;                            //DDH 10/16/01
+
     property  AttributeChangeNeedScan: Boolean read GetAttributeChangeNeedScan; deprecated 'use RequestFullRescan // to be removed in 5.99';
 
     property CommentAttribute: TLazEditHighlighterAttributes
@@ -713,54 +726,6 @@ begin
   finally r.Free; end;
 end;
 
-function TSynCustomHighlighter.LoadFromFile(AFileName : String): boolean;       //DDH 10/16/01
-VAR AIni : TIniFile;
-    i : Integer;
-begin
-  AIni := TIniFile.Create(UTF8ToSys(AFileName));
-  try
-    with AIni do
-    begin
-      Result := true;
-      for i := 0 to AttrCount-1 do
-        Result := Result and Attribute[i].LoadFromFile(AIni);
-    end;
-  finally
-    AIni.Free;
-  end;
-end;
-
-function TSynCustomHighlighter.SaveToFile(AFileName : String): boolean;         //DDH 10/16/01
-var AIni : TIniFile;
-    i: integer;
-begin
-  AIni := TIniFile.Create(UTF8ToSys(AFileName));
-  try
-    with AIni do
-    begin
-      Result := true;
-      for i := 0 to AttrCount-1 do
-        Result := Result and Attribute[i].SaveToFile(AIni);
-    end;
-  finally
-    AIni.Free;
-  end;
-end;
-
-function TSynCustomHighlighter.AddSpecialAttribute(const aCaption: string;
-  const aStoredName: String): TLazEditTextAttribute;
-begin
-  result := TLazEditHighlighterAttributes.Create(aCaption,aStoredName);
-  AddAttribute(result);
-end;
-
-function TSynCustomHighlighter.AddSpecialAttribute(const aCaption: PString;
-  const aStoredName: String): TLazEditTextAttribute;
-begin
-  Result := TLazEditHighlighterAttributes.Create(aCaption,aStoredName);
-  AddAttribute(result);
-end;
-
 procedure TSynCustomHighlighter.DefHighlightChange(Sender: TObject);
 begin
   if IsUpdating then
@@ -887,19 +852,9 @@ begin
   fAttrChangeHooks.Remove(TMethod(ANotifyEvent));
 end;
 
-procedure TSynCustomHighlighter.ScanRanges;
-begin
-  PrepareLines;
-end;
-
 function TSynCustomHighlighter.IdleScanRanges: Boolean;
 begin
   Result := not PrepareLines(-1, 25);
-end;
-
-function TSynCustomHighlighter.NeedScan: Boolean;
-begin
-  Result := (CurrentRanges.FirstInvalidLine >= 0);
 end;
 
 function TSynCustomHighlighter.PerformScan(StartIndex, EndIndex: Integer;
@@ -947,12 +902,6 @@ begin
   inherited DoDetachingFromLines(Lines, ARangeList);
 end;
 
-procedure TSynCustomHighlighter.ScanAllRanges;
-begin
-  CurrentRanges.InvalidateAll;
-  PrepareLines;
-end;
-
 procedure TSynCustomHighlighter.SetEnabled(const Value: boolean);
 begin
   if fEnabled <> Value then
@@ -972,11 +921,6 @@ begin
   //DefHighlightChange(Self);
 end;
 
-function TSynCustomHighlighter.GetKnownLines: TLazEditHighlighterAttachedLines;
-begin
-  Result := AttachedLines;
-end;
-
 function TSynCustomHighlighter.GetDefaultAttribute(Index: integer): TLazEditHighlighterAttributes;
 begin
   case Index of
@@ -994,6 +938,13 @@ begin
   end;
 end;
 
+{ TSynCustomRangeHighlighterLazEditHelper }
+
+function TSynCustomRangeHighlighterLazEditHelper.TheCurrentRanges: TLazHighlighterLineRangeList;
+begin
+  Result := CurrentRanges;
+end;
+
 { TSynCustomHighlighterLazEditHelper }
 
 function TSynCustomHighlighterLazEditHelper.GetAttributeChangeNeedScan: Boolean;
@@ -1009,6 +960,77 @@ begin
   Result := nil;
   if Self is TSynCustomHighlighter then
     Result := TSynCustomHighlighter(Self).GetDefaultAttribute(AIndex);
+end;
+
+function TSynCustomHighlighterLazEditHelper.GetKnownLines: TLazEditCustomHighlighter.TLazEditHighlighterAttachedLines;
+begin
+  Result := AttachedLines;
+end;
+
+function TSynCustomHighlighterLazEditHelper.AddSpecialAttribute(const aCaption: string;
+  const aStoredName: String): TLazEditTextAttribute;
+begin
+  result := TLazEditHighlighterAttributes.Create(aCaption,aStoredName);
+  AddAttribute(result);
+end;
+
+function TSynCustomHighlighterLazEditHelper.AddSpecialAttribute(const aCaption: PString;
+  const aStoredName: String): TLazEditTextAttribute;
+begin
+  Result := TLazEditHighlighterAttributes.Create(aCaption,aStoredName);
+  AddAttribute(result);
+end;
+
+procedure TSynCustomHighlighterLazEditHelper.ScanRanges;
+begin
+  PrepareLines;
+end;
+
+function TSynCustomHighlighterLazEditHelper.NeedScan: Boolean;
+begin
+  if Self is TLazEditCustomRangesHighlighter then
+    Result := (TLazEditCustomRangesHighlighter(Self).TheCurrentRanges.FirstInvalidLine >= 0);
+end;
+
+procedure TSynCustomHighlighterLazEditHelper.ScanAllRanges;
+begin
+  if Self is TLazEditCustomRangesHighlighter then
+    TLazEditCustomRangesHighlighter(Self).TheCurrentRanges.InvalidateAll;
+  PrepareLines;
+end;
+
+function TSynCustomHighlighterLazEditHelper.LoadFromFile(AFileName: String): boolean;
+VAR AIni : TIniFile;
+    i : Integer;
+begin
+  AIni := TIniFile.Create(UTF8ToSys(AFileName));
+  try
+    with AIni do
+    begin
+      Result := true;
+      for i := 0 to AttrCount-1 do
+        Result := Result and Attribute[i].LoadFromFile(AIni);
+    end;
+  finally
+    AIni.Free;
+  end;
+end;
+
+function TSynCustomHighlighterLazEditHelper.SaveToFile(AFileName: String): boolean;
+var AIni : TIniFile;
+    i: integer;
+begin
+  AIni := TIniFile.Create(UTF8ToSys(AFileName));
+  try
+    with AIni do
+    begin
+      Result := true;
+      for i := 0 to AttrCount-1 do
+        Result := Result and Attribute[i].SaveToFile(AIni);
+    end;
+  finally
+    AIni.Free;
+  end;
 end;
 
 initialization

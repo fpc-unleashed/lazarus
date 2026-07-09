@@ -140,6 +140,13 @@ type
     procedure lclItemSelected(sender: id); message 'lclItemSelected:';
   end;
 
+  { TCocoaMenuItem_ToggleFullScreen }
+
+  TCocoaMenuItem_ToggleFullScreen = objcclass(NSMenuItem)
+  public
+    procedure toggleFullScreen(sender: id); message 'toggleFullScreen:';
+  end;
+
   TCocoaMenuItem_Quit = objcclass(NSMenuItem)
   public
     procedure lclItemSelected(sender: id); message 'lclItemSelected:';
@@ -415,6 +422,14 @@ begin
   submenu.addItem(item);
   item.release;
 
+  // Enter Full Screen
+  item := TCocoaMenuItemUtil.init( TCocoaMenuItem_ToggleFullScreen.alloc, rsMacOSMenuToggleFullScreen );
+  item.setAction( ObjCSelector('toggleFullScreen:') );
+  item.setKeyEquivalent( NSSTR('f') );
+  item.setKeyEquivalentModifierMask( NSFunctionKeyMask );
+  submenu.addItem(item);
+  item.release;
+
   // Separator
   submenu.addItem(NSMenuItem.separatorItem);
 
@@ -509,6 +524,17 @@ end;
 procedure TCocoaMenuItem_ShowAllApp.lclItemSelected(sender: id);
 begin
   NSApplication(NSApp).unhideAllApplications(sender);
+end;
+
+{ TCocoaMenuItem_ToggleFullScreen }
+
+procedure TCocoaMenuItem_ToggleFullScreen.toggleFullScreen(sender: id);
+var
+  win: NSWindow;
+begin
+  win:= NSApplication(NSApp).keyWindow;
+  if Assigned(win) then
+    win.toggleFullScreen( sender );
 end;
 
 procedure TCocoaMenuItem_Quit.lclItemSelected(sender: id);
@@ -745,9 +771,6 @@ class function TCocoaMenuItemUtil.init(
   const atitle: String;
   const VKKey: Word;
   const State: TShiftState ): id;
-var
-  key   : NSString;
-  mask  : NSUInteger;
 begin
   Result := init(item, atitle, ShortCut(VKKey, State));
 end;

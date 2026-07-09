@@ -12,6 +12,8 @@ uses
   LCLType, LCLStrConsts, Controls, ComCtrls, StdCtrls, Dialogs, Graphics,
   // LazUtils
   FileUtil, LazFileUtils, LazUTF8,
+  // BuildIntf
+  ProjectResourcesIntf,
   // IdeIntf
   IdeIntfStrConsts, IDEOptionsIntf, IDEOptEditorIntf, IDEImagesIntf, IDEDialogs,
   // IDE
@@ -44,12 +46,17 @@ type
   private
     FProject: TProject;
     FModified: Boolean;
+    FSubscribed: TAbstractProjectUserResources;  // whom OnResourcesChanged is registered with
   private
     FAddResourceItemDuplicates: integer;
     FResourceNameList: TStringListUTF8Fast;     // to keep resource names unique
     FResourceFileNameList: TStringListUTF8Fast; // to keep resource file names unique
     // Used to know what was resource name before editing.
     FCurrentResName: string;
+    // Reload the list view from the project model.
+    procedure ReloadResources;
+    // Called when the resources are changed from outside (e.g. a plugin).
+    procedure OnResourcesChanged(Sender: TObject);
     // Begin adding resources.
     procedure AddResourceBegin;
     // Try to add resource. Result is false if resource is duplicate.
@@ -299,6 +306,8 @@ end;
 
 destructor TResourcesOptionsFrame.Destroy;
 begin
+  if Assigned(FSubscribed) then
+    FSubscribed.RemoveChangeHandler(@OnResourcesChanged);
   FResourceNameList.Free;
   FResourceFileNameList.Free;
   inherited Destroy;
@@ -334,20 +343,25 @@ begin
   dlgOpen.Filter := GraphicFilter(TGraphic)+'|'+Format(rsAllFiles,[GetAllFilesMask, GetAllFilesMask,'']);
 end;
 
-procedure TResourcesOptionsFrame.ReadSettings(AOptions: TAbstractIDEOptions);
+procedure TResourcesOptionsFrame.ReloadResources;
 var
-  List: TResourceList;
+  Res: TAbstractProjectUserResources;
   I: Integer;
+  Info: TProjectUserResourceInfo;
 begin
-  FProject := (AOptions as TProjectIDEOptions).Project;
   lbResources.Items.Clear;
-  List := FProject.ProjResources.UserResources.List;
+  FResourceNameList.Clear;
+  FResourceFileNameList.Clear;
+  Res := FProject.ProjResources.UserResources;
   AddResourceBegin;
   try
     lbResources.Items.BeginUpdate;
     try
-      for I := 0 to List.Count - 1 do
-        AddResourceItem(List[I]^.FileName, List[I]^.ResType, List[I]^.ResName);
+      for I := 0 to Res.Count - 1 do
+      begin
+        Info := Res[I];
+        AddResourceItem(Info.FileName, Info.ResType, Info.ResName);
+      end;
     finally
       lbResources.Items.EndUpdate;
     end;
@@ -355,20 +369,89 @@ begin
     AddResourceEnd;
   end;
   btnClear.Enabled := lbResources.Items.Count > 0;
+end;
+
+procedure TResourcesOptionsFrame.OnResourcesChanged(Sender: TObject);
+begin
+  // A plugin changed the resources while this dialog is open. Refresh the list
+  // view. Note: this discards edits not yet committed via WriteSettings.
+  if FProject = nil then
+    Exit;
+  ReloadResources;
+  FModified := False;
+end;
+
+procedure TResourcesOptionsFrame.ReadSettings(AOptions: TAbstractIDEOptions);
+var
+  NewRes: TAbstractProjectUserResources;
+begin
+  FProject := (AOptions as TProjectIDEOptions).Project;
+  NewRes := FProject.ProjResources.UserResources;
+  if FSubscribed <> NewRes then
+  begin
+    if Assigned(FSubscribed) then
+      FSubscribed.RemoveChangeHandler(@OnResourcesChanged);
+    FSubscribed := NewRes;
+    FSubscribed.AddChangeHandler(@OnResourcesChanged);
+  end;
+  ReloadResources;
   FModified := False;
 end;
 
 procedure TResourcesOptionsFrame.WriteSettings(AOptions: TAbstractIDEOptions);
 var
   Project: TProject;
-  I: Integer;
+  List: TResourceList;
+  NewItems: TFPList;
+  I, OldIndex: Integer;
+  Item: TResourceItem;
+  aFileName, aResName: String;
+  aResType: TUserResourceType;
 begin
   if not FModified then Exit;
   Project := (AOptions as TProjectIDEOptions).Project;
-  Project.ProjResources.UserResources.List.Clear;
-  for I := 0 to lbResources.Items.Count - 1 do
-    Project.ProjResources.UserResources.List.AddResource(lbResources.Items[I].Caption,
-      StrToResourceType(lbResources.Items[I].SubItems[LVSUBITEM_TYPE]), lbResources.Items[I].SubItems[LVSUBITEM_NAME]);
+  List := Project.ProjResources.UserResources.List;
+
+  // Compare the old list with the new one and keep the old TResourceItem for
+  // unchanged files, so their cached file content survives the edit.
+  NewItems := TFPList.Create;
+  try
+    for I := 0 to lbResources.Items.Count - 1 do
+    begin
+      aFileName := lbResources.Items[I].Caption;
+      aResType := StrToResourceType(lbResources.Items[I].SubItems[LVSUBITEM_TYPE]);
+      aResName := lbResources.Items[I].SubItems[LVSUBITEM_NAME];
+
+      OldIndex := List.IndexOfFileName(aFileName);
+      if OldIndex >= 0 then
+      begin
+        // Reuse the existing item (keeps its file content cache).
+        Item := List[OldIndex];
+        List.Extract(Item); // detach without freeing
+        // Update the filename too, the casing might have changed.
+        Item.FileName := aFileName;
+        Item.ResType := aResType;
+        Item.ResName := aResName;
+      end
+      else
+      begin
+        Item := TResourceItem.Create;
+        Item.FileName := aFileName;
+        Item.ResType := aResType;
+        Item.ResName := aResName;
+      end;
+      NewItems.Add(Item);
+    end;
+
+    // Whatever is left in List are removed resources -> free them.
+    List.Clear;
+    // Put the reused/new items back in the order shown in the dialog.
+    for I := 0 to NewItems.Count - 1 do
+      List.Add(TResourceItem(NewItems[I]));
+  finally
+    NewItems.Free;
+  end;
+
   Project.ProjResources.Modified := True;
 end;
 

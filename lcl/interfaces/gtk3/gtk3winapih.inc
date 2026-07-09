@@ -155,6 +155,7 @@ function GetWindowRelativePosition(Handle : hwnd; var Left, Top: integer): boole
 function GetWindowSize(Handle : hwnd; var Width, Height: integer): boolean; override;
 
 procedure InitializeCriticalSection(var CritSection: TCriticalSection); override;
+function InitStockFont(AFont: TObject; AStockFont: TStockFont): Boolean; override;
 function InvalidateRect(aHandle : HWND; Rect : pRect; bErase : Boolean) : Boolean; override;
 function InvalidateRgn(Handle: HWND; Rgn: HRGN; Erase: Boolean): Boolean; override;
 function IsIconic(handle: HWND): boolean; override;
@@ -221,7 +222,6 @@ function SetRectRgn(aRGN: HRGN; X1, Y1, X2, Y2 : Integer): Boolean; override;
 function SetROP2(DC: HDC; Mode: Integer): Integer; override;
 function SetScrollInfo(Handle : HWND; SBStyle : Integer; ScrollInfo: TScrollInfo; bRedraw : Boolean): Integer; override;
 function SetSysColors(cElements: Integer; const lpaElements; const lpaRgbValues): Boolean; override;
-function SetTextCharacterExtra({%H-}DC : hdc; {%H-}nCharExtra : Integer):Integer; override;
 function SetTextColor(DC: HDC; Color: TColorRef): TColorRef; override;
 function SetViewPortExtEx(DC: HDC; XExtent, YExtent : Integer; OldSize: PSize): Boolean; override;
 function SetViewPortOrgEx(DC: HDC; NewX, NewY: Integer; OldPoint: PPoint): Boolean; override;

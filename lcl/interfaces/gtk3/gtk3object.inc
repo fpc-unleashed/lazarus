@@ -12,6 +12,8 @@ type
     function DeliverMessage(var Msg; const AIsInputEvent: Boolean=False): LRESULT; override;
   end;
 
+  TApplicationAccess = class(TApplication);
+
   constructor TGtk3ToolWnd.Create(AWndMethod: TWndMethod);
   begin
     CreateFrom(nil, nil);
@@ -96,10 +98,18 @@ begin
   {$ELSE}
   FIsWayland := False;
   {$ENDIF}
+  FIMContext := PGtkIMContext(gtk_im_multicontext_new);
+  g_signal_connect_data(PGObject(FIMContext), 'commit',
+    TGCallback(@Gtk3IMCommitCB), Self, nil, G_CONNECT_DEFAULT);
 end;
 
 procedure TGtk3WidgetSet.Gtk3Destroy;
 begin
+  if FIMContext <> nil then
+  begin
+    g_object_unref(PGObject(FIMContext));
+    FIMContext := nil;
+  end;
   Gtk3MPF := nil;
   GTK3WidgetSet := nil;
   WakeMainThread := nil;
@@ -168,6 +178,60 @@ end;
 function TGtk3WidgetSet.IsWayland: boolean;
 begin
   Result := FIsWayland;
+end;
+
+function TGtk3WidgetSet.IsKDEPlasmaWaylandSession: boolean;
+var
+  s: string;
+begin
+  //NOTE: this is hack for Qt5 KDE Plasma wayland, so might
+  //be unnecessary with KDE Plasma 6.
+  Result := False;
+  if not FIsWayland then
+    exit;
+  s := SysUtils.GetEnvironmentVariable('XDG_CURRENT_DESKTOP');
+  Result := SameText(s, 'KDE') or SameText(s, 'PLASMA') or SameText(s, 'KDE-Plasma');
+end;
+
+function TGtk3WidgetSet.GetWMName: string;
+{$IFDEF UNIX}
+var
+  AScreen: PGdkScreen;
+  AName: Pgchar;
+{$ENDIF}
+begin
+  if FWMNameCached then
+  begin
+    Result := FWMName;
+    exit;
+  end;
+  FWMNameCached := True;
+  {$IFDEF UNIX}
+  if FIsWayland then
+  begin
+    FWMName := 'wayland';
+    Result := FWMName;
+    exit;
+  end;
+  AScreen := gdk_screen_get_default;
+  if AScreen <> nil then
+  begin
+    AName := gdk_x11_screen_get_window_manager_name(AScreen);
+    if AName <> nil then
+      FWMName := AName
+    else
+      FWMName := '';
+  end else
+    FWMName := '';
+  {$ELSE}
+  FWMName := '';
+  {$ENDIF}
+  Result := FWMName;
+end;
+
+function TGtk3WidgetSet.IsMarcoWM: boolean;
+begin
+  Result := Pos('marco', LowerCase(GetWMName)) > 0;
 end;
 
 {$IFNDEF UNIX}
@@ -259,35 +323,30 @@ var
   reason: TChildExitReason;
   status: integer;
   info: dword;
-  handler: PChildSignalEventHandler;
+  handler, nextHandler: PChildSignalEventHandler;
 begin
-  repeat
-    status:=0;
-    pid := fpwaitpid(-1, status, WNOHANG);
-    if pid <= 0 then break;
-    if wifexited(status) then
+  handler := FChildSignalHandlers;
+  while handler <> nil do
+  begin
+    nextHandler := handler^.NextHandler;
+    status := 0;
+    pid := fpwaitpid(handler^.pid, status, WNOHANG);
+    if (pid = handler^.pid) and (wifexited(status) or wifsignaled(status)) then
     begin
-      reason := cerExit;
-      info := wexitstatus(status);
-    end else
-    if wifsignaled(status) then
-    begin
-      reason := cerSignal;
-      info := wtermsig(status);
-    end else
-      continue;
-
-    handler := FChildSignalHandlers;
-    while handler <> nil do
-    begin
-      if handler^.pid = pid then
+      if wifexited(status) then
       begin
-        handler^.OnEvent(handler^.UserData, reason, info);
-        break;
+        reason := cerExit;
+        info := wexitstatus(status);
+      end
+      else
+      begin
+        reason := cerSignal;
+        info := wtermsig(status);
       end;
-      handler := handler^.NextHandler;
+      handler^.OnEvent(handler^.UserData, reason, info);
     end;
-  until false;
+    handler := nextHandler;
+  end;
 end;
 
 procedure TGtk3WidgetSet.PrepareSynchronize(AObject: TObject);
@@ -338,7 +397,7 @@ begin
 
   {$IFDEF UNIX}
   InitSynchronizeSupport;
-  // InstallSignalHandler;
+  InstallSignalHandler;
   {$ELSE}
   WakeMainThread := @DoWakeMainThread;
   {$ENDIF}
@@ -461,36 +520,105 @@ begin
   g_object_unref(CssProvider);
 end;
 
-procedure TGtk3WidgetSet.AppInit(var ScreenInfo: TScreenInfo);
+function Gtk3RefreshThemeIdle(AData: gpointer): gboolean; cdecl;
 var
-  ScreenDC: HDC;
+  AList, AItem: PGList;
+  i: Integer;
+begin
+  ReleaseAllStyles;
+  GetStyleWidget(lgsButton);
+  GetStyleWidget(lgsWindow);
+  GetStyleWidget(lgsMemo);
+  for i := Low(Gtk3WidgetSet.FSysColorBrushes) to High(Gtk3WidgetSet.FSysColorBrushes) do
+    if (Gtk3WidgetSet.FSysColorBrushes[i] <> HBRUSH(-1)) and (Gtk3WidgetSet.FSysColorBrushes[i] <> 0) then
+    begin
+      TGtk3Brush(Gtk3WidgetSet.FSysColorBrushes[i]).Context := nil;
+      TGtk3Brush(Gtk3WidgetSet.FSysColorBrushes[i]).Color := SysColorMap[i];
+    end;
+  Gtk3WidgetSet.LoadThemeMetrics;
+  AList := gtk_window_list_toplevels;
+  AItem := AList;
+  while AItem <> nil do
+  begin
+    if Gtk3IsWidget(PGObject(AItem^.data)) then
+    begin
+      gtk_widget_queue_resize(PGtkWidget(AItem^.data));
+      gtk_widget_queue_draw(PGtkWidget(AItem^.data));
+    end;
+    AItem := AItem^.next;
+  end;
+  if AList <> nil then
+    g_list_free(AList);
+  Result := gtk_false;
+end;
+
+procedure Gtk3ThemeNameNotify(AObject: PGObject; APSpec: gpointer; AData: gpointer); cdecl;
+begin
+  g_idle_add(@Gtk3RefreshThemeIdle, nil);
+end;
+
+procedure TGtk3WidgetSet.LoadThemeMetrics;
+
+  procedure QueryIndicatorBoxSize(out W, H: gint);
+  var
+    Context: PGtkStyleContext;
+    Path: PGtkWidgetPath;
+    min_width, min_height: gint;
+    Pad, Bord: TGtkBorder;
+    CtxState: TGtkStateFlags;
+    ChildPos: gint;
+  begin
+    CtxState := GTK_STATE_FLAG_NORMAL;
+
+    Path := gtk_widget_path_new;
+    gtk_widget_path_append_type(Path, gtk_check_button_get_type);
+    gtk_widget_path_iter_set_object_name(Path, 0, 'checkbutton');
+    gtk_widget_path_iter_set_state(Path, 0, CtxState);
+
+    ChildPos := gtk_widget_path_append_type(Path, G_TYPE_NONE);
+    gtk_widget_path_iter_set_object_name(Path, ChildPos, 'check');
+    gtk_widget_path_iter_add_class(Path, ChildPos, 'check');
+    gtk_widget_path_iter_set_state(Path, ChildPos, CtxState);
+
+    Context := gtk_style_context_new;
+    gtk_style_context_set_path(Context, Path);
+    gtk_style_context_set_state(Context, CtxState);
+    gtk_widget_path_unref(Path);
+
+    min_width := 0;
+    min_height := 0;
+
+    gtk_style_context_get(Context, CtxState, ['min-width', @min_width, 'min-height', @min_height, nil]);
+
+    FillChar(Pad{%H-}, SizeOf(Pad), 0);
+    FillChar(Bord{%H-}, SizeOf(Bord), 0);
+
+    gtk_style_context_get_padding(Context, CtxState, @Pad);
+    gtk_style_context_get_border(Context, CtxState, @Bord);
+    g_object_unref(Context);
+
+    if min_width <= 0 then
+      min_width := 16;
+    if min_height <= 0 then
+      min_height := 16;
+
+    W := min_width + Pad.left + Pad.right + Bord.left + Bord.right;
+    H := min_height + Pad.top + Pad.bottom + Bord.top + Bord.bottom;
+  end;
+
+var
   menuBar: PGtkMenuBar;
   menuItem: PGtkMenuItem;
   checkBox: PGtkCheckButton;
   scrollBarV: PGtkScrollbar;
   scrollBarH: PGtkScrollbar;
-  MinH,PrefH:gint;
-  window:PGtkWindow;
-  box:PGtkBox;
-  header:PGtkHeaderBar;
+  MinH, PrefH: gint;
+  IndW, IndH: gint;
+  window: PGtkWindow;
+  box: PGtkBox;
+  header: PGtkHeaderBar;
 begin
-  {$IFDEF GTK3DEBUGCORE}
-  DebugLn('TGtk3WidgetSet.AppInit');
-  {$ENDIF}
-  ScreenDC := GetDC(0);
-  try
-    ScreenInfo.PixelsPerInchX := Round(gdk_screen_get_resolution(gdk_screen_get_default));
-    // GetDeviceCaps(ScreenDC, LOGPIXELSX);
-    ScreenInfo.PixelsPerInchY := Round(gdk_screen_get_resolution(gdk_screen_get_default));
-    // GetDeviceCaps(ScreenDC, LOGPIXELSY);
-    ScreenInfo.ColorDepth := GetDeviceCaps(ScreenDC, BITSPIXEL);
-  finally
-    ReleaseDC(0, ScreenDC);
-  end;
-
-  //load needed metrics to the FSystemMetricsList before Application.MainForm is created.
   window := gtk_window_new(GTK_WINDOW_TOPLEVEL);
-  //no flashing
   gtk_window_set_decorated(window, False);
   gtk_widget_set_app_paintable(window, gtk_true);
   gtk_widget_set_size_request(window, 1, 1);
@@ -498,7 +626,6 @@ begin
   box := gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
   gtk_container_add(Window, box);
 
-  //now menubar, checkboxes, scrollbar
   menuBar := gtk_menu_bar_new;
   menuItem := gtk_menu_item_new_with_label('');
   menuBar^.append(menuItem);
@@ -517,11 +644,6 @@ begin
 
   gtk_widget_show_all(window);
 
-  // This is usually not needed, but in case metrics aren't created properly
-  // try to uncomment those 2 lines below.
-  // while (gtk_events_pending()) do
-  //  gtk_main_iteration();
-
   menuBar^.get_preferred_height(@MinH, @PrefH);
   FSystemMetricsList.Items[SM_CYMENU] := Max(MinH, PrefH);
 
@@ -530,26 +652,18 @@ begin
   menuItem^.get_preferred_width(@MinH, @PrefH);
   FSystemMetricsList.Items[SM_CXMENUSIZE] := Max(MinH, PrefH);
 
-
-  checkBox^.get_preferred_height(@MinH, @PrefH);
-  FSystemMetricsList.Items[SM_CYMENUCHECK] := Max(MinH, PrefH);
-  checkBox^.get_preferred_width(@MinH, @PrefH);
-  FSystemMetricsList.Items[SM_CXMENUCHECK] := Max(MinH, PrefH);
+  QueryIndicatorBoxSize(IndW, IndH);
+  FSystemMetricsList.Items[SM_CXMENUCHECK] := IndW;
+  FSystemMetricsList.Items[SM_CYMENUCHECK] := IndH;
 
   scrollBarH^.get_preferred_height(@MinH, @PrefH);
-  FSystemMetricsList.Items[SM_CXHSCROLL] := Max(MinH, PrefH);
-
-  scrollBarH^.get_preferred_width(@MinH, @PrefH);
-  FSystemMetricsList.Items[SM_CYHSCROLL] := Max(MinH, PrefH);
-
-  scrollBarV^.get_preferred_height(@MinH, @PrefH);
-  FSystemMetricsList.Items[SM_CYVSCROLL] := Max(MinH, PrefH);
+  FSystemMetricsList.Items[SM_CYHSCROLL] := Max(MinH, PrefH) + 2;
+  FSystemMetricsList.Items[SM_CXHSCROLL] := FSystemMetricsList.Items[SM_CYHSCROLL];
 
   scrollBarV^.get_preferred_width(@MinH, @PrefH);
-  FSystemMetricsList.Items[SM_CXVSCROLL] := Max(MinH, PrefH);
+  FSystemMetricsList.Items[SM_CXVSCROLL] := Max(MinH, PrefH) + 2;
+  FSystemMetricsList.Items[SM_CYVSCROLL] := FSystemMetricsList.Items[SM_CXVSCROLL];
 
-  //loading distance between scrollbars in corner, since
-  //gtk3 does not have corner widget, we set it via css.
   if OverlayScrolling then
     ApplyCustomScrollbarStyles(Max(0, Floor(PrefH / 2) - 1));
 
@@ -559,7 +673,69 @@ begin
   FSystemMetricsList.Items[SM_CYCAPTION] := Max(MinH, PrefH);
 
   gtk_widget_destroy(window);
+end;
+
+procedure TGtk3WidgetSet.AppInit(var ScreenInfo: TScreenInfo);
+
+  procedure StripArrowBindingsFromClass(AClassType: TGType);
+  var
+    AClass: PGTypeClass;
+    ABindingSet: PGtkBindingSet;
+  begin
+    AClass := g_type_class_ref(AClassType);
+    if AClass = nil then
+      exit;
+    ABindingSet := gtk_binding_set_by_class(AClass);
+    if ABindingSet = nil then
+      exit;
+    gtk_binding_entry_remove(ABindingSet, GDK_KEY_Up, []);
+    gtk_binding_entry_remove(ABindingSet, GDK_KEY_Up, [GDK_CONTROL_MASK]);
+    gtk_binding_entry_remove(ABindingSet, GDK_KEY_Down, []);
+    gtk_binding_entry_remove(ABindingSet, GDK_KEY_Down, [GDK_CONTROL_MASK]);
+    gtk_binding_entry_remove(ABindingSet, GDK_KEY_Left, []);
+    gtk_binding_entry_remove(ABindingSet, GDK_KEY_Left, [GDK_CONTROL_MASK]);
+    gtk_binding_entry_remove(ABindingSet, GDK_KEY_Right, []);
+    gtk_binding_entry_remove(ABindingSet, GDK_KEY_Right, [GDK_CONTROL_MASK]);
+    gtk_binding_entry_remove(ABindingSet, GDK_KEY_KP_Up, []);
+    gtk_binding_entry_remove(ABindingSet, GDK_KEY_KP_Up, [GDK_CONTROL_MASK]);
+    gtk_binding_entry_remove(ABindingSet, GDK_KEY_KP_Down, []);
+    gtk_binding_entry_remove(ABindingSet, GDK_KEY_KP_Down, [GDK_CONTROL_MASK]);
+    gtk_binding_entry_remove(ABindingSet, GDK_KEY_KP_Left, []);
+    gtk_binding_entry_remove(ABindingSet, GDK_KEY_KP_Left, [GDK_CONTROL_MASK]);
+    gtk_binding_entry_remove(ABindingSet, GDK_KEY_KP_Right, []);
+    gtk_binding_entry_remove(ABindingSet, GDK_KEY_KP_Right, [GDK_CONTROL_MASK]);
+  end;
+
+  procedure DisableContainerArrowBindings;
+  begin
+    StripArrowBindingsFromClass(gtk_container_get_type);
+    StripArrowBindingsFromClass(gtk_window_get_type);
+    StripArrowBindingsFromClass(gtk_scrolled_window_get_type);
+  end;
+
+var
+  ScreenDC: HDC;
+begin
+  DisableContainerArrowBindings;
+  {$IFDEF GTK3DEBUGCORE}
+  DebugLn('TGtk3WidgetSet.AppInit');
+  {$ENDIF}
+  ScreenDC := GetDC(0);
+  try
+    ScreenInfo.PixelsPerInchX := Round(gdk_screen_get_resolution(gdk_screen_get_default));
+    // GetDeviceCaps(ScreenDC, LOGPIXELSX);
+    ScreenInfo.PixelsPerInchY := Round(gdk_screen_get_resolution(gdk_screen_get_default));
+    // GetDeviceCaps(ScreenDC, LOGPIXELSY);
+    ScreenInfo.ColorDepth := GetDeviceCaps(ScreenDC, BITSPIXEL);
+  finally
+    ReleaseDC(0, ScreenDC);
+  end;
+
+  LoadThemeMetrics;
   InitGtk3KeyboardTables;
+
+  g_signal_connect_data(PGObject(gtk_settings_get_default), 'notify::gtk-theme-name',
+    TGCallback(@Gtk3ThemeNameNotify), nil, nil, G_CONNECT_DEFAULT);
 end;
 
 procedure TGtk3WidgetSet.LoadCSSTheme;
@@ -586,6 +762,8 @@ begin
     g_object_get_property(PGObject(ASettings), 'gtk-theme-name', @AValue);
     FThemeName := AValue.get_string;
     AValue.unset;
+    //TODO: gtk-entry-select-on-focus is TRUE by Default, should be false, so LCL only is doing selections.
+    //gtk-label-select-on-focus ? default is true too
 
     ACSSProvider := gtk_css_provider_get_named(PGChar(FThemeName), nil);
   end;
@@ -643,7 +821,11 @@ begin
   DebugLn('TGtk3WidgetSet.AppProcessMessages');
   {$ENDIF}
   while g_main_context_pending(nil) do
+  begin
     g_main_context_iteration(nil, False);
+    if TApplicationAccess(Application).HasAsyncCallQueued then
+      Break;
+  end;
   {$IFDEF GTK3USEDEFERREDRESIZING}
   Gtk3DrainResizeQueue;
   {$ENDIF GTK3USEDEFERREDRESIZING}
@@ -719,12 +901,17 @@ begin
 end;
 
 procedure TGtk3WidgetSet.AppBringToFront;
+var
+  ATime: guint32;
 begin
   if Assigned(Application.MainForm) and Application.MainForm.HandleAllocated then
   begin
     TGtk3Window(Application.MainForm.Handle).raiseWidget;
-    gdk_window_focus(TGtk3Window(Application.MainForm.Handle).Widget^.window,
-                                gtk_get_current_event_time);
+    ATime := gtk_get_current_event_time;
+    if ATime = 0 then
+      ATime := LastUserEventTime;
+    if ATime <> 0 then
+      gdk_window_focus(TGtk3Window(Application.MainForm.Handle).Widget^.window, ATime);
   end;
 end;
 procedure TGtk3WidgetSet.AppSetIcon(const Small, Big: HICON);
@@ -754,16 +941,124 @@ begin
   end;
 end;
 
+type
+  TGtk3TempFormStyleSet = Set of TFormStyle;
+const
+  TGtk3TopForms: Array[Boolean] of TGtk3TempFormStyleSet = (fsAllNonSystemStayOnTop,
+    fsAllStayOnTop);
+
 function TGtk3WidgetSet.AppRemoveStayOnTopFlags(const ASystemTopAlso: Boolean
   ): Boolean;
+var
+  i: Integer;
+  AForm: TCustomForm;
+  W: PGtkWidget;
+  GdkWin: PGdkWindow;
+  act: PGdkWindow;
+  ActTopLvlWnd: PGdkWindow;
+  FoundAct: Boolean;
+  x, y, width, height: gint;
 begin
-  Result := inherited AppRemoveStayOnTopFlags(ASystemTopAlso);
+  Result := True;
+  if StayOnTopList = nil then
+    StayOnTopList := TMap.Create(TMapIdType(ituPtrSize), SizeOf(Pointer));
+
+  act := gdk_screen_get_active_window_raw(gdk_screen_get_default);
+  try
+    ActTopLvlWnd := act;
+    if ActTopLvlWnd <> nil then
+      ActTopLvlWnd := gdk_window_get_toplevel(ActTopLvlWnd);
+
+    FoundAct := False;
+    for i := 0 to Screen.CustomFormCount - 1 do
+    begin
+      AForm := Screen.CustomFormsZOrdered[i];
+      if AForm.HandleAllocated and (AForm.Parent = nil) then
+      begin
+        W := TGtk3Window(AForm.Handle).Widget;
+        if W^.get_window = ActTopLvlWnd then
+          FoundAct := True;
+      end;
+    end;
+
+    if (ActTopLvlWnd <> nil) and not FoundAct then
+    begin
+      gdk_window_get_geometry(ActTopLvlWnd, @x, @y, @width, @height);
+      if (width <= 0) or (height <= 0) or (abs(x) > 100000) or (y > 100000) then
+      begin
+        DebugLn(['Hint: [TGtk3WidgetSet.AppRemoveStayOnTopFlags] ignoring active window: x=', x, ' y=', y, ' ', width, 'x', height]);
+        ActTopLvlWnd := nil;
+      end;
+    end;
+
+    for i := 0 to Screen.CustomFormZOrderCount - 1 do
+    begin
+      AForm := Screen.CustomFormsZOrdered[i];
+      if AForm.HandleAllocated and (AForm.Parent = nil) then
+      begin
+        W := TGtk3Window(AForm.Handle).Widget;
+        GdkWin := W^.get_window;
+
+        if (GdkWin = nil) or gdk_window_is_destroyed(GdkWin) then
+          continue;
+
+        if not (csDesigning in AForm.ComponentState) and
+          (AForm.FormStyle in TGtk3TopForms[ASystemTopAlso]) and
+          W^.get_visible and
+          not gtk_window_get_modal(PGtkWindow(W)) and
+          not (GDK_WINDOW_STATE_ICONIFIED in gdk_window_get_state(GdkWin)) then
+        begin
+          gdk_window_set_keep_above(GdkWin, False);
+          if Assigned(ActTopLvlWnd) then
+          begin
+            gdk_window_restack(GdkWin, ActTopLvlWnd, False);
+            ActTopLvlWnd := GdkWin;
+          end;
+          if not StayOnTopList.HasId(W) then
+            StayOnTopList.Add(W, W);
+        end;
+      end;
+    end;
+  finally
+    if Assigned(act) then
+      g_object_unref(PGObject(act));
+  end;
 end;
 
 function TGtk3WidgetSet.AppRestoreStayOnTopFlags(const ASystemTopAlso: Boolean
   ): Boolean;
+var
+  i: Integer;
+  AForm: TCustomForm;
+  W: PGtkWidget;
+  GdkWin: PGdkWindow;
 begin
-  Result := inherited AppRestoreStayOnTopFlags(ASystemTopAlso);
+  Result := True;
+  if StayOnTopList = nil then
+    exit;
+  for i := Screen.CustomFormZOrderCount - 1 downto 0 do
+  begin
+    AForm := Screen.CustomFormsZOrdered[i];
+    if AForm.HandleAllocated and (AForm.Parent = nil) then
+    begin
+      W := TGtk3Window(AForm.Handle).Widget;
+      GdkWin := W^.get_window;
+
+      if (GdkWin = nil) or gdk_window_is_destroyed(GdkWin) then
+        continue;
+
+      if not (csDesigning in AForm.ComponentState) and
+        (AForm.FormStyle in TGtk3TopForms[ASystemTopAlso]) and
+        W^.get_visible and
+        not gtk_window_get_modal(PGtkWindow(W)) and
+        not (GDK_WINDOW_STATE_ICONIFIED in gdk_window_get_state(GdkWin)) then
+      begin
+        if StayOnTopList.HasId(W) then
+          gdk_window_set_keep_above(GdkWin, True);
+      end;
+    end;
+  end;
+  FreeAndNil(StayOnTopList);
 end;
 
 function TGtk3WidgetSet.CreateStandardCursor(ACursor: SmallInt): HCURSOR;
@@ -863,6 +1158,20 @@ begin
   end;
 end;
 
+procedure TGtk3WidgetSet.SetDCOpacity(DC: HDC; AOpacity: Byte);
+begin
+  if IsValidDC(DC) then
+    TGtk3DeviceContext(DC).Opacity := AOpacity;
+end;
+
+function TGtk3WidgetSet.GetDCOpacity(DC: HDC): Byte;
+begin
+  if IsValidDC(DC) then
+    Result := TGtk3DeviceContext(DC).Opacity
+  else
+    Result := $FF;
+end;
+
 procedure TGtk3WidgetSet.SetDesigning(AComponent: TComponent);
 begin
   // inherited SetDesigning(AComponent);
@@ -917,10 +1226,12 @@ function TGtk3WidgetSet.CreateTimer(Interval: integer; TimerFunc: TWSTimerProc
 var
   TimerInfo: PGtkITimerinfo;
 begin
-  if ((Interval < 1) or (not Assigned(TimerFunc)))
+  if not Assigned(TimerFunc)
   then
     Result := 0
   else begin
+    if Interval < 1 then
+      Interval := 1;
     New(TimerInfo);
     FillByte(TimerInfo^,SizeOf(TGtkITimerinfo),0);
     TimerInfo^.TimerFunc := TimerFunc;

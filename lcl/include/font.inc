@@ -707,6 +707,10 @@ begin
       Pitch := fpDefault;
     Style := AStyle;
     Quality := TFontQuality(ALogFont.lfQuality);
+    //Note: TFont.Orientation is **not** mapped to TLogFont.lfOrientation
+    //MS DOcs: https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-logfontw
+    //Notice that Delphi Docs say otherwise: https://docwiki.embarcadero.com/Libraries/Sydney/en/Vcl.Graphics.TFont.Orientation?
+    Orientation := ALogFont.lfEscapement;
     Name := ALogFont.lfFaceName;
   finally
     EndUpdate;
@@ -724,10 +728,27 @@ begin
   or (Name<>AFont.Name)
   or (Pitch<>AFont.Pitch)
   or (Quality<>AFont.Quality)
-  or (Style<>AFont.Style) then
+  or (Style<>AFont.Style)
+  or (Orientation<>AFont.Orientation) then
     Result := False
   else
     Result := True;
+end;
+
+function TFont.IsHorizontal(AllowReverse: Boolean = false): Boolean;
+var
+  absOrientation: Integer;
+begin
+  absOrientation := abs(Orientation) mod 3600;
+  Result := (absOrientation = 0) or (AllowReverse and (absOrientation = 1800));
+end;
+
+function TFont.IsVertical: Boolean;
+var
+  absOrientation: Integer;
+begin
+  absOrientation := abs(Orientation) mod 3600;
+  Result := (absOrientation = 900) or (absOrientation = 2700);
 end;
 
 procedure TFont.BeginUpdate;

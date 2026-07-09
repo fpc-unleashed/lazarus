@@ -155,9 +155,11 @@ type
     procedure DebugDialogDestroy(Sender: TObject);
   private
     FDebugger: TDebuggerIntf;
+    FIdeExceptions: TIdeExceptions;
     FEventLogManager: TDebugEventLogManager;
     FUnitInfoProvider: TDebuggerUnitInfoProvider;
     FDialogs: array[TDebugDialogType] of TDebuggerDlg;
+    FDidShowConsoleForSession: Boolean;
     FInStateChange: Boolean;
     FPrevShownWindow: HWND;
     FStepping, FAsmStepping: Boolean;
@@ -165,7 +167,7 @@ type
     FCurrentLocation: TDBGLocationRec;
     FCallStackNotification: TCallStackNotification;
     // last hit breakpoint
-    FCurrentBreakpoint: TIDEBreakpoint;
+    FCurrentBreakpoint: TIdeTracePoint;
     FAutoContinueTimer: TTimer;
     FIsInitializingDebugger: Boolean;
     FStateNotificationList, FWatchesInvalidatedNotificationList: TMethodList;
@@ -309,7 +311,7 @@ type
     function DoDeleteBreakPoint(ABrkPoint: TIDEBreakPoint): TModalResult;
     function DoDeleteBreakPointAtMark(const ASourceMarkObj: TObject): TModalResult; override;
 
-    function ShowBreakPointProperties(const ABreakpoint: TIDEBreakPoint): TModalresult; override;
+    function ShowBreakPointProperties(const ABreakpoint: TIdeTracePoint): TModalresult; override;
     function ShowWatchProperties(const AWatch: TCurrentWatch; AWatchExpression: String = ''; AResDataType: TWatchResultDataKind = rdkUnknown): TModalresult; override;
 
     // Dialog routines
@@ -1065,10 +1067,22 @@ end;
 
 procedure TDebugManager.DebuggerConsoleOutput(Sender: TObject;
   const AText: String);
+var
+  f: Boolean;
 begin
-  if not HasConsoleSupport then exit;;
-  if FDialogs[ddtPseudoTerminal] = nil
-  then ViewDebugDialog(ddtPseudoTerminal, False, False);
+  if (not HasConsoleSupport) or (AText = '') then exit;
+
+  f := FDidShowConsoleForSession;
+  FDidShowConsoleForSession := True;
+
+  case EnvironmentDebugOpts.AutoOpenConsoleWin of
+    ocOnceOnOutput:   if not f then ViewDebugDialog(ddtPseudoTerminal, False, True);
+    ocAlwaysOnOutput:               ViewDebugDialog(ddtPseudoTerminal, False, True);
+  end;
+
+  if FDialogs[ddtPseudoTerminal] = nil then
+    ViewDebugDialog(ddtPseudoTerminal, False, False);
+
   TPseudoConsoleDlg(FDialogs[ddtPseudoTerminal]).AddOutput(AText);
 end;
 
@@ -1226,8 +1240,11 @@ begin
   if ABreakpoint = nil then Exit;
 
   FCurrentBreakpoint := nil;
-  if (ABreakPoint is TDBGBreakPoint) and (TDBGBreakPoint(ABreakPoint).Slave is TIDEBreakPoint) then
-    FCurrentBreakpoint := TIDEBreakPoint(TDBGBreakPoint(ABreakPoint).Slave)
+  if (ABreakPoint is TDBGBreakPoint) and (TDBGBreakPoint(ABreakPoint).Slave is TIdeTracePoint) then
+    FCurrentBreakpoint := TIdeTracePoint(TDBGBreakPoint(ABreakPoint).Slave)
+  else
+  if ABreakPoint is TIdeTracePoint then
+    FCurrentBreakpoint := TIdeTracePoint(ABreakPoint)
   else
     DebugLn('ERROR: Breakpoint does not have correct class, or IDE slave breakpoint');
   // TODO: remove / fallback to old behaviour
@@ -1402,7 +1419,7 @@ begin
     AContinue := ExecuteExceptionDialog(msg, Ignore, AExceptionType in [deInternal, deRunError, deExternal]) = mrCancel;
     if Ignore then begin
       Exceptions.AddIfNeeded(ExpClassName);
-      Exceptions.Find(ExpClassName).Enabled := True;
+      Exceptions.FindItem(ExpClassName).Enabled := True;
     end;
   end
   else begin
@@ -1637,6 +1654,7 @@ begin
       end;
     end;
     dsInit: begin
+      Exceptions.ResetHitCounts;
       if FDialogs[ddtPseudoTerminal] <> nil then
         TPseudoConsoleDlg(FDialogs[ddtPseudoTerminal]).Clear;
     end;
@@ -1858,6 +1876,7 @@ const
 var
   CurDialog: TDebuggerDlg;
   AW: HWND;
+  ForceFront: Boolean;
 begin
   if Destroying then exit;
   if (ADialogType = ddtPseudoTerminal) and not HasConsoleSupport
@@ -1927,8 +1946,9 @@ begin
   begin
     CurDialog.BeginUpdate;
     AW := GetActiveWindow;
-    IDEWindowCreators.ShowForm(CurDialog,BringToFront or DebuggerOptions.AlwaysBringDbgDialogsToFront,vmOnlyMoveOffScreenToVisible);
-    if (not BringToFront) and DebuggerOptions.AlwaysBringDbgDialogsToFront then
+    ForceFront := (not BringToFront) and (DebuggerOptions.AlwaysBringDbgDialogsToFront and Application.Active);
+    IDEWindowCreators.ShowForm(CurDialog, BringToFront or ForceFront, vmOnlyMoveOffScreenToVisible);
+    if (AW <> 0) and ForceFront then
       SetActiveWindow(AW);
     CurDialog.EndUpdate;
   end;
@@ -2003,6 +2023,7 @@ begin
   if Project1 <> nil
   then TheDialog.BaseDirectory := Project1.Directory;
   TheDialog.BreakPoints := FBreakPoints;
+  TheDialog.Exceptions := FExceptions;
   TheDialog.EndUpdate;
 end;
 
@@ -2139,7 +2160,9 @@ begin
   FWatches := TIdeWatchesMonitor.Create;
   FWatches.OnWatchesInvalidated := @CallWatchesInvalidatedHandlers;
   FThreads := TIdeThreadsMonitor.Create;
-  FExceptions := TProjectExceptions.Create;
+  FIdeExceptions := TProjectExceptions.Create;
+  FExceptions := FIdeExceptions;
+  FExceptions.OnBreakPointHit := @DebuggerBreakPointHit;
   FExcludedRoutines := TIdeDebuggerExcludeRoutineMainList.Create;
   FSignals := TIDESignals.Create;
   FLocals := TIdeLocalsMonitor.Create;
@@ -2181,6 +2204,7 @@ begin
   LazarusIDE.AddHandlerOnProjectClose(@DoProjectClose);
 
   FEventLogManager := TDebugEventLogManager.Create;
+  FIdeExceptions.EventLogHandler := FEventLogManager;
 
   DbgProjectLink.ValueFormatterConfig.AddChangeNotification(@DoDisplayFormatChanged);
   DebuggerOptions.ValueFormatterConfig.AddChangeNotification(@DoDisplayFormatChanged);
@@ -2231,7 +2255,8 @@ begin
   FreeAndNil(FBreakPointGroups);
   FreeAndNil(FCallStack);
   FreeAndNil(FDisassembler);
-  FreeAndNil(FExceptions);
+  FExceptions := nil;
+  FreeAndNil(FIdeExceptions);
   FExcludedRoutines.Free;
   FExcludedRoutines := nil;
   FreeAndNil(FSignals);
@@ -2254,7 +2279,7 @@ begin
   FBreakPointGroups.Clear;
   FWatches.Clear;
   FThreads.Clear;
-  FExceptions.Reset;
+  FIdeExceptions.Reset;
   //FExcludedRoutines.Clear;
   FSignals.Reset;
   FUserSourceFiles.Clear;
@@ -2472,13 +2497,15 @@ end;
 procedure TDebugManager.LoadProjectSpecificInfo(XMLConfig: TXMLConfig;
   Merge: boolean);
 begin
+  FBreakPointGroups.LoadFromXMLConfig(XMLConfig,
+                                     'Debugging/'+XMLBreakPointGroupsNode+'/',
+                                     not Merge);
+
   if not Merge then
   begin
-    FExceptions.LoadFromXMLConfig(XMLConfig,'Debugging/'+XMLExceptionsNode+'/');
+    FIdeExceptions.LoadFromXMLConfig(XMLConfig,'Debugging/'+XMLExceptionsNode+'/', @FBreakPointGroups.GetGroupByName);
   end;
   // keep it simple: just load from the session and don't merge
-  FBreakPointGroups.LoadFromXMLConfig(XMLConfig,
-                                     'Debugging/'+XMLBreakPointGroupsNode+'/');
   FBreakPoints.LoadFromXMLConfig(XMLConfig,'Debugging/'+XMLBreakPointsNode+'/',
                                  @Project1.ConvertFromLPIFilename,
                                  @FBreakPointGroups.GetGroupByName);
@@ -2505,7 +2532,7 @@ begin
   if not (pwfSkipProjectInfo in Flags) then
   begin
     // exceptions are not part of the project info (#0015256)
-    FExceptions.SaveToXMLConfig(XMLConfig,'Debugging/'+XMLExceptionsNode+'/', pwfCompatibilityMode in Flags);
+    FIdeExceptions.SaveToXMLConfig(XMLConfig,'Debugging/'+XMLExceptionsNode+'/', pwfCompatibilityMode in Flags);
   end;
 end;
 
@@ -3179,6 +3206,7 @@ begin
   DebugLn('TDebugManager.StartDebugging A ',DbgS(FDebugger<>nil),' Destroying=',DbgS(Destroying));
   {$endif}
   Result:=mrCancel;
+  FDidShowConsoleForSession := False;
   if Destroying then exit;
   if FManagerStates*[dmsWaitForRun, dmsWaitForAttach] <> [] then exit;
   if (FDebugger <> nil) then
@@ -3656,7 +3684,7 @@ begin
     Result := SizeOf(Pointer)*8;
 end;
 
-function TDebugManager.ShowBreakPointProperties(const ABreakpoint: TIDEBreakPoint): TModalresult;
+function TDebugManager.ShowBreakPointProperties(const ABreakpoint: TIdeTracePoint): TModalresult;
 begin
   Result := TBreakPropertyDlg.Create(Self, ABreakpoint).ShowModal;
 end;
@@ -3720,7 +3748,7 @@ begin
     FSnapshots.Debugger := FDebugger;
     FCallStack.Debugger := FDebugger;
 
-    FDebugger.Exceptions := FExceptions;
+    FDebugger.Exceptions := FIdeExceptions;
     FDebugger.ExcludedRoutines := FExcludedRoutines;
   end;
 end;

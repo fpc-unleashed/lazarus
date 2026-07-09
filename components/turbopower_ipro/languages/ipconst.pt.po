@@ -1,0 +1,283 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Lazarus IDE\n"
+"POT-Creation-Date: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: Pedro Albuquerque <pmra@protonmail.com>\n"
+"Language-Team: Pedro Albuquerque <pmra@protonmail.com>\n"
+"Language: pt_PT\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.9\n"
+
+#: ipconst.providerunknownpicture
+msgid "Invalid picture format"
+msgstr "Formato de imagem inválido"
+
+#: ipconst.rsiphtmlpreviewclose
+msgid "Close"
+msgstr "Fechar"
+
+#: ipconst.rsiphtmlpreviewfitall
+msgid "Fit all"
+msgstr "Ajustar tudo"
+
+#: ipconst.rsiphtmlpreviewfitheight
+msgid "Height"
+msgstr "Altura"
+
+#: ipconst.rsiphtmlpreviewfitwidth
+msgid "Width"
+msgstr "Largura"
+
+#: ipconst.rsiphtmlpreviewof
+msgid "of"
+msgstr "de"
+
+#: ipconst.rsiphtmlpreviewpage
+msgid "Page:"
+msgstr "Página:"
+
+#: ipconst.rsiphtmlpreviewprint
+msgid "Print"
+msgstr "Imprimir"
+
+#: ipconst.rsiphtmlpreviewprintpreview
+msgid "Print preview"
+msgstr "Antever impressão"
+
+#: ipconst.rsiphtmlpreviewselectprinter
+msgid "Select printer ..."
+msgstr "Seleccionar impressora..."
+
+#: ipconst.rsiphtmlpreviewzoom
+msgid "Zoom:"
+msgstr "Ampliação:"
+
+#: ipconst.sbadframelistobject
+#, object-pascal-format
+msgid "Unrecognized object of class %s in GIF Frame List"
+msgstr "Objecto não reconhecido da classe %s na lista de molduras GIF"
+
+#: ipconst.sbadlinelength
+msgid "Invalid line length"
+msgstr "Tamanho de linha inválido"
+
+#: ipconst.sbadlineterminator
+msgid "Invalid line terminator"
+msgstr "Terminador de linha inválido"
+
+#: ipconst.sbadoffset
+msgid "Invalid stream offset"
+msgstr "Desvio de fluxo inválido"
+
+#: ipconst.sbadpath
+msgid "Path does not exist"
+msgstr "O caminho não existe"
+
+#: ipconst.sbadseekorigin
+msgid "Invalid seek origin"
+msgstr "Origem de posição inválida"
+
+#: ipconst.sbinhexbadchar
+msgid "Invalid BinHex character"
+msgstr "Carácter BinHex inválido"
+
+#: ipconst.sbinhexbaddatacrc
+msgctxt "ipconst.sbinhexbaddatacrc"
+msgid "Bad header CRC"
+msgstr "Erro de CRC no cabeçalho"
+
+#: ipconst.sbinhexbadformat
+msgid "Invalid BinHex format"
+msgstr "Formato BinHex inválido"
+
+#: ipconst.sbinhexbadheadercrc
+msgctxt "ipconst.sbinhexbadheadercrc"
+msgid "Bad header CRC"
+msgstr "Erro de CRC no cabeçalho"
+
+#: ipconst.sbinhexcolonexpected
+msgid "\":\" expected"
+msgstr "\":\" esperado"
+
+#: ipconst.sbinhexlengtherr
+msgid "Invalid data length"
+msgstr "Tamanho de dados inválido"
+
+#: ipconst.sbinhexoddchar
+msgid "One odd character"
+msgstr "Um carácter estranho"
+
+#: ipconst.sbinhexresourceforkerr
+msgid "Resource fork present"
+msgstr "Ramo de recursos presente"
+
+#: ipconst.scannotwritetostream
+msgid "Cannot write to stream"
+msgstr "Impossível escrever no fluxo"
+
+#: ipconst.shtmlcharstackoverfl
+msgid "Character stack overflow"
+msgstr "Transporte de caracteres na torre"
+
+#: ipconst.shtmldashexp
+msgid "- expected"
+msgstr "- esperado"
+
+#: ipconst.shtmldefbrowsecaption
+msgid "Browse ..."
+msgstr "Navegar..."
+
+#: ipconst.shtmldefresetcaption
+msgid "Reset"
+msgstr "Repor"
+
+#: ipconst.shtmldefsubmitcaption
+msgid "Submit"
+msgstr "Submeter"
+
+#: ipconst.shtmlexp
+msgid " expected"
+msgstr " esperado"
+
+#: ipconst.shtmlinternal
+msgid "Internal error"
+msgstr "Erro interno"
+
+#: ipconst.shtmlinvalign
+msgid "Invalid alignment specified"
+msgstr "Argumento especificado inválido"
+
+#: ipconst.shtmlinvcolor
+msgid "Invalid color constant:"
+msgstr "Constante de cor inválida:"
+
+#: ipconst.shtmlinvdir
+msgid "Invalid dir value specified"
+msgstr "Valor de pasta especificado inválido"
+
+#: ipconst.shtmlinvframe
+msgid "Invalid frame specified"
+msgstr "Moldura especificada inválida"
+
+#: ipconst.shtmlinvgraphic
+msgid "Invalid graphic returned"
+msgstr "Gráfico devolvido inválido"
+
+#: ipconst.shtmlinvint
+msgid "Invalid integer constant"
+msgstr "Constante inteira inválida"
+
+#: ipconst.shtmlinvmethod
+msgid "Invalid method specified"
+msgstr "Método especificado inválido"
+
+#: ipconst.shtmlinvpicture
+msgid "Invalid picture returned"
+msgstr "Imagem devolvida inválida"
+
+#: ipconst.shtmlinvrule
+msgid "Invalid rule specified"
+msgstr "Regra especificada inválida"
+
+#: ipconst.shtmlinvscroll
+msgid "Invalid scrolling specified"
+msgstr "Rolamento especificado inválido"
+
+#: ipconst.shtmlinvshape
+msgid "Invalid shape specified"
+msgstr "Forma especificada inválida"
+
+#: ipconst.shtmlinvtype
+msgid "Invalid type specified"
+msgstr "Tipo especificado inválido"
+
+#: ipconst.shtmlinvvaltype
+msgid "Invalid value type specified"
+msgstr "Tipo de valor especificado inválido"
+
+#: ipconst.shtmllineerror
+#, object-pascal-format
+msgid "Error \"%s\" at line %d, position %d"
+msgstr "Erro \"%s\" na linha %d, posição %d"
+
+#: ipconst.shtmlnodataprovider
+msgid "No data provider assigned"
+msgstr "Nenhum fornecedor de dados atribuído"
+
+#: ipconst.shtmlnogetimage
+msgid "No OnGetImage event handler assigned"
+msgstr "Não foi atribuído nenhum gestor de eventos OnGetImage"
+
+#: ipconst.shtmlnographic
+msgid "Picture object contains no graphic object"
+msgstr "O objecto de imagem não contém nenhum objecto gráfico"
+
+#: ipconst.shtmlnotcontainer
+msgid "Parent is not a container"
+msgstr "Mãe não é um contentor"
+
+#: ipconst.shtmlresunavail
+msgid "Resource unavailable:"
+msgstr "Recurso indisponível:"
+
+#: ipconst.shtmltokenstackoverfl
+msgid "Token stack overflow"
+msgstr "Transporte de símbolos na torre"
+
+#: ipconst.shtmlunknowntok
+msgid "Unknown token"
+msgstr "Símbolo desconhecido"
+
+#: ipconst.slinelengtherr
+msgid "Invalid line length for encoded text"
+msgstr "Tamanho de linha inválido para texto codificado"
+
+#: ipconst.smemmapfilenamerequired
+msgid "You must specify a file name for TIpMemMapStream"
+msgstr "Deve especificar um nome de ficheiro para TIpMemMapStream"
+
+#: ipconst.smemmapmustbeclosed
+#, object-pascal-format
+msgid "The %s method requires the TIpMemMapStream instance to be closed"
+msgstr "O método %s requer que a instância TIpMemMapStream esteja fechada"
+
+#: ipconst.smemmapmustbeopen
+#, object-pascal-format
+msgid "The %s method requires the TIpMemMapStream instance to be opened"
+msgstr "O método %s requer que a instância TIpMemMapStream esteja aberta"
+
+#: ipconst.snoboundary
+msgid "No Mime boundary"
+msgstr "Sem limite de Mime"
+
+#: ipconst.snomemorystreamerr
+msgid "No Memory Stream assigned"
+msgstr "Nenhum fluxo de memória atribuído"
+
+#: ipconst.snoseekforread
+msgid "No seek for read"
+msgstr "Sem procura para ler"
+
+#: ipconst.snoseekforwrite
+msgid "No seek for write"
+msgstr "Sem procura para escrever"
+
+#: ipconst.snostreamerr
+msgid "Stream not assigned"
+msgstr "Fluxo não atribuído"
+
+#: ipconst.soriginfrombegin
+msgid "When origin is soFromBeginning, Offset must be >= 0"
+msgstr "Quando a origem é soFromBeginning, o desvio deve ser ≥ 0"
+
+#: ipconst.soriginfromend
+msgid "When origin is soFromEnd, Offset must be <= 0"
+msgstr "Quando a origem é soFromEnd, o desvio deve ser ≤ 0"
+
+#: ipconst.suuencodecounterr
+msgid "Count <> Len or Count > 63"
+msgstr "Total <> Tam. or Total > 63"
+

@@ -81,9 +81,11 @@ begin
   inherited Create;
   FTrayIcon := TrayIcon;
   FName := 'app-' + IntToHex(IntPtr(Application), SizeOf(IntPtr) * 2);
-  NewIcon := {%H-}Pointer(TGtk3Image(FTrayIcon.Icon.Handle).handle);
-  if NewIcon = nil then
-    NewIcon := {%H-}Pointer(Application.Icon.Handle);
+  NewIcon := nil;
+  if Assigned(FTrayIcon.Icon) and FTrayIcon.Icon.HandleAllocated then
+    NewIcon := {%H-}Pointer(TGtk3Image(FTrayIcon.Icon.Handle).handle);
+  if (NewIcon = nil) and Assigned(Application.Icon) and not Application.Icon.Empty then
+    NewIcon := {%H-}Pointer(TGtk3Image(Application.Icon.Handle).handle);
   if NewIcon <> GlobalIcon then
   begin
     GlobalIcon := NewIcon;
@@ -125,9 +127,11 @@ procedure TAppIndTrayIconHandle.Update;
 var
   NewIcon: Pointer;
 begin
-  NewIcon := {%H-}Pointer(TGTK3Image(FTrayIcon.Icon.Handle).Handle);
-  if NewIcon = nil then
-    NewIcon := {%H-}Pointer(Application.Icon.Handle);
+  NewIcon := nil;
+  if Assigned(FTrayIcon.Icon) and FTrayIcon.Icon.HandleAllocated then
+    NewIcon := {%H-}Pointer(TGTK3Image(FTrayIcon.Icon.Handle).Handle);
+  if (NewIcon = nil) and Assigned(Application.Icon) and not Application.Icon.Empty then
+    NewIcon := {%H-}Pointer(TGTK3Image(Application.Icon.Handle).Handle);
   if NewIcon <> GlobalIcon then
   begin
     GlobalIcon := NewIcon;

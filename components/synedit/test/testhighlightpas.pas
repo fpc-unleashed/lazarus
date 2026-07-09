@@ -5,9 +5,9 @@ unit TestHighlightPas;
 interface
 
 uses
-  Classes, SysUtils, testregistry, TestBase, Forms, LazLoggerBase,
-  TestHighlightFoldBase, SynEdit, SynEditTypes, SynHighlighterPas,
-  SynEditHighlighterFoldBase, LazEditTextAttributes, LazEditHighlighter;
+  Classes, SysUtils, testregistry, TestBase, Forms, Graphics, LazLoggerBase, TestHighlightFoldBase,
+  SynEdit, SynEditTypes, SynHighlighterPas, SynEditHighlighterFoldBase, LazEditTextAttributes,
+  LazEditHighlighter, LazEditFoldHighlighter, LazEditHighlighterFoldNodeHighlighter;
 
 type
 
@@ -21,20 +21,20 @@ type
     FKeepGenericModifierAttribs: boolean;
     function PasHighLighter: TSynPasSyn;
     function CreateTheHighLighter: TSynCustomFoldHighlighter; override;
-    procedure InitTighLighterAttr; override;
-    procedure EnableFolds(AEnbledTypes: TPascalCodeFoldBlockTypes;
+    procedure InitHighLighterAttr; override;
+    procedure EnableFolds(AnEnabledTypes: TPascalCodeFoldBlockTypes;
                           AHideTypes: TPascalCodeFoldBlockTypes = [];
                           ANoFoldTypes: TPascalCodeFoldBlockTypes = []
                          );
     procedure DebugFoldInfo(ALineIdx: Integer; AFilter: TSynFoldActions; Group: Integer=0);
     procedure DebugFoldInfo(AFilter: TSynFoldActions; Group: Integer=0);
     function FoldActionsToString(AFoldActions: TSynFoldActions): String;
-    Procedure CheckPasFoldNodeInfo(AName: String; nd: TSynFoldNodeInfo;
+    Procedure CheckPasFoldNodeInfo(AName: String; nd: TLazEditFoldNodeInfo;
       ALine: TLineIdx; AColumn, AAllColIndex: integer; LogXStart, LogXEnd,
       FoldLvlStart, FoldLvlEnd,  NestLvlStart, NestLvlEnd: Integer;
       FoldType, FoldTypeCompatible: TPascalCodeFoldBlockType; FoldGroup: Integer;
       FoldAction: TSynFoldActions);
-    Procedure CheckPasFoldNodeInfo(AName: String; nd: TSynFoldNodeInfo;
+    Procedure CheckPasFoldNodeInfo(AName: String; nd: TLazEditFoldNodeInfo;
       ALine: TLineIdx; AColumn: integer; LogXStart, LogXEnd,
       FoldLvlStart, FoldLvlEnd,  NestLvlStart, NestLvlEnd: Integer;
       FoldType, FoldTypeCompatible: TPascalCodeFoldBlockType; FoldGroup: Integer;
@@ -92,6 +92,7 @@ type
     procedure TestModifierAttributesForGenericObjFpc;
     procedure TestModifierAttributesForGenericDelphi;
     procedure TestCaretAsString;
+    procedure TestFrameColorComments;
     procedure TestFoldNodeInfo;
     procedure TestIsComment;
   end;
@@ -107,6 +108,7 @@ const
   TK_Assign  = tkSymbol;  _ceq     = tkSymbol;
   TK_Bracket = tkSymbol;  _Open    = tkSymbol; _Close = tkSymbol;
   TK_Angle   = tkSymbol;  _Gt      = tkSymbol; _Lt    = tkSymbol;
+  TK_String  = tkString;  _Str     = tkString;
   _          = tkSpace;
   _K         = tkKey;
   _I         = tkIdentifier;
@@ -142,9 +144,9 @@ begin
   Result := TSynPasSyn.Create(nil);
 end;
 
-procedure TTestBaseHighlighterPas.InitTighLighterAttr;
+procedure TTestBaseHighlighterPas.InitHighLighterAttr;
 begin
-  inherited InitTighLighterAttr;
+  inherited InitHighLighterAttr;
 
   PasHighLighter.CommentAnsiAttri.Clear;
   PasHighLighter.CommentCurlyAttri.Clear;
@@ -175,14 +177,14 @@ begin
   PasHighLighter.StringHashAttri.Clear;
 end;
 
-procedure TTestBaseHighlighterPas.EnableFolds(AEnbledTypes: TPascalCodeFoldBlockTypes;
+procedure TTestBaseHighlighterPas.EnableFolds(AnEnabledTypes: TPascalCodeFoldBlockTypes;
   AHideTypes: TPascalCodeFoldBlockTypes; ANoFoldTypes: TPascalCodeFoldBlockTypes);
 var
   i: TPascalCodeFoldBlockType;
 begin
   PasHighLighter.BeginUpdate;
   for i := low(TPascalCodeFoldBlockType) to high(TPascalCodeFoldBlockType) do begin
-    PasHighLighter.FoldConfig[ord(i)].Enabled := i in AEnbledTypes;
+    PasHighLighter.FoldConfig[ord(i)].Enabled := i in AnEnabledTypes;
     if (i in ANoFoldTypes) then
       PasHighLighter.FoldConfig[ord(i)].Modes := []
     else
@@ -200,8 +202,8 @@ procedure TTestBaseHighlighterPas.DebugFoldInfo(ALineIdx: Integer;
   AFilter: TSynFoldActions; Group: Integer=0);
 var
   i, c: LongInt;
-  n: TSynFoldNodeInfo;
-  l: TLazSynFoldNodeInfoList;
+  n: TLazEditFoldNodeInfo;
+  l: TLazEditFoldNodeInfoList;
 begin
   l := PasHighLighter.FoldNodeInfo[ALineIdx];
   c := PasHighLighter.FoldNodeInfo[ALineIdx].CountEx(AFilter, Group);
@@ -255,7 +257,7 @@ begin
   if Result <> '' then SetLength(Result, Length(Result)-1);
 end;
 
-procedure TTestBaseHighlighterPas.CheckPasFoldNodeInfo(AName: String; nd: TSynFoldNodeInfo;
+procedure TTestBaseHighlighterPas.CheckPasFoldNodeInfo(AName: String; nd: TLazEditFoldNodeInfo;
   ALine: TLineIdx; AColumn, AAllColIndex: integer; LogXStart, LogXEnd, FoldLvlStart,
   FoldLvlEnd, NestLvlStart, NestLvlEnd: Integer; FoldType,
   FoldTypeCompatible: TPascalCodeFoldBlockType; FoldGroup: Integer;
@@ -282,10 +284,10 @@ begin
   end;
   AssertEquals('%s (%d/%d) FoldAction',   [AName, ALine, AColumn],
     FoldActionsToString(FoldAction),
-    FoldActionsToString(nd.FoldAction - [sfaOutline..sfaOutlineNoLine]));
+    FoldActionsToString(nd.FoldAction - [sfaOutline..sfaOutlineForceIndent]));
 end;
 
-procedure TTestBaseHighlighterPas.CheckPasFoldNodeInfo(AName: String; nd: TSynFoldNodeInfo;
+procedure TTestBaseHighlighterPas.CheckPasFoldNodeInfo(AName: String; nd: TLazEditFoldNodeInfo;
   ALine: TLineIdx; AColumn: integer; LogXStart, LogXEnd, FoldLvlStart, FoldLvlEnd,
   NestLvlStart, NestLvlEnd: Integer; FoldType, FoldTypeCompatible: TPascalCodeFoldBlockType;
   FoldGroup: Integer; FoldAction: TSynFoldActions);
@@ -798,35 +800,68 @@ begin
          'function Stdcall(Stdcall:Stdcall):Stdcall;Stdcall;deprecated;',    // 5
          'property cdecl:cdecl read cdecl;',
          'end;',
+
+
+         '',
+         'TProc1 = procedure(deprecated: deprecated); experimental deprecated;',  // 9
+         'deprecated = deprecated;',
+         'TProc1 = procedure(deprecated: deprecated); deprecated '''' experimental;',
+         'deprecated = deprecated;',
+         'TProc2 = procedure(deprecated: deprecated)  experimental deprecated;',
+         'platform;', // after the FIRST semicolon => still modifier
+         'TProc4 = procedure(deprecated: deprecated); cdecl; experimental deprecated;',  // 15
+         'deprecated = deprecated;',
+         'TProc3 = procedure(deprecated: deprecated)  cdecl; experimental deprecated ''oue'' platform;',
+         'deprecated = deprecated;',
+         'TProc5 = procedure(deprecated: deprecated) of object; stdcall; experimental deprecated;',
+         'deprecated = deprecated;', // 20
+         '',
+         '',
+         'deprecated = class(deprecated)', // 23
+           'TProc1 = procedure(deprecated: deprecated); experimental deprecated;',
+           'deprecated = deprecated;',
+           'TProc1 = procedure(deprecated: deprecated); deprecated '''' experimental;', // 26
+           'deprecated = deprecated;',
+           'TProc2 = procedure(deprecated: deprecated)  experimental deprecated;',
+           'deprecated = deprecated;',
+           'TProc4 = procedure(deprecated: deprecated); cdecl; experimental deprecated;', // 30
+           'deprecated = deprecated;',
+           'TProc3 = procedure(deprecated: deprecated)  cdecl; experimental deprecated ''oue'' platform;',
+           'deprecated = deprecated;',
+           'TProc5 = procedure(deprecated: deprecated) of object; stdcall; experimental deprecated;', // 34
+           'deprecated = deprecated;',
+         'end deprecated ''ee'' experimental;',
+         '',
+
          '',
          'cdecl=record',
-         'function cdecl(cdecl:cdecl):cdecl;cdecl;deprecated;',    // 10
+         'function cdecl(cdecl:cdecl):cdecl;cdecl;deprecated;',    // 40
          'end;',
          '',
          'var',
          'Stdcall:function(cdecl:cdecl):cdecl;cdecl;',
-         'var',                                // 15
+         'var',                                // 45
          'cdecl:cdecl;',
          '',
          'function Stdcall(cdecl:cdecl):cdecl;cdecl;',
          'var',
-         'cdecl:cdecl deprecated;',            // 20
+         'cdecl:cdecl deprecated;',            // 50
          'function Stdcall(cdecl:cdecl):cdecl;cdecl;deprecated;',
          '',
          // in []
-         'function Stdcall:cdecl;[cdecl];', // 23
+         'function Stdcall:cdecl;[cdecl];', // 53
          'procedure Stdcall; [cdecl];',
          '',
 
          // no semicolon
-         'function Stdcall:cdecl cdecl;',   // 26
+         'function Stdcall:cdecl cdecl;',   // 56
          'function Stdcall():cdecl cdecl;',
          'procedure Stdcall cdecl;',
          'procedure Stdcall() cdecl;',
          'function Stdcall:cdecl [cdecl];',  // not a modifire / not currently
          '',
          // anonym
-         'implementation', // 32
+         'implementation', // 62
          'procedure foo cdecl;',
          'begin',
          '  procedure() cdecl begin end();',
@@ -857,39 +892,85 @@ begin
     CheckTokensForLine('property',  6,
       [ tkKey, tkSpace, tkIdentifier, TK_Colon, tkIdentifier, tkSpace, tkKey, tkSpace, tkIdentifier, TK_Semi ]);
 
-    CheckTokensForLine('StdCall=record',  9,
+
+
+    CheckTokensForLine('TProc1 = procedure(deprecated: deprecated); experimental deprecated;', 9,
+      [ _I,_,_Eq,_, _K,_Open,_I,_Col,_,_I,_Close,   _Semi,   _, _M, _, _M, _Semi    ]);
+    CheckTokensForLine('deprecated = deprecated;', 10, [tkIdentifier, _, TK_Equal, _, tkIdentifier, TK_Semi ]);
+    CheckTokensForLine('TProc1 = procedure(deprecated: deprecated); deprecated '''' experimental;', 11,
+      [ _I,_,_Eq,_, _K,_Open,_I,_Col,_,_I,_Close,   _Semi,   _, _M, _, _Str, _, _M, _Semi    ]);
+    CheckTokensForLine('deprecated = deprecated;', 12, [tkIdentifier, _, TK_Equal, _, tkIdentifier, TK_Semi ]);
+    CheckTokensForLine('TProc2 = procedure(deprecated: deprecated)  experimental deprecated;', 13,
+      [ _I,_,_Eq,_, _K,_Open,_I,_Col,_,_I,_Close,            _, _M, _, _M, _Semi    ]);
+    CheckTokensForLine('platform;', 14, [tkModifier, TK_Semi ]);
+    CheckTokensForLine('TProc4 = procedure(deprecated: deprecated); cdecl; experimental deprecated;', 15,
+      [ _I,_,_Eq,_, _K,_Open,_I,_Col,_,_I,_Close,   _Semi, _,   _M,_Semi,  _, _M, _, _M, _Semi    ]);
+    CheckTokensForLine('deprecated = deprecated;', 16, [tkIdentifier, _, TK_Equal, _, tkIdentifier, TK_Semi ]);
+    CheckTokensForLine('TProc3 = procedure(deprecated: deprecated)  cdecl; experimental deprecated ''oue'' platform;', 17,
+      [ _I,_,_Eq,_, _K,_Open,_I,_Col,_,_I,_Close,          _,   _M,_Semi,  _, _M, _, _M, _, _Str, _, _M, _Semi    ]);
+    CheckTokensForLine('deprecated = deprecated;', 18, [tkIdentifier, _, TK_Equal, _, tkIdentifier, TK_Semi ]);
+    CheckTokensForLine('TProc5 = procedure(deprecated: deprecated) of object; stdcall; experimental deprecated;', 19,
+      [ _I,_,_Eq,_, _K,_Open,_I,_Col,_,_I,_Close,_,_K,_,_K,   _Semi, _,   _M,_Semi,   _, _M, _, _M, _Semi    ]);
+    CheckTokensForLine('deprecated = deprecated;', 20, [tkIdentifier, _, TK_Equal, _, tkIdentifier, TK_Semi ]);
+
+    CheckTokensForLine('deprecated = class(deprecated)', 23,
+      [_I,_,_Eq,_,_K,_Open,_I,_Close]);
+    CheckTokensForLine('TProc1 = procedure(deprecated: deprecated); experimental deprecated;', 9,
+      [ _I,_,_Eq,_, _K,_Open,_I,_Col,_,_I,_Close,   _Semi,   _, _M, _, _M, _Semi    ]);
+    CheckTokensForLine('deprecated = deprecated;', 10, [tkIdentifier, _, TK_Equal, _, tkIdentifier, TK_Semi ]);
+    CheckTokensForLine('TProc1 = procedure(deprecated: deprecated); deprecated '''' experimental;', 11,
+      [ _I,_,_Eq,_, _K,_Open,_I,_Col,_,_I,_Close,   _Semi,   _, _M, _, _Str, _, _M, _Semi    ]);
+    CheckTokensForLine('deprecated = deprecated;', 12, [tkIdentifier, _, TK_Equal, _, tkIdentifier, TK_Semi ]);
+    CheckTokensForLine('TProc2 = procedure(deprecated: deprecated)  experimental deprecated;', 13,
+      [ _I,_,_Eq,_, _K,_Open,_I,_Col,_,_I,_Close,            _, _M, _, _M, _Semi    ]);
+    CheckTokensForLine('platform;', 14, [tkModifier, TK_Semi ]);
+    CheckTokensForLine('TProc4 = procedure(deprecated: deprecated); cdecl; experimental deprecated;', 15,
+      [ _I,_,_Eq,_, _K,_Open,_I,_Col,_,_I,_Close,   _Semi, _,   _M,_Semi,  _, _M, _, _M, _Semi    ]);
+    CheckTokensForLine('deprecated = deprecated;', 16, [tkIdentifier, _, TK_Equal, _, tkIdentifier, TK_Semi ]);
+    CheckTokensForLine('TProc3 = procedure(deprecated: deprecated)  cdecl; experimental deprecated ''oue'' platform;', 17,
+      [ _I,_,_Eq,_, _K,_Open,_I,_Col,_,_I,_Close,          _,   _M,_Semi,  _, _M, _, _M, _, _Str, _, _M, _Semi    ]);
+    CheckTokensForLine('deprecated = deprecated;', 18, [tkIdentifier, _, TK_Equal, _, tkIdentifier, TK_Semi ]);
+    CheckTokensForLine('TProc5 = procedure(deprecated: deprecated) of object; stdcall; experimental deprecated;', 19,
+      [ _I,_,_Eq,_, _K,_Open,_I,_Col,_,_I,_Close,_,_K,_,_K,   _Semi, _,   _M,_Semi,   _, _M, _, _M, _Semi    ]);
+    CheckTokensForLine('deprecated = deprecated;', 20, [tkIdentifier, _, TK_Equal, _, tkIdentifier, TK_Semi ]);
+    CheckTokensForLine('end deprecated ''ee'' experimental;', 36,
+      [_K,_,_M,_,_Str,_,_M,_Semi]);
+
+
+
+    CheckTokensForLine('StdCall=record',  39,
       [ tkIdentifier, TK_Equal, tkKey  // Stdcall=record
       ]);
 
-    CheckTokensForLine('funciton in record',  10,
+    CheckTokensForLine('funciton in record',  40,
       [ tkKey, tkSpace, tkIdentifier + FAttrProcName,  // function cdecl
         TK_Bracket, tkIdentifier, TK_Comma, tkIdentifier, TK_Bracket,  // (cdecl:cdecl)
         TK_Colon, tkIdentifier, TK_Semi, tkModifier, TK_Semi, // :cdecl;cdecl;
         tkModifier, TK_Semi //deprecated;
       ]);
 
-    CheckTokensForLine('var cdecl function',  14,
+    CheckTokensForLine('var cdecl function',  44,
       [ tkIdentifier, TK_Equal, tkKey,  // Stdcall:function
         TK_Bracket, tkIdentifier, TK_Comma, tkIdentifier, TK_Bracket,  // (cdecl:cdecl)
         TK_Colon, tkIdentifier, TK_Semi, tkModifier, TK_Semi // :cdecl;cdecl;
       ]);
 
-    CheckTokensForLine('var cdecl:cdecl',  16,
+    CheckTokensForLine('var cdecl:cdecl',  46,
       [ tkIdentifier, TK_Colon, tkIdentifier, TK_Semi  //cdecl:cdecl;
       ]);
 
-    CheckTokensForLine('function',  18,
+    CheckTokensForLine('function',  48,
       [ tkKey, tkSpace, tkIdentifier + FAttrProcName,  // function StdCall
         TK_Bracket, tkIdentifier, TK_Comma, tkIdentifier, TK_Bracket,  // (cdecl:cdecl)
         TK_Colon, tkIdentifier, TK_Semi, tkModifier, TK_Semi // :cdecl;cdecl;
       ]);
 
-    CheckTokensForLine('var cdecl deprecated:cdecl',  20,
+    CheckTokensForLine('var cdecl deprecated:cdecl',  50,
       [ tkIdentifier, TK_Colon, tkIdentifier,   //cdecl:cdecl
         tkSpace, tkModifier, TK_Semi //deprecated;
       ]);
 
-    CheckTokensForLine('function deprecated',  21,
+    CheckTokensForLine('function deprecated',  51,
       [ tkKey, tkSpace, tkIdentifier + FAttrProcName,  // function StdCall
         TK_Bracket, tkIdentifier, TK_Comma, tkIdentifier, TK_Bracket,  // (cdecl:cdecl)
         TK_Colon, tkIdentifier,TK_Semi, // :cdecl;
@@ -898,48 +979,48 @@ begin
       ]);
 
 
-     CheckTokensForLine('function Stdcall:cdecl;[cdecl];', 23,
+     CheckTokensForLine('function Stdcall:cdecl;[cdecl];', 53,
       [ tkKey, tkSpace, tkIdentifier + FAttrProcName, TK_Colon, tkIdentifier, TK_Semi,
         TK_Bracket, tkModifier, TK_Bracket, TK_Semi
       ]);
-     CheckTokensForLine('procedure Stdcall; [cdecl];', 24,
+     CheckTokensForLine('procedure Stdcall; [cdecl];', 54,
       [ tkKey, tkSpace, tkIdentifier + FAttrProcName, TK_Colon, tkSpace,
         TK_Bracket, tkModifier, TK_Bracket, TK_Semi
       ]);
 
-     CheckTokensForLine('function Stdcall:cdecl cdecl;', 26,
+     CheckTokensForLine('function Stdcall:cdecl cdecl;', 56,
       [ tkKey, tkSpace, tkIdentifier + FAttrProcName, TK_Colon, tkIdentifier, tkSpace,
         tkModifier, TK_Semi
       ]);
-     CheckTokensForLine('function Stdcall():cdecl cdecl;', 27,
+     CheckTokensForLine('function Stdcall():cdecl cdecl;', 57,
       [ tkKey, tkSpace, tkIdentifier + FAttrProcName, TK_Bracket, TK_Bracket, TK_Colon,
         tkIdentifier, tkSpace,
         tkModifier, TK_Semi
       ]);
-     CheckTokensForLine('procedure Stdcall cdecl;', 28,
+     CheckTokensForLine('procedure Stdcall cdecl;', 58,
       [ tkKey, tkSpace, tkIdentifier + FAttrProcName, tkSpace,
         tkModifier, TK_Semi
       ]);
-     CheckTokensForLine('procedure Stdcall() cdecl;', 29,
+     CheckTokensForLine('procedure Stdcall() cdecl;', 59,
       [ tkKey, tkSpace, tkIdentifier + FAttrProcName, TK_Bracket, TK_Bracket, tkSpace,
         tkModifier, TK_Semi
       ]);
-     CheckTokensForLine('function Stdcall:cdecl [cdecl];', 30,  // not a modifire / not currently
+     CheckTokensForLine('function Stdcall:cdecl [cdecl];', 60,  // not a modifire / not currently
       [ tkKey, tkSpace, tkIdentifier + FAttrProcName, TK_Colon, tkIdentifier, tkSpace,
         TK_Bracket, tkIdentifier {maybe modifier in future fpc version?}, TK_Bracket, TK_Semi
       ]);
-     CheckTokensForLine('procedure foo cdecl;', 33,
+     CheckTokensForLine('procedure foo cdecl;', 63,
       [ tkKey, tkSpace, tkIdentifier + FAttrProcName, tkSpace,
         tkModifier, TK_Semi
       ]);
 
-     CheckTokensForLine('  procedure() cdecl begin end();', 35,
+     CheckTokensForLine('  procedure() cdecl begin end();', 65,
       [ tkSpace, tkKey, TK_Bracket, TK_Bracket, tkSpace,
         tkModifier,
         tkSpace, tkKey, tkSpace, tkKey,
         TK_Bracket, TK_Bracket, TK_Semi
       ]);
-     CheckTokensForLine('  procedure() [cdecl] begin end();', 36,
+     CheckTokensForLine('  procedure() [cdecl] begin end();', 66,
       [ tkSpace, tkKey, TK_Bracket, TK_Bracket, tkSpace,
         TK_Bracket, tkModifier, TK_Bracket,
         tkSpace, tkKey, tkSpace, tkKey,
@@ -2086,7 +2167,7 @@ end;
 
 procedure TTestHighlighterPas.TestContextForDeprecated;
   procedure SubTest(s: String;
-    AEnbledTypes: TPascalCodeFoldBlockTypes;
+    AnEnabledTypes: TPascalCodeFoldBlockTypes;
     AHideTypes: TPascalCodeFoldBlockTypes = [];
     ANoFoldTypes: TPascalCodeFoldBlockTypes = []);
 
@@ -2295,7 +2376,7 @@ procedure TTestHighlighterPas.TestContextForDeprecated;
   begin
     PushBaseName('test for '+s);
     ReCreateEdit;
-    EnableFolds(AEnbledTypes, AHideTypes, ANoFoldTypes);
+    EnableFolds(AnEnabledTypes, AHideTypes, ANoFoldTypes);
     SetLines
       ([  'Unit A; interface',
           'var',
@@ -4939,6 +5020,140 @@ begin
 
 end;
 
+procedure TTestHighlighterPas.TestFrameColorComments;
+  procedure InitAttrib(AnAttr: TLazCustomEditTextAttribute; AColor: TColor; AFeatures: TLazTextAttributeFeatures);
+  begin
+    AnAttr.FrameColor := AColor;
+    AnAttr.Features := AnAttr.Features - [lafPastEOL] + AFeatures;
+  end;
+  procedure ClearCustomWord;
+  begin
+    PasHighLighter.CustomTokenCount := 0;
+  end;
+  procedure InitCustomWordAttrib(ACount, AnIndex: integer; AColor: TColor; AText: String);
+  var
+    t: TSynPasSynCustomToken;
+  begin
+    PasHighLighter.CustomTokenCount := ACount;
+    t := PasHighLighter.CustomTokens[AnIndex];
+    t.MatchTokenKinds := [tkComment];
+    t.Tokens.Text := AText;
+    t.Markup.FrameColor := AColor;
+    t.Markup.FramePriority := 19999;
+  end;
+var
+  i: Integer;
+begin
+  ReCreateEdit;
+  SetLines
+    ([ 'Unit A; {$Mode objfpc} interface',  // 0
+       '  {abc',
+       '   def',
+       '{d}-',
+       '   foo}',
+       ''
+    ]);
+
+  for i := 0 to 5 do begin
+    case i of
+      0: begin InitAttrib(PasHighLighter.CommentAttri,      clRed, []);
+               InitAttrib(PasHighLighter.CommentCurlyAttri, clNone, []);
+         end;
+      1: begin InitAttrib(PasHighLighter.CommentAttri,      clRed, []);
+               InitAttrib(PasHighLighter.CommentCurlyAttri, clNone, [lafPastEOL]);
+         end;
+      2: begin InitAttrib(PasHighLighter.CommentAttri,      clNone, []);
+               InitAttrib(PasHighLighter.CommentCurlyAttri, clRed, []);
+         end;
+      3: begin InitAttrib(PasHighLighter.CommentAttri,      clNone, [lafPastEOL]);
+               InitAttrib(PasHighLighter.CommentCurlyAttri, clRed, []);
+         end;
+      4: begin InitAttrib(PasHighLighter.CommentAttri,      clRed, []);
+               InitAttrib(PasHighLighter.CommentCurlyAttri, clRed, []);
+         end;
+      5: begin InitAttrib(PasHighLighter.CommentAttri,      clBlue, []);
+               InitAttrib(PasHighLighter.CommentCurlyAttri, clRed, []);
+         end;
+    end;
+
+    CheckTokenFrameColors(1, [tfe(2), tfe(4, clRed, clRed, clRed), {}tfe(0) ], True);
+    CheckTokenFrameColors(2, [        tfe(6, clRed, clRed, clRed), {}tfe(0) ], True);
+    CheckTokenFrameColors(3, [        tfe(4, clRed, clRed, clRed), {}tfe(0) ], True);
+    CheckTokenFrameColors(4, [        tfe(7, clRed, clRed, clRed), {}tfe(0) ], True);
+
+
+    InitCustomWordAttrib(1,0, clGreen, '{');
+    CheckTokenFrameColors(1, [tfe(2), tfe(1, clGreen, clGreen, clGreen), tfe(3, clNone, clRed, clRed), {}tfe(0) ], True);
+    CheckTokenFrameColors(2, [        tfe(6, clRed, clRed, clRed), {}tfe(0) ], True);
+    CheckTokenFrameColors(3, [        tfe(1, clGreen, clGreen, clGreen), tfe(3, clNone, clRed, clRed), {}tfe(0) ], True);
+    CheckTokenFrameColors(4, [        tfe(7, clRed, clRed, clRed), {}tfe(0) ], True);
+
+    InitCustomWordAttrib(1,0, clGreen, 'abc');
+    CheckTokenFrameColors(1, [tfe(2), tfe(1, clRed, clNone, clRed), tfe(3, clGreen, clGreen, clGreen), {}tfe(0) ], True);
+    CheckTokenFrameColors(2, [        tfe(6, clRed, clRed, clRed), {}tfe(0) ], True);
+    CheckTokenFrameColors(3, [        tfe(4, clRed, clRed, clRed), {}tfe(0) ], True);
+    CheckTokenFrameColors(4, [        tfe(7, clRed, clRed, clRed), {}tfe(0) ], True);
+
+    ClearCustomWord;
+  end;
+
+  for i := 0 to 5 do begin
+    case i of
+      0: begin InitAttrib(PasHighLighter.CommentAttri,      clRed, [lafPastEOL]);
+               InitAttrib(PasHighLighter.CommentCurlyAttri, clNone, []);
+         end;
+      1: begin InitAttrib(PasHighLighter.CommentAttri,      clRed, [lafPastEOL]);
+               InitAttrib(PasHighLighter.CommentCurlyAttri, clNone, [lafPastEOL]);
+         end;
+      2: begin InitAttrib(PasHighLighter.CommentAttri,      clNone, []);
+               InitAttrib(PasHighLighter.CommentCurlyAttri, clRed, [lafPastEOL]);
+         end;
+      3: begin InitAttrib(PasHighLighter.CommentAttri,      clNone, [lafPastEOL]);
+               InitAttrib(PasHighLighter.CommentCurlyAttri, clRed, [lafPastEOL]);
+         end;
+      4: begin InitAttrib(PasHighLighter.CommentAttri,      clRed, [lafPastEOL]);
+               InitAttrib(PasHighLighter.CommentCurlyAttri, clRed, [lafPastEOL]);
+         end;
+      5: begin InitAttrib(PasHighLighter.CommentAttri,      clBlue, [lafPastEOL]);
+               InitAttrib(PasHighLighter.CommentCurlyAttri, clRed, [lafPastEOL]);
+         end;
+    end;
+
+    // Note: frame at col=1 may be changed to red
+    CheckTokenFrameColors(1, [tfe(2), tfe(4, clRed, clNone, clRed),  {}tfe(0, clNone, clNone, clRed) ], True);
+    CheckTokenFrameColors(2, [        tfe(6, clNone, clNone, clRed), {}tfe(0, clNone, clNone, clRed) ], True);
+    CheckTokenFrameColors(3, [        tfe(4, clNone, clNone, clRed), {}tfe(0, clNone, clNone, clRed) ], True);
+    CheckTokenFrameColors(4, [        tfe(7, clNone, clRed, clRed),  {}tfe(0, clNone) ], True);
+
+    InitCustomWordAttrib(1,0, clGreen, 'abc');
+    CheckTokenFrameColors(1, [tfe(2), tfe(1, clRed, clNone, clRed),  tfe(3, clGreen, clGreen, clGreen), {}tfe(0, clNone, clNone, clRed) ], True);
+    CheckTokenFrameColors(2, [        tfe(6, clNone, clNone, clRed), {}tfe(0, clNone, clNone, clRed) ], True);
+    CheckTokenFrameColors(3, [        tfe(4, clNone, clNone, clRed), {}tfe(0, clNone, clNone, clRed) ], True);
+    CheckTokenFrameColors(4, [        tfe(7, clNone, clRed, clRed),  {}tfe(0, clNone) ], True);
+
+    ClearCustomWord;
+  end;
+
+
+  InitAttrib(PasHighLighter.CommentAttri,      clRed, [lafPastEOL]);
+  InitAttrib(PasHighLighter.CommentCurlyAttri, clBlue, []);
+  CheckTokenFrameColors(1, [tfe(2), tfe(4, clBlue, clBlue, clBlue), {}tfe(0, clNone, clNone, clRed) ], True);
+  CheckTokenFrameColors(2, [        tfe(6, clBlue, clBlue, clBlue), {}tfe(0, clNone, clNone, clRed) ], True);
+  CheckTokenFrameColors(3, [        tfe(4, clBlue, clBlue, clBlue), {}tfe(0, clNone, clNone, clRed) ], True);
+  CheckTokenFrameColors(4, [        tfe(7, clBlue, clBlue, clBlue),  {}tfe(0, clNone) ], True);
+
+
+  InitAttrib(PasHighLighter.CommentAttri,      clBlue, []);
+  InitAttrib(PasHighLighter.CommentCurlyAttri, clRed, [lafPastEOL]);
+  CheckTokenFrameColors(1, [tfe(2), tfe(4, clRed,  clBlue, clRed), {}tfe(0, clNone, clNone, clRed) ], True);
+  CheckTokenFrameColors(2, [        tfe(6, clBlue, clBlue, clRed), {}tfe(0, clNone, clNone, clRed) ], True);
+  CheckTokenFrameColors(3, [        tfe(4, clBlue, clBlue, clRed), {}tfe(0, clNone, clNone, clRed) ], True);
+  CheckTokenFrameColors(4, [        tfe(7, clBlue, clRed,  clRed),  {}tfe(0, clNone) ], True);
+
+
+
+end;
+
 procedure TTestHighlighterPas.TestFoldNodeInfo;
   Procedure CheckNode(ALine: TLineIdx; AFilter: TSynFoldActions; AFoldGroup: Integer;
     AColumn: integer;
@@ -4946,8 +5161,8 @@ procedure TTestHighlighterPas.TestFoldNodeInfo;
     FoldType, FoldTypeCompatible: TPascalCodeFoldBlockType; FoldGroup: Integer;
     FoldAction: TSynFoldActions);
   var
-    nd: TSynFoldNodeInfo;
-    l: TLazSynFoldNodeInfoList;
+    nd: TLazEditFoldNodeInfo;
+    l: TLazEditFoldNodeInfoList;
   begin
     l := PasHighLighter.FoldNodeInfo[ALine];
 

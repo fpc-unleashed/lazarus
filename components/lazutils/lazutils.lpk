@@ -358,6 +358,10 @@
         <Filename Value="winlazutf8.inc"/>
         <Type Value="Include"/>
       </Item>
+      <Item>
+        <Filename Value="lazvcsutils.pas"/>
+        <UnitName Value="lazvcsutils"/>
+      </Item>
     </Files>
     <LazDoc Paths="../../docs/xml/lazutils"/>
     <i18n>

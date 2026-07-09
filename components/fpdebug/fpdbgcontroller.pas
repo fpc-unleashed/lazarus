@@ -15,7 +15,7 @@ uses
   FpDbgClasses, FpDbgCallContextInfo, FpDbgUtil,
   {$ifdef windows}  FpDbgWinClasses,  {$endif}
   {$ifdef darwin}  FpDbgDarwinClasses,  {$endif}
-  {$ifdef linux}  FpDbgLinuxClasses,  {$endif}
+  {$ifdef linux}  FpDbgLinuxClasses, FpDbgLinuxX86Classes, FpDbgLinuxAarch64Classes,  {$endif}
   FpDbgInfo, FpDbgDwarf, FpdMemoryTools, FpErrorMessages,
   FpDbgCommon;
 
@@ -229,7 +229,7 @@ type
     procedure DoResolveEvent(var AnEvent: TFPDEvent; AnEventThread: TDbgThread; out Finished: boolean); override;
     procedure InternalContinue(AProcess: TDbgProcess; AThread: TDbgThread); override;
   public
-    procedure SetReturnAdressBreakpoint(AProcess: TDbgProcess; AnOutsideFrame: Boolean);
+    function SetReturnAdressBreakpoint(AProcess: TDbgProcess; AnOutsideFrame: Boolean = False): Boolean;
   end;
 
   { TDbgControllerRunToCmd }
@@ -916,12 +916,26 @@ begin
 end;
 
 function TDbgControllerHiddenBreakStepBaseCmd.IsAtOrOutOfHiddenBreakFrame: Boolean;
+{$IF (defined(CPUAARCH64))}
+var
+  R: TDbgRegisterValue;
+{$ENDIF}
 begin
   Result := HasHiddenBreak;
   if not Result then
     exit;
   (* This is to check, if we have returned from a "call" instruction. Back to the original frame.  *)
   Result := (FHiddenBreakStackPtrAddr <= FThread.GetStackPointerRegisterValue);
+  {$IF (defined(CPUAARCH64))}
+  // TODO: we need to know when a thread was forced to single step over a breakpoint (or for any other reason)
+  if (FHiddenBreakStackPtrAddr = FThread.GetStackPointerRegisterValue) and
+     (FHiddenBreakAddr <> FThread.GetInstructionPointerRegisterValue)
+  then begin
+    R := Thread.RegisterValueList.FindRegisterByDwarfIndex(30); // link
+    if (R<>nil) and (r.NumValue = FHiddenBreakAddr) then
+      Result := False;
+  end;
+  {$ENDIF}
 
   debugln(FPDBG_COMMANDS and Result and (FHiddenBreakpoint <> nil), ['BreakStepBaseCmd.IsAtOrOutOfHiddenBreakFrame: Gone past hidden break = true']);
 end;
@@ -1307,32 +1321,44 @@ function TDbgControllerStepOutCmd.IsAtHiddenBreak: Boolean;
 begin
   Result := (FHiddenBreakpoint <> nil) and
             (FThread.GetInstructionPointerRegisterValue = FHiddenBreakAddr) and // FHiddenBreakpoint.HasLocation()
+            {$IF (defined(CPUAARCH64))}
+            // We may have been outside the frame. "ret" uses the link register, so stack would not change.
+            (FThread.GetStackPointerRegisterValue >= FHiddenBreakStackPtrAddr);
+            {$ELSE}
             (FThread.GetStackPointerRegisterValue > FHiddenBreakStackPtrAddr);
+            {$ENDIF}
             // if SP > FStackPtrRegVal >> then the brk was hit stepped out (should not happen)
   debugln(FPDBG_COMMANDS and Result, ['TDbgControllerStepOutCmd.IsAtHiddenBreak: At Hidden break = true']);
 end;
 
-procedure TDbgControllerStepOutCmd.SetReturnAdressBreakpoint(
-  AProcess: TDbgProcess; AnOutsideFrame: Boolean);
+function TDbgControllerStepOutCmd.SetReturnAdressBreakpoint(AProcess: TDbgProcess; AnOutsideFrame: Boolean): Boolean;
 var
-  AStackPointerValue, StepOutStackPos, ReturnAddress: TDBGPtr;
+  t: TDbgThread;
+  CodeAddress, AStackPointerValue, AFramePointerValue: TDBGPtr;
+  Unwinder: TDbgStackUnwinder;
+  AnEntry, AnEntry2: TDbgCallstackEntry;
+  Res: TTDbgStackUnwindResult;
 begin
   FWasOutsideFrame := AnOutsideFrame;
-  {$PUSH}{$Q-}{$R-}
-  if AnOutsideFrame then begin
-    StepOutStackPos:=FController.CurrentThread.GetStackPointerRegisterValue;
-  end
-  else begin
-    AStackPointerValue:=FController.CurrentThread.GetStackBasePointerRegisterValue;
-    StepOutStackPos:=AStackPointerValue+DBGPTRSIZE[FController.FCurrentProcess.Mode];
-  end;
-  {$POP}
-    debugln(FPDBG_COMMANDS, ['StepOutCmd.SetReturnAdressBreakpoint NoFrame=',AnOutsideFrame,  ' ^RetIP=',dbghex(StepOutStackPos),' SP=',dbghex(FController.CurrentThread.GetStackPointerRegisterValue),' BP=',dbghex(FController.CurrentThread.GetStackBasePointerRegisterValue)]);
+  Result := False;
+  t := FController.CurrentThread;
+  Unwinder := t.GetStackUnwinder;
+  Unwinder.InitForThread(t);
 
-  if AProcess.ReadAddress(StepOutStackPos, ReturnAddress) then
-    SetHiddenBreak(ReturnAddress)
+  // TODO: DWARF-4 has incorrect DFI, returning a bad result
+  Unwinder.SetUnwindFlags([ufSkipArtificialFrames]); // prevent using the asm unwinder
+
+  Unwinder.GetTopFrame(CodeAddress, AStackPointerValue, AFramePointerValue, AnEntry);
+  Res := Unwinder.Unwind(1, CodeAddress, AStackPointerValue, AFramePointerValue, AnEntry, AnEntry2);
+  AnEntry.Free;
+  AnEntry2.Free;
+
+  if (Res in [suSuccess, suGuessed]) then begin
+    SetHiddenBreak(CodeAddress);
+    Result := True;
+  end
   else
-    debugln(DBG_WARNINGS or FPDBG_COMMANDS, ['Failed to read return-address from stack', ReturnAddress]);
+    debugln(DBG_WARNINGS or FPDBG_COMMANDS, ['Failed to get return-address ']);
 end;
 
 procedure TDbgControllerStepOutCmd.InternalContinue(AProcess: TDbgProcess;
@@ -1389,14 +1415,16 @@ begin
 
   // If we stepped out, without a frame, then IsSteppedOut will not detect it
   // The Stack will be popped for the return address.
-  if FWasOutsideFrame and (not IsSteppedOut) and
+  if FWasOutsideFrame and (not IsSteppedOut) and HasHiddenBreak and
      (FHiddenBreakStackPtrAddr < FThread.GetStackPointerRegisterValue)
   then
     FStackFrameInfo.FlagAsSteppedOut;
 
   if IsSteppedOut or IsAtHiddenBreak then begin
+    FStackFrameInfo.FlagAsSteppedOut;
     UpdateThreadStepInfoAfterStepOut(FController.NextOnlyStopOnStartLine);
     RemoveHiddenBreak;
+    // TODO: when stepping out of FPC_POPADDRSTACK then its always finished?
     Finished := HasReachedEndLineOrSteppedOut(FController.NextOnlyStopOnStartLine);
   end;
 

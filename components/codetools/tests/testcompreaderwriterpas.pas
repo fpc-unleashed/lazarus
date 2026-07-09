@@ -1149,7 +1149,7 @@ begin
       SetOfMyInt:=[];
       DefSetOfMyInt:=[2];
       MyChar:=low(TMyChar);
-      DefMyChar:=succ(MyChar);
+      DefMyChar:=#4;
       SetOfMyChar:=[];
       DefSetOfMyChar:=[#4];
       Event:=@OnClick;
@@ -1248,7 +1248,7 @@ begin
       SetOfMyInt:=[low(MyInt)..high(MyInt)];
       DefSetOfMyInt:=[3];
       MyChar:=high(TMyChar);
-      DefMyChar:=pred(MyChar);
+      DefMyChar:=#9;
       SetOfMyChar:=[low(MyChar)..high(MyChar)];
       DefSetOfMyChar:=[#5];
     end;

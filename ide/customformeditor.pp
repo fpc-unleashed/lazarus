@@ -121,6 +121,7 @@ type
                    var ComponentClass: TComponentClass);
 
     function GetDesignerBaseClasses(Index: integer): TComponentClass; override;
+    function GetAutoCreateFormsOnOpen: Boolean; override;
     function GetStandardDesignerBaseClasses(Index: integer): TComponentClass; override;
     procedure SetStandardDesignerBaseClasses(Index: integer; AValue: TComponentClass); override;
     procedure DesignerMenuItemClick(Sender: TObject); virtual;
@@ -183,6 +184,7 @@ type
     // ancestors
     function GetAncestorLookupRoot(AComponent: TComponent): TComponent; override;
     function GetAncestorInstance(AComponent: TComponent): TComponent; override;
+
     function RegisterDesignerBaseClass(AClass: TComponentClass): integer; override;
     function DesignerBaseClassCount: Integer; override;
     procedure UnregisterDesignerBaseClass(AClass: TComponentClass); override;
@@ -1782,7 +1784,7 @@ function TCustomFormEditor.ClassDependsOnComponent(AClass: TComponentClass;
   For example:
     Add frame2 to frame1 ( frame1 uses frame2 )
     Add frame3 to frame2 ( frame2 uses frame3 => frame 2 uses frame1)
-    Add frame1 to frame3 => circle
+    Add frame1 to frame3 => cycle
 }
 var
   AnUnitInfo: TUnitInfo;
@@ -2428,6 +2430,11 @@ end;
 function TCustomFormEditor.GetDesignerBaseClasses(Index: integer): TComponentClass;
 begin
   Result:=TComponentClass(FDesignerBaseClasses[Index]);
+end;
+
+function TCustomFormEditor.GetAutoCreateFormsOnOpen: Boolean;
+begin
+  Result := EnvironmentGuiOpts.AutoCreateFormsOnOpen;
 end;
 
 function TCustomFormEditor.GetStandardDesignerBaseClasses(Index: integer): TComponentClass;

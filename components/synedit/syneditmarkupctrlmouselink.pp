@@ -363,6 +363,7 @@ begin
   MarkupInfo.StyleMask := [];
   MarkupInfo.Foreground := clBlue; {TODO:  invert blue to bg .... see below}
   MarkupInfo.Background := clNone;
+  MarkupInfo.InternalSaveDefaultValues;
 
   SynEdit.RegisterQueryMouseCursorHandler(@UpdateSynCursor);
   SynEdit.RegisterMouseLastCaretHandler(@LastCaretChanged);
@@ -376,7 +377,7 @@ begin
   SynEdit.UnRegisterBeforeKeyDownHandler(@KeyUpDownEvent);
   SynEdit.UnRegisterMouseLastCaretHandler(@LastCaretChanged);
   SynEdit.UnregisterQueryMouseCursorHandler(@UpdateSynCursor);
-  if Lines <> nil then begin;
+  if Lines <> nil then begin
     Lines.RemoveModifiedHandler(senrLinesModified, @LinesChanged);
   end;
   inherited Destroy;
@@ -403,7 +404,7 @@ procedure TSynEditMarkupMouseLink.SetLines(
   const AValue: TSynEditStringsLinked);
 begin
   inherited SetLines(AValue);
-  if Lines <> nil then begin;
+  if Lines <> nil then begin
     Lines.AddModifiedHandler(senrLinesModified, @LinesChanged);
     LinesChanged(nil,-1,0,0);
   end;
