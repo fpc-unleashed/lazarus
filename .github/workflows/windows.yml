@@ -27,7 +27,9 @@ jobs:
       run: |
         $target = "x86_64-win64"
         $cfg = "C:\fpc\bin\$target\fpc.cfg"
-        $lines = @("# FPC Unleashed minimal config")
+        # the IDE is upstream objfpc code that uses C-style operators (+=); the
+        # Makefile build passes -Sci but the lazbuild IDE build does not
+        $lines = @("# FPC Unleashed minimal config", "-Sci")
         foreach ($d in Get-ChildItem -Path "C:\fpc\units\$target" -Directory) {
           $lines += "-Fu$($d.FullName)"
         }
