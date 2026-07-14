@@ -1028,6 +1028,8 @@ type
       out Context: TFindContext): boolean;
 
     function ExtractInlineVarInitType(VarDefNode: TCodeTreeNode): string;
+    function FindInlineVarTupleFieldDef(VarDefNode: TCodeTreeNode;
+      Params: TFindDeclarationParams; out FieldContext: TFindContext): boolean;
 
     // uses and units
     function FindNameInUsesSection(UsesNode: TCodeTreeNode; const AUnitName: string): TCodeTreeNode;
@@ -11323,6 +11325,7 @@ var
     InlineVarExprStartPos, InlineVarExprEndPos: integer;
     InlineVarExprType: TExpressionType;
     InlineVarOldInput: TFindDeclarationInput;
+    InlineVarFieldContext: TFindContext;
     ForInTermPos: TAtomPosition;
     CurAliasType: PFindContext;
     Context: TFindContext;
@@ -11482,6 +11485,25 @@ var
           end;
           Params.Load(InlineVarOldInput,true);
         end;
+      end
+      else if ExprType.Context.Tool.Src[InlineVarExprStartPos] in [',',')'] then
+      begin
+        // tuple destructure: `var (a, b) := expr` / `for var (a, b) in expr` -
+        // the name has the type of its positional field in the tuple
+        Params.Save(InlineVarOldInput);
+        try
+          if ExprType.Context.Tool.FindInlineVarTupleFieldDef(
+            ExprType.Context.Node,Params,InlineVarFieldContext) then
+          begin
+            InlineVarExprType:=InlineVarFieldContext.Tool.
+              ConvertNodeToExpressionType(InlineVarFieldContext.Node,Params,
+                                          CurAliasType);
+            if InlineVarExprType.Desc<>xtNone then
+              ExprType:=InlineVarExprType;
+          end;
+        except
+        end;
+        Params.Load(InlineVarOldInput,true);
       end;
     end;
     if (ExprType.Desc=xtContext)
@@ -16117,6 +16139,9 @@ var
   TermPos: TAtomPosition;
   Params: TFindDeclarationParams;
   ExprType: TExpressionType;
+  FieldContext: TFindContext;
+  FieldTypeNode: TCodeTreeNode;
+  IsForIn: boolean;
 begin
   Result:='';
   if (VarDefNode=nil) or (VarDefNode.Desc<>ctnVarDefinition) then exit;
@@ -16126,9 +16151,68 @@ begin
   ReadNextAtom;
   if not AtomIsIdentifier then exit;
   ReadNextAtom;
-  if CurPos.Flag<>cafAssignment then exit;
+  if (cmsTuples in Scanner.CompilerModeSwitches)
+  and (CurPos.Flag in [cafComma,cafRoundBracketClose]) then begin
+    // tuple destructure `var (a, b) := expr` / `for var (a, b) in expr do`:
+    // show the type of the positional field
+    Params:=TFindDeclarationParams.Create(Self, VarDefNode);
+    try
+      try
+        if FindInlineVarTupleFieldDef(VarDefNode,Params,FieldContext) then begin
+          FieldTypeNode:=FieldContext.Tool.FindTypeNodeOfDefinition(FieldContext.Node);
+          if FieldTypeNode<>nil then
+            Result:=FieldContext.Tool.ExtractNode(FieldTypeNode,[]);
+        end;
+      except
+        Result:='';
+      end;
+    finally
+      Params.Free;
+    end;
+    exit;
+  end;
+  IsForIn:=UpAtomIs('IN');
+  if (not IsForIn) and (CurPos.Flag<>cafAssignment) then exit;
   ReadNextAtom;
   if CurPos.StartPos>SrcLen then exit;
+  if IsForIn then begin
+    // for-in inline var `for var x in expr do`: x has the element type of
+    // the enumerable; scan the term until 'do' and reuse the for-in inference
+    TermPos.StartPos:=CurPos.StartPos;
+    TermPos.EndPos:=TermPos.StartPos;
+    TermPos.Flag:=cafNone;
+    BracketDepth:=0;
+    repeat
+      if CurPos.StartPos>SrcLen then break;
+      case CurPos.Flag of
+        cafRoundBracketOpen,cafEdgedBracketOpen: inc(BracketDepth);
+        cafRoundBracketClose,cafEdgedBracketClose:
+          begin
+            if BracketDepth=0 then break;
+            dec(BracketDepth);
+          end;
+        cafSemicolon:
+          if BracketDepth=0 then break;
+        cafWord:
+          if (BracketDepth=0) and UpAtomIs('DO') then break;
+      end;
+      TermPos.EndPos:=CurPos.EndPos;
+      ReadNextAtom;
+    until false;
+    if TermPos.EndPos<=TermPos.StartPos then exit;
+    Params:=TFindDeclarationParams.Create(Self, VarDefNode);
+    try
+      try
+        Params.Flags:=[fdfSearchInParentNodes];
+        Result:=FindForInTypeAsString(TermPos,VarDefNode,Params,ExprType);
+      except
+        Result:='';
+      end;
+    finally
+      Params.Free;
+    end;
+    exit;
+  end;
   // literal paths first
   if CurPos.Flag=cafRoundBracketOpen then
     Result:=ScanTupleType()
@@ -16170,6 +16254,125 @@ begin
   end;
 end;
 
+function TFindDeclarationTool.FindInlineVarTupleFieldDef(
+  VarDefNode: TCodeTreeNode; Params: TFindDeclarationParams;
+  out FieldContext: TFindContext): boolean;
+// Resolve the positional tuple field behind a destructure declaration:
+//   var (a, b) := <tuple expr>;        - a, b get the tuple field types
+//   for var (a, b) in <collection> do  - fields of the collection element
+// VarDefNode is one of the typeless ctnVarDefinition siblings created for
+// the names between the brackets. Returns the ctnVarDefinition of the field
+// with the same position inside the tuple's ctnRecordType.
+var
+  Node: TCodeTreeNode;
+  FieldIndex, i: integer;
+  ExprStart, ExprEnd, BracketDepth: integer;
+  IsForIn: boolean;
+  TermPos: TAtomPosition;
+  TupleExprType: TExpressionType;
+  OldInput: TFindDeclarationInput;
+begin
+  Result:=false;
+  FieldContext:=CleanFindContext;
+  if (VarDefNode=nil) or (VarDefNode.Desc<>ctnVarDefinition) then exit;
+  if VarDefNode.FirstChild<>nil then exit;
+  if (VarDefNode.Parent=nil) or (VarDefNode.Parent.Desc<>ctnVarSection) then exit;
+  if not (cmsTuples in Scanner.CompilerModeSwitches) then exit;
+  // destructures declare at least two names
+  if (VarDefNode.PriorBrother=nil) and (VarDefNode.NextBrother=nil) then exit;
+  // position of this name among the siblings
+  FieldIndex:=0;
+  Node:=VarDefNode;
+  while Node.PriorBrother<>nil do begin
+    Node:=Node.PriorBrother;
+    if Node.Desc<>ctnVarDefinition then exit;
+    inc(FieldIndex);
+  end;
+  // the name list must be enclosed in brackets: require '(' in front of the
+  // first name, so plain groups `var a, b: T;` are rejected
+  i:=Node.StartPos-1;
+  while (i>=1) and (Src[i] in [' ',#9,#10,#13]) do dec(i);
+  if (i<1) or (Src[i]<>'(') then exit;
+  // read the remaining names, the ')' and the operator behind it
+  MoveCursorToCleanPos(VarDefNode.StartPos);
+  ReadNextAtom;
+  if not AtomIsIdentifier then exit;
+  ReadNextAtom;
+  while CurPos.Flag=cafComma do begin
+    ReadNextAtom;
+    if not AtomIsIdentifier then exit;
+    ReadNextAtom;
+  end;
+  if CurPos.Flag<>cafRoundBracketClose then exit;
+  ReadNextAtom;
+  IsForIn:=UpAtomIs('IN');
+  if (not IsForIn) and (CurPos.Flag<>cafAssignment) then exit;
+  ReadNextAtom;
+  if CurPos.StartPos>SrcLen then exit;
+  // scan the tuple expression: until ';' (:=) or 'do' (for-in), bracket aware
+  ExprStart:=CurPos.StartPos;
+  ExprEnd:=ExprStart;
+  BracketDepth:=0;
+  repeat
+    if CurPos.StartPos>SrcLen then break;
+    case CurPos.Flag of
+      cafRoundBracketOpen,cafEdgedBracketOpen: inc(BracketDepth);
+      cafRoundBracketClose,cafEdgedBracketClose:
+        begin
+          if BracketDepth=0 then break;
+          dec(BracketDepth);
+        end;
+      cafSemicolon:
+        if BracketDepth=0 then break;
+      cafWord:
+        if IsForIn and (BracketDepth=0) and UpAtomIs('DO') then break;
+    end;
+    ExprEnd:=CurPos.EndPos;
+    ReadNextAtom;
+  until false;
+  if ExprEnd<=ExprStart then exit;
+  // resolve the expression to the tuple type
+  TupleExprType:=CleanExpressionType;
+  Params.Save(OldInput);
+  try
+    try
+      if IsForIn then begin
+        TermPos.StartPos:=ExprStart;
+        TermPos.EndPos:=ExprEnd;
+        TermPos.Flag:=cafNone;
+        Params.ContextNode:=VarDefNode;
+        Params.Flags:=[fdfSearchInParentNodes];
+        FindForInTypeAsString(TermPos,VarDefNode,Params,TupleExprType);
+      end else begin
+        Params.ContextNode:=VarDefNode.Parent;
+        Params.Flags:=[fdfSearchInParentNodes,fdfFunctionResult];
+        TupleExprType:=FindExpressionResultType(Params,ExprStart,ExprEnd);
+      end;
+    except
+      // unresolvable initializer -> no field type
+    end;
+  finally
+    Params.Load(OldInput,true);
+  end;
+  if (TupleExprType.Desc<>xtContext) or (TupleExprType.Context.Node=nil) then exit;
+  Node:=TupleExprType.Context.Node;
+  if Node.Desc<>ctnRecordType then exit;
+  // pick the field with the same position
+  i:=0;
+  Node:=Node.FirstChild;
+  while Node<>nil do begin
+    if Node.Desc=ctnVarDefinition then begin
+      if i=FieldIndex then begin
+        FieldContext.Tool:=TupleExprType.Context.Tool;
+        FieldContext.Node:=Node;
+        exit(true);
+      end;
+      inc(i);
+    end;
+    Node:=Node.NextBrother;
+  end;
+end;
+
 function TFindDeclarationTool.FindElementTypeOfArrayType(
   ArrayNode: TCodeTreeNode; out ExprType: TExpressionType;
   AliasType: PFindContext; ParentParams: TFindDeclarationParams): boolean;
@@ -16193,6 +16396,18 @@ begin
   end;
   if not UpAtomIs('OF') then exit;
   ReadNextAtom;
+  if (CurPos.Flag=cafRoundBracketOpen)
+  and (cmsTuples in Scanner.CompilerModeSwitches)
+  and (ArrayNode.LastChild<>nil) and (ArrayNode.LastChild.Desc=ctnRecordType)
+  then begin
+    // inline tuple element type `array of (a, b: T)`: the parser stored the
+    // tuple as a ctnRecordType child, use it directly
+    ExprType.Desc:=xtContext;
+    ExprType.Context.Tool:=Self;
+    ExprType.Context.Node:=ArrayNode.LastChild;
+    Result:=true;
+    exit;
+  end;
   if not AtomIsIdentifier then exit;
   Params:=TFindDeclarationParams.Create;
   Params.GenParams := ParentParams.GenParams;
@@ -16469,7 +16684,10 @@ function TFindDeclarationTool.FindExprTypeAsString(
       if (Result>0) and (Tool.CurPos.Flag in [cafSemicolon, cafEqual])
       // don't read variable initialization part e.g. "= (1,2,3);"
       then begin
-        stop:= Tool.CurPos.StartPos-1;
+        // ExtractCode already excludes the atom starting at 'stop'; the
+        // former StartPos-1 also dropped a one-char atom directly in front
+        // of the terminator, e.g. the ')' of `array of (a, b: integer);`
+        stop:= Tool.CurPos.StartPos;
         break;
       end;
     until Tool.CurPos.EndPos>=Tool.SrcLen;
