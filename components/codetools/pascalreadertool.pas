@@ -1901,6 +1901,26 @@ begin
     Result:=true;
     exit;
   end;
+  // inline array result type: `array of X`, also `packed`/`bitpacked` and
+  // a `[...]` range; the element type follows recursively (tuple, identifier
+  // or another array), the recursive call extracts the `of` itself
+  if (Scanner.CompilerMode=cmUnleashed)
+     and (UpAtomIs('ARRAY') or UpAtomIs('PACKED') or UpAtomIs('BITPACKED')) then begin
+    if not UpAtomIs('ARRAY') then
+      ExtractNextAtom(Add,Attr);
+    if not UpAtomIs('ARRAY') then exit;
+    ExtractNextAtom(Add,Attr);
+    if CurPos.Flag=cafEdgedBracketOpen then begin
+      ExtractNextAtom(Add,Attr);
+      while (CurPos.StartPos<=SrcLen) and (CurPos.Flag<>cafEdgedBracketClose) do
+        ExtractNextAtom(Add,Attr);
+      if CurPos.Flag<>cafEdgedBracketClose then exit;
+      ExtractNextAtom(Add,Attr);
+    end;
+    if not UpAtomIs('OF') then exit;
+    Result:=ExtractNextTypeRef(Add,Attr);
+    exit;
+  end;
   if not AtomIsIdentifier then exit;
   ExtractNextAtom(Add,Attr);
   repeat
