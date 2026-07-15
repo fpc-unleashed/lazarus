@@ -247,7 +247,8 @@ type
     cmsMultiLineStrings,   { pas2js: Multiline strings }
     cmsInterpolatedStrings,{ Unleashed: $'text {expr} text' interpolated string literals }
     cmsAutoProperties,     { Unleashed: accessor-less property synthesizes a backing field }
-    cmsParallelFor         { Unleashed: `for parallel` worker-pool loop, WorkerIndex/WorkerCount in the body }
+    cmsParallelFor,        { Unleashed: `for parallel` worker-pool loop, WorkerIndex/WorkerCount in the body }
+    cmsOutVar              { Unleashed: `var x` declares an inline variable at an out-argument, `_` discards it }
     );
   TCompilerModeSwitches = set of TCompilerModeSwitch;
 const
@@ -297,7 +298,7 @@ const
      cmsStatementExpressions,cmsArrayEquality,cmsInlineVars,cmsTuples,
      cmsComposableRecords,cmsMultiLineStrings,cmsStaticSection,cmsInlineStatic,
      cmsThreadStatic,cmsInterpolatedStrings,cmsLock,cmsAsyncAwait,cmsAutoProperties,
-     cmsParallelFor]
+     cmsParallelFor,cmsOutVar]
     );
   cmAllModesWithGeneric = [cmDELPHI,cmDELPHIUNICODE,cmOBJFPC,cmUnleashed];
   Pas2jsFixedModeswitches = [cmsArray2dynarray,cmsArrayOperators,
@@ -367,7 +368,8 @@ const
     'MULTILINESTRINGS',
     'INTERPOLATEDSTRINGS',
     'AUTOPROPERTIES',
-    'PARALLELFOR'
+    'PARALLELFOR',
+    'OUTVAR'
     );
 
 type
