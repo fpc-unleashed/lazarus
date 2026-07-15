@@ -1045,6 +1045,8 @@ type
     function ExtractInlineVarInitType(VarDefNode: TCodeTreeNode): string;
     function FindInlineVarTupleFieldDef(VarDefNode: TCodeTreeNode;
       Params: TFindDeclarationParams; out FieldContext: TFindContext): boolean;
+    function FindOutVarParamDef(VarDefNode: TCodeTreeNode;
+      Params: TFindDeclarationParams; out ParamContext: TFindContext): boolean;
 
     // uses and units
     function FindNameInUsesSection(UsesNode: TCodeTreeNode; const AUnitName: string): TCodeTreeNode;
@@ -11592,11 +11594,15 @@ var
       end
       else if ExprType.Context.Tool.Src[InlineVarExprStartPos] in [',',')'] then
       begin
-        // tuple destructure: `var (a, b) := expr` / `for var (a, b) in expr` -
-        // the name has the type of its positional field in the tuple
+        // a name followed by ',' or ')' takes its type from elsewhere: either
+        // its positional field in a tuple destructure (`var (a, b) := expr` /
+        // `for var (a, b) in expr`), or the out parameter it is passed to
+        // (`Foo(a, var x)`)
         Params.Save(InlineVarOldInput);
         try
           if ExprType.Context.Tool.FindInlineVarTupleFieldDef(
+            ExprType.Context.Node,Params,InlineVarFieldContext)
+          or ExprType.Context.Tool.FindOutVarParamDef(
             ExprType.Context.Node,Params,InlineVarFieldContext) then
           begin
             InlineVarExprType:=InlineVarFieldContext.Tool.
@@ -16257,14 +16263,16 @@ begin
   ReadNextAtom;
   if not AtomIsIdentifier then exit;
   ReadNextAtom;
-  if (cmsTuples in Scanner.CompilerModeSwitches)
+  if ([cmsTuples,cmsOutVar]*Scanner.CompilerModeSwitches<>[])
   and (CurPos.Flag in [cafComma,cafRoundBracketClose]) then begin
-    // tuple destructure `var (a, b) := expr` / `for var (a, b) in expr do`:
-    // show the type of the positional field
+    // the name has no type of its own: it is either a tuple destructure entry
+    // (`var (a, b) := expr` / `for var (a, b) in expr do`) or an out-var at a
+    // call argument (`Foo(a, var x)`); show what it resolves to
     Params:=TFindDeclarationParams.Create(Self, VarDefNode);
     try
       try
-        if FindInlineVarTupleFieldDef(VarDefNode,Params,FieldContext) then begin
+        if FindInlineVarTupleFieldDef(VarDefNode,Params,FieldContext)
+        or FindOutVarParamDef(VarDefNode,Params,FieldContext) then begin
           FieldTypeNode:=FieldContext.Tool.FindTypeNodeOfDefinition(FieldContext.Node);
           if FieldTypeNode<>nil then
             Result:=FieldContext.Tool.ExtractNode(FieldTypeNode,[]);
@@ -16477,6 +16485,95 @@ begin
     end;
     Node:=Node.NextBrother;
   end;
+end;
+
+function TFindDeclarationTool.FindOutVarParamDef(VarDefNode: TCodeTreeNode;
+  Params: TFindDeclarationParams; out ParamContext: TFindContext): boolean;
+// Resolve the out parameter behind an inline out-variable declaration:
+//   if TryParse(s, var n) then ...   (n has the type of TryParse's 2nd param)
+// VarDefNode is the typeless ctnVarDefinition created by ReadOutVarDeclaration.
+// Returns the ctnVarDefinition of the parameter at the same position, which
+// must be an `out` one; `var`/`const`/value parameters take no out-var.
+// Overloads are not resolved: the first match wins, which is what the compiler
+// accepts anyway (candidates differing in the out type are ambiguous there).
+var
+  BlockNode, ProcNode, ParamNode: TCodeTreeNode;
+  ParameterAtom, ProcNameAtom: TAtomPosition;
+  ParameterIndex, ProcStartPos: integer;
+  Context: TFindContext;
+  ExprType: TExpressionType;
+  OldInput: TFindDeclarationInput;
+  ProcTool: TFindDeclarationTool;
+begin
+  Result:=false;
+  ParamContext:=CleanFindContext;
+  if (VarDefNode=nil) or (VarDefNode.Desc<>ctnVarDefinition) then exit;
+  if VarDefNode.FirstChild<>nil then exit;
+  if (VarDefNode.Parent=nil) or (VarDefNode.Parent.Desc<>ctnVarSection) then exit;
+  if not (cmsOutVar in Scanner.CompilerModeSwitches) then exit;
+  // shape: `var name` at an argument, so 'var' sits in front of the name and
+  // '(' or ',' in front of that. Rules out inline vars and tuple destructures.
+  MoveCursorToCleanPos(VarDefNode.StartPos);
+  ReadPriorAtom;
+  if not UpAtomIs('VAR') then exit;
+  ReadPriorAtom;
+  if not (CurPos.Flag in [cafRoundBracketOpen,cafComma]) then exit;
+  BlockNode:=VarDefNode.GetNodeOfType(ctnBeginBlock);
+  if BlockNode=nil then exit;
+  // which call is this, and which of its arguments
+  if not CheckParameterSyntax(BlockNode.StartPos,VarDefNode.StartPos,
+                              ParameterAtom,ProcNameAtom,ParameterIndex) then exit;
+  if ParameterAtom.StartPos=0 then ;
+  ProcNode:=nil;
+  ProcTool:=nil;
+  Params.Save(OldInput);
+  try
+    try
+      Context:=CreateFindContext(Self,BlockNode);
+      ProcStartPos:=FindStartOfTerm(ProcNameAtom.EndPos,false);
+      if ProcStartPos<ProcNameAtom.StartPos then begin
+        // qualified call `Obj.Method(...)`: resolve what is in front of the name
+        Params.ContextNode:=Context.Node;
+        Params.Flags:=fdfDefaultForExpressions+[fdfFunctionResult,fdfFindChildren];
+        ExprType:=FindExpressionResultType(Params,ProcStartPos,ProcNameAtom.StartPos);
+        if ExprType.Desc in xtAllIdentTypes then begin
+          Context:=ExprType.Context;
+          if (Context.Tool<>nil) and (Context.Node<>nil) then begin
+            Params.Clear;
+            Params.Flags:=fdfDefaultForExpressions;
+            Context:=Context.Tool.FindBaseTypeOfNode(Params,Context.Node);
+          end;
+        end else
+          Context:=CleanFindContext;
+      end;
+      if (Context.Tool<>nil) and (Context.Node<>nil) then begin
+        Params.ContextNode:=Context.Node;
+        Params.SetIdentifier(Self,@Src[ProcNameAtom.StartPos],nil);
+        Params.Flags:=fdfDefaultForExpressions+[fdfFindVariable];
+        if Context.Node<>BlockNode then
+          // searching a method inside its class: the class node itself is the
+          // context to look in, and there is no parent scope to fall back to
+          Params.Flags:=Params.Flags-[fdfSearchInParentNodes,fdfIgnoreCurContextNode];
+        if Context.Tool.FindIdentifierInContext(Params) then begin
+          ProcNode:=Params.NewNode;
+          ProcTool:=Params.NewCodeTool;
+        end;
+      end;
+    except
+      // unresolvable call -> no parameter type
+    end;
+  finally
+    Params.Load(OldInput,true);
+  end;
+  if (ProcNode=nil) or (ProcTool=nil) or (ProcNode.Desc<>ctnProcedure) then exit;
+  ParamNode:=ProcTool.FindNthParameterNode(ProcNode,ParameterIndex);
+  if ParamNode=nil then exit;
+  if not ProcTool.MoveCursorToParameterSpecifier(ParamNode) then exit;
+  if not (ProcTool.UpAtomIs('OUT')
+          and (cmsOut in ProcTool.Scanner.CompilerModeSwitches)) then exit;
+  ParamContext.Tool:=ProcTool;
+  ParamContext.Node:=ParamNode;
+  Result:=true;
 end;
 
 function TFindDeclarationTool.FindElementTypeOfArrayType(
