@@ -1553,7 +1553,10 @@ begin
     Add('TYPE',{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('UNIT',{$ifdef FPC}@{$endif}AllwaysTrue);
     // Note: VAR is intentionally NOT in this list - it is allowed inside
-    // begin..end blocks as an inline variable declaration
+    // begin..end blocks as an inline variable declaration.
+    // CONST stays listed: ReadTilBlockEnd intercepts it before this list is
+    // consulted when the InlineVars modeswitch allows inline constants, so
+    // the error only fires in modes where 'const' in a body is invalid.
   end;
   
   UnexpectedKeyWordInAsmBlock:=TKeyWordFunctionList.Create('UnexpectedKeyWordInAsmBlock');

@@ -265,6 +265,7 @@ type
     function ReadWithStatement(ExceptionOnError, CreateNodes: boolean): boolean;
     function ReadOnStatement(ExceptionOnError, CreateNodes: boolean): boolean;
     procedure ReadInlineVarDeclaration(CreateNodes: boolean);
+    procedure ReadInlineConstDeclaration(CreateNodes: boolean);
     procedure ReadVariableType;
     function ReadHintModifiers(AllowSemicolonSep: boolean): boolean;
     function ReadTilTypeOfProperty(PropertyNode: TCodeTreeNode): boolean;
@@ -3324,6 +3325,12 @@ begin
     end else if UpAtomIs('VAR')
     and (BlockType in [ebtBegin,ebtTry,ebtRepeat]) then begin
       ReadInlineVarDeclaration(CreateNodes);
+    end else if UpAtomIs('CONST')
+    and (BlockType in [ebtBegin,ebtTry,ebtRepeat])
+    and (cmsInlineVars in Scanner.CompilerModeSwitches) then begin
+      // unleashed inline-const (gated by the same modeswitch as inline-var
+      // in FPC): const NAME = EXPR; or const NAME: TYPE = EXPR;
+      ReadInlineConstDeclaration(CreateNodes);
     end else if UpAtomIs('TYPE')
     and (Scanner.CompilerMode=cmUnleashed)
     and (BlockType in [ebtBegin,ebtTry,ebtRepeat,ebtIf,ebtCase]) then begin
@@ -4254,6 +4261,91 @@ begin
   if CreateNodes then begin
     CurNode.EndPos := CurPos.EndPos;
     EndChildNode; // close ctnVarSection
+  end;
+end;
+
+procedure TPascalParserTool.ReadInlineConstDeclaration(CreateNodes: boolean);
+{ Reads an inline constant declaration inside a begin..end block.
+  Cursor must be on the 'const' keyword.
+  Examples:
+    const K = 50;
+    const S: string = 'test';
+    const A: array[3] of integer = (1, 2, 3);
+  Creates ctnConstSection > ctnConstDefinition nodes when CreateNodes=true.
+  The value lands in a ctnConstant child so the type of an untyped constant
+  can be inferred from the expression (like ReadConstExpr does for regular
+  const sections). Block scoping falls out of the node position inside the
+  ctnBeginBlock, same as inline-var. }
+var
+  BracketDepth: integer;
+  ConstantNode: boolean;
+begin
+  if CreateNodes then begin
+    CreateChildNode;
+    CurNode.Desc := ctnConstSection;
+  end;
+  ReadNextAtom; // the constant name
+  if AtomIsIdentifier then begin
+    if CreateNodes then begin
+      CreateChildNode;
+      CurNode.Desc := ctnConstDefinition;
+    end;
+    ReadNextAtom; // peek: ':' (typed constant) or '=' (untyped)
+    if CreateNodes and (CurPos.Flag=cafColon) then begin
+      // typed constant: parse the type so completion can resolve members
+      // (e.g. 'const P: TPoint = ...' followed by 'P.')
+      ReadNextAtom;
+      ParseType(CurPos.StartPos);
+      // ParseType leaves CurPos on the atom behind the type (normally '=')
+    end;
+    ConstantNode:=false;
+    if CreateNodes and (CurPos.Flag=cafEqual) then begin
+      // the value starts behind '='
+      ReadNextAtom;
+      if (CurPos.StartPos<=SrcLen) and (CurPos.Flag<>cafSemicolon)
+      and (CurPos.Flag<>cafEND) then begin
+        CreateChildNode;
+        CurNode.Desc:=ctnConstant;
+        ConstantNode:=true;
+      end else
+        UndoReadNextAtom;
+    end;
+    // skip to the terminating ';'; stop in front of keywords that can only
+    // mean the declaration is unfinished so completion keeps working while
+    // the user is still typing
+    BracketDepth:=0;
+    repeat
+      if CurPos.StartPos>SrcLen then break;
+      case CurPos.Flag of
+        cafRoundBracketOpen,cafEdgedBracketOpen:
+          inc(BracketDepth);
+        cafRoundBracketClose,cafEdgedBracketClose:
+          if BracketDepth>0 then dec(BracketDepth);
+      end;
+      if BracketDepth=0 then begin
+        if CurPos.Flag=cafSemicolon then break;
+        if (CurPos.Flag in AllCommonAtomWords) and AtomIsKeyWord
+        and (not IsKeyWordInConstAllowed.DoIdentifier(@Src[CurPos.StartPos]))
+        then begin
+          UndoReadNextAtom;
+          break;
+        end;
+      end;
+      if ConstantNode then
+        CurNode.EndPos:=CurPos.EndPos;
+      ReadNextAtom;
+    until false;
+    if ConstantNode then
+      EndChildNode; // close ctnConstant
+    if CreateNodes then begin
+      CurNode.EndPos := CurPos.EndPos;
+      EndChildNode; // close ctnConstDefinition
+    end;
+  end else
+    UndoReadNextAtom;
+  if CreateNodes then begin
+    CurNode.EndPos := CurPos.EndPos;
+    EndChildNode; // close ctnConstSection
   end;
 end;
 

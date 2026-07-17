@@ -7092,9 +7092,11 @@ var
                 break;
               end;
             end;
-          end else if UpAtomIs('VAR')
+          end else if (UpAtomIs('VAR')
+            or (UpAtomIs('CONST') and (cmsInlineVars in Scanner.CompilerModeSwitches)))
           and (TopBlockType(Stack) in [btBegin,btTry,btFinally,btExcept,btRepeat,btCaseColon,btCaseElse]) then begin
-            // inline var declaration (e.g. var s := expr;) - skip over it.
+            // inline var/const declaration (e.g. var s := expr; const k = 5;)
+            // - skip over it.
             // also stop on header terminators 'do'/'then' so inline var inside
             // 'with var X: T do begin ...' or 'for var i := A to B do ...'
             // returns control to the main loop before the body keyword.
