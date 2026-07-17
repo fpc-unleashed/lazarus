@@ -5654,14 +5654,21 @@ begin
           ctnRecordType, ctnRecordVariant,
           ctnClassHelper, ctnRecordHelper, ctnTypeHelper,
           ctnEnumerationType,
-          ctnParameterList,
-          ctnBeginBlock:
+          ctnParameterList:
             // these nodes build a parent-child relationship. But in pascal
             // they just define a range and not a context.
             // -> search in all children
-            // Note: ctnBeginBlock is included so inline-var declarations
-            // inside the body are visible to identifier completion.
             MoveContextNodeToChildren;
+
+          ctnBeginBlock:
+            // transparent so inline var/const declarations inside the body
+            // are visible to identifier completion - but only when the
+            // search starts inside this block. A begin..end reached as a
+            // prior sibling is a closed nested block whose declarations
+            // are block-scoped and invisible outside.
+            if (ContextNode=StartContextNode)
+            or StartContextNode.HasAsParent(ContextNode) then
+              MoveContextNodeToChildren;
 
           ctnTypeDefinition, ctnVarDefinition, ctnConstDefinition,
           ctnGlobalProperty:
