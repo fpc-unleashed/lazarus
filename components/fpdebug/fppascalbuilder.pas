@@ -978,6 +978,10 @@ function TFpPascalPrettyPrinter.InternalPrintValue(out APrintedValue: String;
         end;
       // TODO ddfChar:
       else
+        // 128 bit values only fit in the string representation
+        if AValue.GetSize(ValSize) and (SizeToFullBytes(ValSize) > SizeOf(QWord)) then
+          APrintedValue := AValue.AsString
+        else
           APrintedValue := IntToStr(AValue.AsInteger);
     end;
 
@@ -1008,6 +1012,10 @@ function TFpPascalPrettyPrinter.InternalPrintValue(out APrintedValue: String;
         end;
       // TODO ddfChar:
       else
+        // 128 bit values only fit in the string representation
+        if AValue.GetSize(ValSize) and (SizeToFullBytes(ValSize) > SizeOf(QWord)) then
+          APrintedValue := AValue.AsString
+        else
           APrintedValue := IntToStr(AValue.AsCardinal);
     end;
 
