@@ -259,6 +259,8 @@ type
   protected
     function GetFieldFlags: TFpValueFieldFlags; override; // svfOrdinal
     function IsValidTypeCast: Boolean; override;
+    // raw halves of a 16 byte integer, for types wider than Int64/QWord
+    function ReadInt128(out ALo, AHi: QWord): Boolean;
   public
     constructor Create(ADwarfTypeSymbol: TFpSymbolDwarfType);
     procedure Reset; override;
@@ -273,6 +275,7 @@ type
     function GetFieldFlags: TFpValueFieldFlags; override;
     function GetAsCardinal: QWord; override;
     function GetAsInteger: Int64; override;
+    function GetAsString: AnsiString; override;
     function GetAsExtended: TDbgExtended; override;
     procedure SetAsInteger(AValue: Int64); override;
     procedure SetAsCardinal(AValue: QWord); override;
@@ -286,6 +289,7 @@ type
   protected
     function GetAsCardinal: QWord; override;
     function GetAsInteger: Int64; override;
+    function GetAsString: AnsiString; override;
     function GetAsExtended: TDbgExtended; override;
     procedure SetAsCardinal(AValue: QWord); override;
     function GetFieldFlags: TFpValueFieldFlags; override;
@@ -2462,10 +2466,55 @@ end;
 
 { TFpValueDwarfNumeric }
 
+{ decimal digits of an unsigned 128 bit value given as two 64 bit halves;
+  the debugger itself has no 128 bit integer type }
+function UInt128ToDecimal(ALo, AHi: QWord): AnsiString;
+var
+  limbs: array[0..3] of DWord;
+  rem: DWord;
+  t: QWord;
+  i: Integer;
+  nonzero: Boolean;
+begin
+  limbs[0] := DWord(ALo);
+  limbs[1] := DWord(ALo shr 32);
+  limbs[2] := DWord(AHi);
+  limbs[3] := DWord(AHi shr 32);
+  Result := '';
+  repeat
+    rem := 0;
+    nonzero := False;
+    for i := 3 downto 0 do begin
+      t := (QWord(rem) shl 32) or limbs[i];
+      limbs[i] := DWord(t div 10);
+      rem := DWord(t mod 10);
+      if limbs[i] <> 0 then
+        nonzero := True;
+    end;
+    Result := Chr(Ord('0') + rem) + Result;
+  until not nonzero;
+end;
+
 procedure TFpValueDwarfNumeric.Reset;
 begin
   inherited Reset;
   FEvaluated := [];
+end;
+
+function TFpValueDwarfNumeric.ReadInt128(out ALo, AHi: QWord): Boolean;
+var
+  raw: array[0..1] of QWord;
+begin
+  ALo := 0;
+  AHi := 0;
+  Result := Context.ReadMemory(OrdOrDataAddr, SizeVal(16), @raw[0]);
+  if Result then begin
+    // targets supported by FpDebug are little endian
+    ALo := raw[0];
+    AHi := raw[1];
+  end
+  else
+    SetLastError(Context.LastMemError);
 end;
 
 function TFpValueDwarfNumeric.GetFieldFlags: TFpValueFieldFlags;
@@ -2506,6 +2555,7 @@ end;
 function TFpValueDwarfInteger.GetAsInteger: Int64;
 var
   Size: TFpDbgValueSize;
+  Lo, Hi: QWord;
 begin
   if doneInt in FEvaluated then begin
     Result := FIntValue;
@@ -2513,8 +2563,16 @@ begin
   end;
   Include(FEvaluated, doneInt);
 
-  if (not GetSize(Size)) or (Size <= 0) or (Size > SizeOf(Result)) then
+  if (not GetSize(Size)) or (Size <= 0) then
     Result := inherited GetAsInteger
+  else
+  if Size > SizeOf(Result) then begin
+    // a 128 bit integer: expose the low half, AsString carries the full value
+    if (SizeToFullBytes(Size) = 16) and ReadInt128(Lo, Hi) then
+      Result := Int64(Lo)
+    else
+      Result := inherited GetAsInteger;
+  end
   else
   if not Context.ReadSignedInt(OrdOrDataAddr, Size, Result) then begin
     Result := 0; // TODO: error
@@ -2522,6 +2580,29 @@ begin
   end;
 
   FIntValue := Result;
+end;
+
+function TFpValueDwarfInteger.GetAsString: AnsiString;
+var
+  Size: TFpDbgValueSize;
+  Lo, Hi: QWord;
+begin
+  if GetSize(Size) and (SizeToFullBytes(Size) = 16) and ReadInt128(Lo, Hi) then begin
+    if Int64(Hi) < 0 then begin
+      // two's complement negation of the 128 bit magnitude
+      {$push}{$q-}{$r-}
+      Lo := (not Lo) + 1;
+      Hi := not Hi;
+      if Lo = 0 then
+        Inc(Hi);
+      {$pop}
+      Result := '-' + UInt128ToDecimal(Lo, Hi);
+    end
+    else
+      Result := UInt128ToDecimal(Lo, Hi);
+  end
+  else
+    Result := inherited GetAsString;
 end;
 
 function TFpValueDwarfInteger.GetAsExtended: TDbgExtended;
@@ -2557,6 +2638,7 @@ end;
 function TFpValueDwarfCardinal.GetAsCardinal: QWord;
 var
   Size: TFpDbgValueSize;
+  Lo, Hi: QWord;
 begin
   if doneUInt in FEvaluated then begin
     Result := FValue;
@@ -2564,8 +2646,16 @@ begin
   end;
   Include(FEvaluated, doneUInt);
 
-  if (not GetSize(Size)) or (Size <= 0) or (Size > SizeOf(Result)) then
+  if (not GetSize(Size)) or (Size <= 0) then
     Result := inherited GetAsCardinal
+  else
+  if Size > SizeOf(Result) then begin
+    // a 128 bit integer: expose the low half, AsString carries the full value
+    if (SizeToFullBytes(Size) = 16) and ReadInt128(Lo, Hi) then
+      Result := Lo
+    else
+      Result := inherited GetAsCardinal;
+  end
   else
   if not Context.ReadUnsignedInt(OrdOrDataAddr, Size, Result) then begin
     Result := 0; // TODO: error
@@ -2573,6 +2663,17 @@ begin
   end;
 
   FValue := Result;
+end;
+
+function TFpValueDwarfCardinal.GetAsString: AnsiString;
+var
+  Size: TFpDbgValueSize;
+  Lo, Hi: QWord;
+begin
+  if GetSize(Size) and (SizeToFullBytes(Size) = 16) and ReadInt128(Lo, Hi) then
+    Result := UInt128ToDecimal(Lo, Hi)
+  else
+    Result := inherited GetAsString;
 end;
 
 function TFpValueDwarfCardinal.GetAsInteger: Int64;

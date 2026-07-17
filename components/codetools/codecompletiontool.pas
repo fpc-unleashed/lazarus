@@ -6927,7 +6927,9 @@ begin
   xtComp,
   xtInt64,
   xtCardinal,
-  xtQWord: AddAssignment('0');
+  xtQWord,
+  xtInt128,
+  xtUInt128: AddAssignment('0');
   xtBoolean,
   xtByteBool,
   xtWordBool,

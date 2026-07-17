@@ -240,8 +240,24 @@ end;
 
 function TFpWatchResultConvertor.NumToResData(AnFpValue: TFpValue;
   AnResData: IDbgWatchDataIntf): Boolean;
+var
+  s: String;
 begin
   Result := True;
+  if SizeToFullBytes(AnFpValue.DataSize) > SizeOf(QWord) then begin
+    { a 128 bit integer: the num value channel is 64 bit only, values
+      outside it travel as pre-printed text }
+    s := AnFpValue.AsString;
+    if (AnFpValue.Kind = skCardinal) and (s = IntToStr(AnFpValue.AsCardinal)) then
+      AnResData.CreateNumValue(AnFpValue.AsCardinal, False, SizeToFullBytes(AnFpValue.DataSize))
+    else
+    if (AnFpValue.Kind <> skCardinal) and (s = IntToStr(AnFpValue.AsInteger)) then
+      AnResData.CreateNumValue(QWord(AnFpValue.AsInteger), True, SizeToFullBytes(AnFpValue.DataSize))
+    else
+      AnResData.CreatePrePrinted(s);
+    AddTypeNameToResData(AnFpValue, AnResData);
+    exit;
+  end;
   if AnFpValue.Kind = skCardinal then
     AnResData.CreateNumValue(AnFpValue.AsCardinal, False, SizeToFullBytes(AnFpValue.DataSize))
   else
