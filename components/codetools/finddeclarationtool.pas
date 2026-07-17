@@ -252,6 +252,8 @@ type
     xtInt64,       // int64
     xtCardinal,    // cardinal
     xtQWord,       // qword
+    xtInt128,      // int128
+    xtUInt128,     // uint128
     xtBoolean,     // boolean
     xtByteBool,    // bytebool
     xtWordBool,    // wordbool
@@ -311,6 +313,8 @@ var
     'Int64',
     'Cardinal',
     'QWord',
+    'Int128',
+    'UInt128',
     'Boolean',
     'ByteBool',
     'WordBool',
@@ -358,7 +362,7 @@ const
                      xtConstString,xtConstSet,xtCompilerFunc,xtNil];
   xtAllIdentTypes = xtAllTypes - xtAllConstTypes;
   xtAllIdentPredefinedTypes = xtAllIdentTypes - [xtContext];
-  xtAllIntegerTypes = [xtInt64, xtQWord, xtConstOrdInteger, xtLongint,
+  xtAllIntegerTypes = [xtInt64, xtQWord, xtInt128, xtUInt128, xtConstOrdInteger, xtLongint,
                        xtLongWord, xtWord, xtCardinal, xtSmallInt, xtShortInt,
                        xtByte,xtNativeInt,xtNativeUInt,xtSizeInt];
   xtAllBooleanTypes = [xtBoolean,
@@ -1341,6 +1345,7 @@ function IntegerTypesOrderList: TTypeAliasOrderList;
 begin
   if FIntegerTypesOrderList=nil then
     FIntegerTypesOrderList:=TTypeAliasOrderList.Create([
+       'Int128', 'UInt128',
        'Int64', 'QWord',
        'NativeInt', 'IntPtr', 'SizeInt', 'NativeUInt', 'UIntPtr',
        'Int32', 'Integer', 'LongInt', 'UInt32', 'Cardinal', 'LongWord',
@@ -1428,6 +1433,10 @@ begin
     Result:=xtCardinal
   else if CompareIdentifiers(Identifier,'QWORD')=0 then
     Result:=xtQWord
+  else if CompareIdentifiers(Identifier,'INT128')=0 then
+    Result:=xtInt128
+  else if CompareIdentifiers(Identifier,'UINT128')=0 then
+    Result:=xtUInt128
   else if CompareIdentifiers(Identifier,'BOOLEAN')=0 then
     Result:=xtBoolean
   else if CompareIdentifiers(Identifier,'BYTEBOOL')=0 then
@@ -15691,6 +15700,8 @@ function TFindDeclarationTool.FindForInTypeAsString(TermPos: TAtomPosition;
       xtInt64,
       xtCardinal,
       xtQWord,
+      xtInt128,
+      xtUInt128,
       xtPointer,
       xtFile,
       xtText,
@@ -16829,6 +16840,8 @@ begin
     xtInt64,
     xtCardinal,
     xtQWord,
+    xtInt128,
+    xtUInt128,
     xtPChar:
       Result:=ExpressionTypeDescNames[ExprType.Desc];
 
@@ -16848,6 +16861,8 @@ begin
         xtInt64,
         xtCardinal,
         xtQWord,
+        xtInt128,
+        xtUInt128,
         xtBoolean,
         xtByteBool,
         xtWordBool,

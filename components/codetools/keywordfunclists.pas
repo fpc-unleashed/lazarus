@@ -1855,6 +1855,7 @@ begin
     Add('FALSE'      ,{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('FILE'       ,{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('INT64'      ,{$ifdef FPC}@{$endif}AllwaysTrue);
+    Add('INT128'     ,{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('LENGTH'     ,{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('LONGBOOL'   ,{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('LONGINT'    ,{$ifdef FPC}@{$endif}AllwaysTrue);
@@ -1871,6 +1872,7 @@ begin
     Add('STRING'     ,{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('TEXT'       ,{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('TRUE'       ,{$ifdef FPC}@{$endif}AllwaysTrue);
+    Add('UINT128'    ,{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('UNICODESTRING',{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('VARIANT'    ,{$ifdef FPC}@{$endif}AllwaysTrue);
     Add('OLEVARIANT' ,{$ifdef FPC}@{$endif}AllwaysTrue);
