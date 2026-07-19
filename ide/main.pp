@@ -1773,6 +1773,15 @@ begin
       for ColorSchemeIdx := IdeHighlighterStartId to HighlighterList.Count - 1 do
         if HighlighterList[ColorSchemeIdx].SynInstance <> nil then
           EditorOpts.WriteColorScheme(HighlighterList[ColorSchemeIdx].SynInstance.LanguageName, 'UnleahedDark');
+      // WriteColorScheme only updates the stored config. The shared SynInstance
+      // highlighters keep the attributes applied at creation, and the
+      // ReloadEditorOptions path below never re-reads them (RefreshEditorSettings
+      // calls SetSyntaxHighlighterId with the unchanged id = no-op, and
+      // GetSynEditSettings only covers editor-level settings) - so without this
+      // loop the already-open editors stay miscolored until the next IDE start.
+      for ColorSchemeIdx := IdeHighlighterStartId to HighlighterList.Count - 1 do
+        if HighlighterList[ColorSchemeIdx].SynInstance <> nil then
+          EditorOpts.GetHighlighterSettings(HighlighterList[ColorSchemeIdx].SynInstance);
       EditorOpts.Save;
       if Assigned(SourceEditorManager) then
         SourceEditorManager.ReloadEditorOptions;
