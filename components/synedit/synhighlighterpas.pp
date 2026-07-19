@@ -545,7 +545,8 @@ type
     //pcsAdvancedRecords,
     pcsObjectiveC1,
     pcsObjectiveC2,
-    pcsFunctionReferences
+    pcsFunctionReferences,
+    pcsUnderscoreIsSeparator
   );
   TPascalCompilerModeSwitches = set of TPascalCompilerModeSwitch;
 
@@ -1683,13 +1684,13 @@ begin
     pcmFPC,
     pcmObjFPC:        Result := [pcsNestedComments];
     pcmDelphi,
-    pcmDelphiUnicode: Result := [pcsTypeHelpers, pcsFunctionReferences];
+    pcmDelphiUnicode: Result := [pcsTypeHelpers, pcsFunctionReferences, pcsUnderscoreIsSeparator];
     pcmTP:            Result := [];
     pcmGPC:           Result := [pcsNestedComments];
     pcmMacPas:        Result := [pcsObjectiveC1, pcsObjectiveC2];
     pcmIso:           Result := [];
     pcmExtPas:        Result := [];
-    pcmUnleashed:     Result := [pcsNestedComments, pcsTypeHelpers, pcsFunctionReferences];
+    pcmUnleashed:     Result := [pcsNestedComments, pcsTypeHelpers, pcsFunctionReferences, pcsUnderscoreIsSeparator];
   end;
 end;
 
@@ -5097,6 +5098,12 @@ begin
     begin
       inc(Run,18);
       ApplyModeSwitch(pcsFunctionReferences);
+    end
+    else
+    if TextComp('underscoreisseparator') then
+    begin
+      inc(Run,21);
+      ApplyModeSwitch(pcsUnderscoreIsSeparator);
     end;
   end;
   if TextComp('mode') then begin
@@ -5564,7 +5571,11 @@ begin
   end;
   if (IsIntegerChar[LinePtr[Run]]) then begin
     fTokenID := tkNumber;
-    while (IsIntegerChar[LinePtr[Run]]) do inc(Run);
+    inc(Run); // "_" separator is only allowed after the first digit
+    if HasRangeCompilerModeswitch(pcsUnderscoreIsSeparator) then
+      while IsIntegerChar[LinePtr[Run]] or (LinePtr[Run] = '_') do inc(Run)
+    else
+      while (IsIntegerChar[LinePtr[Run]]) do inc(Run);
   end
   else
     fTokenID := tkSymbol;
@@ -5646,7 +5657,11 @@ begin
   inc(Run);
   if LinePtr[Run] in ['0'..'1'] then begin
     fTokenID := tkNumber;
-    while LinePtr[Run] in ['0'..'1'] do inc(Run);
+    inc(Run); // "_" separator is only allowed after the first digit
+    if HasRangeCompilerModeswitch(pcsUnderscoreIsSeparator) then
+      while LinePtr[Run] in ['0'..'1', '_'] do inc(Run)
+    else
+      while LinePtr[Run] in ['0'..'1'] do inc(Run);
   end
   else
     fTokenID := tkSymbol;
@@ -5657,7 +5672,11 @@ begin
   inc(Run);
   if LinePtr[Run] in ['0'..'7'] then begin
     fTokenID := tkNumber;
-    while LinePtr[Run] in ['0'..'7'] do inc(Run);
+    inc(Run); // "_" separator is only allowed after the first digit
+    if HasRangeCompilerModeswitch(pcsUnderscoreIsSeparator) then
+      while LinePtr[Run] in ['0'..'7', '_'] do inc(Run)
+    else
+      while LinePtr[Run] in ['0'..'7'] do inc(Run);
   end
   else
   if LinePtr[Run] in ['A'..'Z', 'a'..'z', '_'] then begin
@@ -5764,19 +5783,35 @@ begin
 end;
 
 procedure TSynPasSyn.NumberProc;
+var
+  SepAllowed: Boolean;
+
+  // like the compiler: "_" is a separator only after at least one digit
+  // of the current digit group (integer / fraction / exponent part)
+  procedure ScanDigits(ADigitRead: Boolean);
+  begin
+    while IsNumberChar[LinePtr[Run]] or
+          (SepAllowed and ADigitRead and (LinePtr[Run] = '_'))
+    do begin
+      inc(Run);
+      ADigitRead := True;
+    end;
+  end;
+
 begin
   inc(Run);
   fTokenID := tkNumber;
   if Run<fLineLen then begin
-    while (IsNumberChar[LinePtr[Run]]) do inc(Run);
+    SepAllowed := HasRangeCompilerModeswitch(pcsUnderscoreIsSeparator);
+    ScanDigits(True);
     if (LinePtr[Run]='.') and not(LinePtr[Run+1]='.')  then begin
       inc(Run);
-      while (IsNumberChar[LinePtr[Run]]) do inc(Run);
+      ScanDigits(False);
     end;
     if (LinePtr[Run]='e') or (LinePtr[Run]='E')  then begin
       inc(Run);
       if (LinePtr[Run]='+') or (LinePtr[Run]='-')  then inc(Run);
-      while (IsNumberChar[LinePtr[Run]]) do inc(Run);
+      ScanDigits(False);
     end;
   end;
 end;
