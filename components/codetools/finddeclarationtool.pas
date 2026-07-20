@@ -780,7 +780,7 @@ type
   { statement constructs that put implicit identifiers in scope; statements
     have no nodes in the tree, so membership is decided by an atom walk }
   TImplicitStatementScope = (
-    issAsyncBeginBlock,  // async begin..end: Cancelled
+    issAsyncBeginBlock,  // async begin..end / async <stmt>: Cancelled
     issParallelForBody   // for parallel ... do: WorkerIndex, WorkerCount
     );
 
@@ -4475,13 +4475,14 @@ function TFindDeclarationTool.CleanPosInImplicitStatementScope(CleanPos,
   MinCleanPos: integer; Scope: TImplicitStatementScope): boolean;
 var
   Depth: integer;
-  SameStmt, Reuse: boolean;
+  SameStmt, Reuse, PrevStmtKeyword: boolean;
 begin
   Result:=false;
   MoveCursorToCleanPos(CleanPos);
   Depth:=0;
   SameStmt:=true;
   Reuse:=false;
+  PrevStmtKeyword:=false;
   repeat
     if Reuse then
       Reuse:=false
@@ -4508,6 +4509,12 @@ begin
     else if Depth=0 then begin
       if CurPos.Flag=cafSemicolon then
         SameStmt:=false
+      // one-statement block form: `async` directly followed by a statement
+      // keyword (`async while ... do ...`); PrevStmtKeyword describes the
+      // atom after `async`, seen one walk step earlier
+      else if SameStmt and (Scope=issAsyncBeginBlock) and PrevStmtKeyword
+      and UpAtomIs('ASYNC') then
+        exit(true)
       else if SameStmt and (Scope=issParallelForBody) and UpAtomIs('PARALLEL') then begin
         ReadPriorAtom;
         if UpAtomIs('FOR') then
@@ -4515,6 +4522,10 @@ begin
         Reuse:=true;
       end;
     end;
+    PrevStmtKeyword:=UpAtomIs('IF') or UpAtomIs('CASE') or UpAtomIs('MATCH')
+      or UpAtomIs('TRY') or UpAtomIs('WHILE') or UpAtomIs('FOR')
+      or UpAtomIs('REPEAT') or UpAtomIs('WITH') or UpAtomIs('GOTO')
+      or UpAtomIs('RAISE');
   until false;
 end;
 
@@ -4575,7 +4586,7 @@ begin
     exit(true);
   if (cmsAsyncAwait in FLastCompilerModeSwitches)
   and (CompareIdentifiers(Identifier,'Cancelled')=0)
-  // implicit read-only cancel flag of `async begin..end` blocks only
+  // implicit read-only cancel flag of `async` block bodies only
   and ContextInImplicitStatementScope(ContextNode,IdentAtom.StartPos,issAsyncBeginBlock)
   then
     exit(true);

@@ -1949,7 +1949,7 @@ begin
     end;
     if (cmsAsyncAwait in Scanner.CompilerModeSwitches)
     and ContextInImplicitStatementScope(Context.Node,CleanPos,issAsyncBeginBlock) then
-      // implicit read-only cancel flag of `async begin..end` blocks only
+      // implicit read-only cancel flag of `async` block bodies only
       AddBaseConstant('Cancelled');
     if Scanner.PascalCompiler=pcPas2js then begin
       AddCompilerFunction('Str','const X[:Width[:Decimals]]','string');
