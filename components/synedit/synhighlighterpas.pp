@@ -1105,6 +1105,7 @@ type
                                    out AFndLine: String; out ATokStart, ATokLen: integer;
                                    MaxLineCnt: Integer = 1000): Boolean; //inline;
     function IsAnonymousFunc(RunOffs: Integer; AnIsFunction: boolean): Boolean;
+    function IsSyncStatement(RunOffs: Integer): Boolean;
 
     function StartPascalCodeFoldBlock
              (ABlockType: TPascalCodeFoldBlockType; ForceDisabled: Boolean = False
@@ -1385,10 +1386,10 @@ const
     'value'
   );
 
-  RESERVED_WORDS_FPC: array [1..15] of String = (
+  RESERVED_WORDS_FPC: array [1..16] of String = (
     'async', 'autofree', 'await', 'defer',
     'dispose', 'exit', 'false', 'future', 'leave', 'lock', 'match', 'new',
-    'parallel', 'true', 'trylock'
+    'parallel', 'sync', 'true', 'trylock'
   );
 
 var
@@ -2940,6 +2941,15 @@ begin
 //      FNextTokenState := tsAtSpecializeName;
     Result := tkKey;
   end
+  else
+  if KeyCompU('SYNC') and
+     (FRangeCompilerMode in [pcmUnleashed, pcmUnknown]) and
+     (TopPascalCodeFoldBlockType in PascalStatementBlocks) and
+     IsSyncStatement(4)
+  then
+    // statement prefix handing its body to the main thread (`sync call` /
+    // `sync begin..end`); soft keyword decided by the following token
+    Result := tkKey
   else
     Result := tkIdentifier;
 end;
@@ -8098,6 +8108,42 @@ begin
                         ( (FndLen = 5) and KeyCompEx(@FndLine[FndPos], PChar('stdcall'), 5) );
     't', 'T': Result := ( (FndLen = 4) and KeyCompEx(@FndLine[FndPos], PChar('type'),  4) );
     'v', 'V': Result := ( (FndLen = 3) and KeyCompEx(@FndLine[FndPos], PChar('var'),   3) );
+  end;
+end;
+
+function TSynPasSyn.IsSyncStatement(RunOffs: Integer): Boolean;
+var
+  FndLine: String;
+  FndPos, FndLen: integer;
+begin
+  // `sync` is a soft keyword decided by shape: it is the keyword only when
+  // the next token can start the statement handed to the main thread.
+  // Before `:=`, `;`, `(` etc. it stays an ordinary user identifier.
+  Result := ScanAheadForNextToken(RunOffs, FndLine, FndPos, FndLen, 0);
+  if not Result then
+    exit;
+  if not (FndLine[FndPos] in ['a'..'z', 'A'..'Z', '_']) then
+    exit(False);
+  // word operators and statement glue cannot start the body
+  case FndLine[FndPos] of
+    'a', 'A': Result := not ( ( (FndLen = 3) and KeyCompEx(@FndLine[FndPos], PChar('and'), 3) ) or
+                              ( (FndLen = 2) and KeyCompEx(@FndLine[FndPos], PChar('as'), 2) ) );
+    'd', 'D': Result := not ( ( (FndLen = 3) and KeyCompEx(@FndLine[FndPos], PChar('div'), 3) ) or
+                              ( (FndLen = 2) and KeyCompEx(@FndLine[FndPos], PChar('do'), 2) ) or
+                              ( (FndLen = 6) and KeyCompEx(@FndLine[FndPos], PChar('downto'), 6) ) );
+    'e', 'E': Result := not ( ( (FndLen = 4) and KeyCompEx(@FndLine[FndPos], PChar('else'), 4) ) or
+                              ( (FndLen = 3) and KeyCompEx(@FndLine[FndPos], PChar('end'), 3) ) );
+    'i', 'I': Result := not ( ( (FndLen = 2) and KeyCompEx(@FndLine[FndPos], PChar('in'), 2) ) or
+                              ( (FndLen = 2) and KeyCompEx(@FndLine[FndPos], PChar('is'), 2) ) );
+    'm', 'M': Result := not ( (FndLen = 3) and KeyCompEx(@FndLine[FndPos], PChar('mod'), 3) );
+    'o', 'O': Result := not ( ( (FndLen = 2) and KeyCompEx(@FndLine[FndPos], PChar('or'), 2) ) or
+                              ( (FndLen = 2) and KeyCompEx(@FndLine[FndPos], PChar('of'), 2) ) );
+    's', 'S': Result := not ( ( (FndLen = 3) and KeyCompEx(@FndLine[FndPos], PChar('shl'), 3) ) or
+                              ( (FndLen = 3) and KeyCompEx(@FndLine[FndPos], PChar('shr'), 3) ) );
+    't', 'T': Result := not ( ( (FndLen = 4) and KeyCompEx(@FndLine[FndPos], PChar('then'), 4) ) or
+                              ( (FndLen = 2) and KeyCompEx(@FndLine[FndPos], PChar('to'), 2) ) );
+    'u', 'U': Result := not ( (FndLen = 5) and KeyCompEx(@FndLine[FndPos], PChar('until'), 5) );
+    'x', 'X': Result := not ( (FndLen = 3) and KeyCompEx(@FndLine[FndPos], PChar('xor'), 3) );
   end;
 end;
 
