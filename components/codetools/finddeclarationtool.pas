@@ -777,6 +777,13 @@ type
 
   //----------------------------------------------------------------------------
 
+  { statement constructs that put implicit identifiers in scope; statements
+    have no nodes in the tree, so membership is decided by an atom walk }
+  TImplicitStatementScope = (
+    issAsyncBeginBlock,  // async begin..end: Cancelled
+    issParallelForBody   // for parallel ... do: WorkerIndex, WorkerCount
+    );
+
   { TFindDeclarationTool }
 
   TFindDeclarationTool = class(TPascalReaderTool)
@@ -929,6 +936,10 @@ type
       Params: TFindDeclarationParams; DefaultResultNode: TCodeTreeNode = nil): boolean;
     function IdentifierIsDefined(const IdentAtom: TAtomPosition;
       ContextNode: TCodeTreeNode; Params: TFindDeclarationParams): boolean;
+    function CleanPosInImplicitStatementScope(CleanPos, MinCleanPos: integer;
+      Scope: TImplicitStatementScope): boolean;
+    function ContextInImplicitStatementScope(ContextNode: TCodeTreeNode;
+      CleanPos: integer; Scope: TImplicitStatementScope): boolean;
     function FindContextNodeAtCursor(
       Params: TFindDeclarationParams): TFindContext;
     function FindClassOfMethod(ProcNode: TCodeTreeNode;
@@ -4454,6 +4465,80 @@ begin
   Result:=ExprType.Desc<>xtNone;
 end;
 
+{ walk backward from CleanPos with block matching to decide whether the
+  position sits inside the statement construct that defines the scope's
+  implicit identifiers. MinCleanPos (the routine body's begin) bounds the
+  walk. A semicolon at the current block level leaves the statement; an
+  unmatched opener enters the enclosing statement, which may be the
+  construct itself }
+function TFindDeclarationTool.CleanPosInImplicitStatementScope(CleanPos,
+  MinCleanPos: integer; Scope: TImplicitStatementScope): boolean;
+var
+  Depth: integer;
+  SameStmt, Reuse: boolean;
+begin
+  Result:=false;
+  MoveCursorToCleanPos(CleanPos);
+  Depth:=0;
+  SameStmt:=true;
+  Reuse:=false;
+  repeat
+    if Reuse then
+      Reuse:=false
+    else
+      ReadPriorAtom;
+    if (CurPos.StartPos<MinCleanPos) or (CurPos.StartPos<1) then
+      exit;
+    if UpAtomIs('END') or UpAtomIs('UNTIL') then
+      inc(Depth)
+    else if UpAtomIs('BEGIN') or UpAtomIs('CASE') or UpAtomIs('TRY')
+    or UpAtomIs('REPEAT') or UpAtomIs('ASM') or UpAtomIs('MATCH') then begin
+      if Depth>0 then
+        dec(Depth)
+      else begin
+        if (Scope=issAsyncBeginBlock) and UpAtomIs('BEGIN') then begin
+          ReadPriorAtom;
+          if UpAtomIs('ASYNC') then
+            exit(true);
+          Reuse:=true;
+        end;
+        SameStmt:=true;
+      end;
+    end
+    else if Depth=0 then begin
+      if CurPos.Flag=cafSemicolon then
+        SameStmt:=false
+      else if SameStmt and (Scope=issParallelForBody) and UpAtomIs('PARALLEL') then begin
+        ReadPriorAtom;
+        if UpAtomIs('FOR') then
+          exit(true);
+        Reuse:=true;
+      end;
+    end;
+  until false;
+end;
+
+{ bound the walk at the owning routine body - an implicit identifier of a
+  construct in the outer routine is not visible in a nested routine }
+function TFindDeclarationTool.ContextInImplicitStatementScope(
+  ContextNode: TCodeTreeNode; CleanPos: integer;
+  Scope: TImplicitStatementScope): boolean;
+var
+  Node, BodyNode: TCodeTreeNode;
+begin
+  Result:=false;
+  BodyNode:=nil;
+  Node:=ContextNode;
+  while Node<>nil do begin
+    if Node.Desc=ctnBeginBlock then
+      BodyNode:=Node;
+    Node:=Node.Parent;
+  end;
+  if BodyNode=nil then
+    exit;
+  Result:=CleanPosInImplicitStatementScope(CleanPos,BodyNode.StartPos,Scope);
+end;
+
 function TFindDeclarationTool.IdentifierIsDefined(const IdentAtom: TAtomPosition;
   ContextNode: TCodeTreeNode; Params: TFindDeclarationParams): boolean;
 var
@@ -4483,25 +4568,17 @@ begin
   end;
   if (cmsParallelFor in FLastCompilerModeSwitches)
   and ((CompareIdentifiers(Identifier,'WorkerIndex')=0)
-    or (CompareIdentifiers(Identifier,'WorkerCount')=0)) then begin
-    // implicit worker-locals of `for parallel` bodies
-    Node:=ContextNode;
-    while (Node<>nil) do begin
-      if Node.Desc=ctnBeginBlock then
-        exit(true);
-      Node:=Node.Parent;
-    end;
-  end;
+    or (CompareIdentifiers(Identifier,'WorkerCount')=0))
+  // implicit worker-locals of `for parallel` bodies only
+  and ContextInImplicitStatementScope(ContextNode,IdentAtom.StartPos,issParallelForBody)
+  then
+    exit(true);
   if (cmsAsyncAwait in FLastCompilerModeSwitches)
-  and (CompareIdentifiers(Identifier,'Cancelled')=0) then begin
-    // implicit read-only cancel flag of `async begin..end` blocks
-    Node:=ContextNode;
-    while (Node<>nil) do begin
-      if Node.Desc=ctnBeginBlock then
-        exit(true);
-      Node:=Node.Parent;
-    end;
-  end;
+  and (CompareIdentifiers(Identifier,'Cancelled')=0)
+  // implicit read-only cancel flag of `async begin..end` blocks only
+  and ContextInImplicitStatementScope(ContextNode,IdentAtom.StartPos,issAsyncBeginBlock)
+  then
+    exit(true);
   Params.ContextNode:=ContextNode;
   Params.SetIdentifier(Self,Identifier,nil);
   Params.Flags:=[fdfSearchInParentNodes,fdfSearchInAncestors,fdfSearchInHelpers,

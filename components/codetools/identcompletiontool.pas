@@ -1941,13 +1941,15 @@ begin
     AddCompilerProcedure('WriteLn','Args:Arguments');
     AddCompilerProcedure('WriteStr','var S:String;Args:Arguments');
     AddCompilerProcedure('SwapValues','var A,B:T');
-    if cmsParallelFor in Scanner.CompilerModeSwitches then begin
-      // implicit worker-locals of `for parallel` bodies
+    if (cmsParallelFor in Scanner.CompilerModeSwitches)
+    and ContextInImplicitStatementScope(Context.Node,CleanPos,issParallelForBody) then begin
+      // implicit worker-locals of `for parallel` bodies only
       AddBaseConstant('WorkerIndex');
       AddBaseConstant('WorkerCount');
     end;
-    if cmsAsyncAwait in Scanner.CompilerModeSwitches then
-      // implicit read-only cancel flag of `async begin..end` blocks
+    if (cmsAsyncAwait in Scanner.CompilerModeSwitches)
+    and ContextInImplicitStatementScope(Context.Node,CleanPos,issAsyncBeginBlock) then
+      // implicit read-only cancel flag of `async begin..end` blocks only
       AddBaseConstant('Cancelled');
     if Scanner.PascalCompiler=pcPas2js then begin
       AddCompilerFunction('Str','const X[:Width[:Decimals]]','string');
