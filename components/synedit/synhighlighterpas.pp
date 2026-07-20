@@ -997,6 +997,7 @@ type
     function CouldBeAtStartOfTypeDef: Boolean; inline; // type foo = XXX   or var a: XXXX   or const ...
     function IsClassSection: Boolean; inline;
     function IsClassSection(const AnUpperKey: string): Boolean; inline;
+    function IsRecordFieldScope: Boolean;
     function DoClassSection: TtkTokenKind; inline;
     function IsProcModifier: Boolean; inline; // inline, noinline, overload
     function IsVirtualityModifier: Boolean; inline;
@@ -2340,7 +2341,7 @@ begin
   if KeyCompU('ON') then
     Result := tkKey
   else if KeyCompU('EMBED') and
-          (TopPascalCodeFoldBlockType in [cfbtRecord, cfbtRecordCaseSection]) and
+          IsRecordFieldScope and
           not NextNonSpaceIsColonOrComma then
     // contextual `embed TName;` (composablerecords): introduces anonymous embed
     Result := tkKey
@@ -2626,10 +2627,15 @@ function TSynPasSyn.Func43: TtkTokenKind;
   end;
 begin
   if KeyCompU('ALIGN') and
-     (TopPascalCodeFoldBlockType in [cfbtRecord, cfbtRecordCaseSection]) and
-     NextNonSpaceIsDigit then
+     IsRecordFieldScope and
+     NextNonSpaceIsDigit then begin
     // contextual post-suffix modifier: `field: typ align N` (composablerecords)
-    Result := tkKey
+    Result := tkKey;
+    if FTokenState = tsAfterClass then
+      // record-header modifier (`record align 8`): keep the record-start
+      // state alive so a following `private`/`public` opens a section
+      FNextTokenState := tsAfterClass;
+  end
   else
     Result := tkIdentifier;
 end;
@@ -2874,10 +2880,15 @@ begin
   then
     Result := DoCallingConventionModifier
   else if KeyCompU('SIZE') and
-          (TopPascalCodeFoldBlockType in [cfbtRecord, cfbtRecordCaseSection]) and
-          NextNonSpaceIsDigit then
+          IsRecordFieldScope and
+          NextNonSpaceIsDigit then begin
     // contextual post-suffix modifier: `field: typ size N` (composablerecords)
-    Result := tkKey
+    Result := tkKey;
+    if FTokenState = tsAfterClass then
+      // record-header modifier (`record size 8`): keep the record-start
+      // state alive so a following `private`/`public` opens a section
+      FNextTokenState := tsAfterClass;
+  end
   else
     Result := tkIdentifier;
 end;
@@ -3262,7 +3273,7 @@ begin
    else if KeyCompU('COUNT') and (FTokenState = tsAfterFamType) then
      Result := tkKey
    else if KeyCompU('UNION') and
-           (TopPascalCodeFoldBlockType in [cfbtRecord, cfbtRecordCaseSection]) and
+           IsRecordFieldScope and
            not NextNonSpaceIsColonOrComma then begin
      // contextual `union` (composablerecords): push cfbtRecord so the union's
      // `end;` closes only the union and leaves the surrounding record open
@@ -3286,10 +3297,15 @@ function TSynPasSyn.Func74: TtkTokenKind;
   end;
 begin
   if KeyCompU('BITALIGN') and
-     (TopPascalCodeFoldBlockType in [cfbtRecord, cfbtRecordCaseSection]) and
-     NextNonSpaceIsDigit then
+     IsRecordFieldScope and
+     NextNonSpaceIsDigit then begin
     // contextual post-suffix modifier: `field: typ bitalign N` (composablerecords)
-    Result := tkKey
+    Result := tkKey;
+    if FTokenState = tsAfterClass then
+      // record-header modifier (`record bitalign 8`): keep the record-start
+      // state alive so a following `private`/`public` opens a section
+      FNextTokenState := tsAfterClass;
+  end
   else
     Result := tkIdentifier;
 end;
@@ -3565,10 +3581,15 @@ function TSynPasSyn.Func90: TtkTokenKind;
   end;
 begin
   if KeyCompU('BITSIZE') and
-     (TopPascalCodeFoldBlockType in [cfbtRecord, cfbtRecordCaseSection]) and
-     NextNonSpaceIsDigit then
+     IsRecordFieldScope and
+     NextNonSpaceIsDigit then begin
     // contextual post-suffix modifier: `field: typ bitsize N` (composablerecords)
-    Result := tkKey
+    Result := tkKey;
+    if FTokenState = tsAfterClass then
+      // record-header modifier (`record bitsize 64`): keep the record-start
+      // state alive so a following `private`/`public` opens a section
+      FNextTokenState := tsAfterClass;
+  end
   else
     Result := tkIdentifier;
 end;
@@ -4554,6 +4575,18 @@ end;
 function TSynPasSyn.IsClassSection(const AnUpperKey: string): Boolean;
 begin
   Result := IsClassSection() and KeyCompU(AnUpperKey);
+end;
+
+function TSynPasSyn.IsRecordFieldScope: Boolean;
+// composablerecords: field declarations live in the record body, a record-case
+// section, or a visibility section (private/public/...) directly in a record
+var
+  tfb: TPascalCodeFoldBlockType;
+begin
+  tfb := TopPascalCodeFoldBlockType;
+  Result := (tfb in [cfbtRecord, cfbtRecordCaseSection]) or
+            ( (tfb = cfbtClassSection) and
+              (TopPascalCodeFoldBlockType(1) in [cfbtRecord, cfbtRecordCaseSection]) );
 end;
 
 function TSynPasSyn.DoClassSection: TtkTokenKind;
@@ -6947,6 +6980,12 @@ begin
             tsAfterFamOf:
                 if FTokenID = tkIdentifier then
                   FNextTokenState := tsAfterFamType;
+            tsAfterClass:
+                { record-header sizing modifiers (composablerecords):
+                  `record align 8` - the count keeps the record-start state
+                  alive so a following `private`/`public` opens a section }
+                if FTokenID = tkNumber then
+                  FNextTokenState := tsAfterClass;
             tsAfterForKeyword, tsInForHeader, tsInForHeaderAfterValue:
                 { keep for-header alive until "do" (or any other parser
                   function that sets FNextTokenState explicitly) clears it.
