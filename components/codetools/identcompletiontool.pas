@@ -2560,6 +2560,8 @@ begin
               Add('lock');
             Add('raise');
             Add('repeat');
+            if cmsAsyncAwait in Scanner.CompilerModeSwitches then
+              Add('sync');
             Add('try');
             if cmsLock in Scanner.CompilerModeSwitches then
               Add('trylock');
