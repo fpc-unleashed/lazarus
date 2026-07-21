@@ -266,6 +266,7 @@ type
     function ReadOnStatement(ExceptionOnError, CreateNodes: boolean): boolean;
     procedure ReadInlineVarDeclaration(CreateNodes: boolean);
     procedure ReadInlineConstDeclaration(CreateNodes: boolean);
+    procedure ReadOutVarDeclaration(CreateNodes: boolean);
     procedure ReadVariableType;
     function ReadHintModifiers(AllowSemicolonSep: boolean): boolean;
     function ReadTilTypeOfProperty(PropertyNode: TCodeTreeNode): boolean;
@@ -3323,6 +3324,14 @@ begin
     end else if CreateNodes and UpAtomIs('WITH') then begin
       ReadWithStatement(true,CreateNodes);
     end else if UpAtomIs('VAR')
+    and (cmsOutVar in Scanner.CompilerModeSwitches)
+    and (LastAtoms.GetPriorAtom.Flag in [cafRoundBracketOpen,cafComma]) then begin
+      // out-argument: `Foo(a, var x)`. Only a name follows, so the inline-var
+      // reader must not run: it would skip to the next ';' and swallow the
+      // rest of the call. Not restricted by BlockType: the call can sit in an
+      // if/case head just as well (`if TryParse(s, var n) then`).
+      ReadOutVarDeclaration(CreateNodes);
+    end else if UpAtomIs('VAR')
     and (BlockType in [ebtBegin,ebtTry,ebtRepeat]) then begin
       ReadInlineVarDeclaration(CreateNodes);
     end else if UpAtomIs('CONST')
@@ -4346,6 +4355,41 @@ begin
   if CreateNodes then begin
     CurNode.EndPos := CurPos.EndPos;
     EndChildNode; // close ctnConstSection
+  end;
+end;
+
+procedure TPascalParserTool.ReadOutVarDeclaration(CreateNodes: boolean);
+{ Reads an inline out-variable declaration at a call-argument position.
+  Cursor must be on the 'var' keyword.
+  Examples:
+    if TryParse(s, var n) then ...
+    SplitName(s, var first, var last);
+  There is no type annotation and no initializer here: the type comes from the
+  matched out parameter and is resolved on demand by FindDeclaration. So
+  unlike an inline var statement this must not skip to the next ';'. The
+  cursor is left on the name and the following ',' or ')' stays for the
+  caller's loop.
+  Creates ctnVarSection > ctnVarDefinition when CreateNodes=true.
+}
+var
+  VarKeywordPos: integer;
+begin
+  VarKeywordPos := CurPos.StartPos;
+  ReadNextAtom; // variable name
+  if not AtomIsIdentifier then begin
+    UndoReadNextAtom;
+    exit;
+  end;
+  if CreateNodes then begin
+    CreateChildNode;
+    CurNode.Desc := ctnVarSection;
+    CurNode.StartPos := VarKeywordPos;
+    CreateChildNode;
+    CurNode.Desc := ctnVarDefinition;
+    CurNode.EndPos := CurPos.EndPos;
+    EndChildNode; // ctnVarDefinition
+    CurNode.EndPos := CurPos.EndPos;
+    EndChildNode; // ctnVarSection
   end;
 end;
 
